@@ -1,0 +1,116 @@
+name: PR performance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: Base revision to compare against
+        required: true
+        default: codex/performance-baseline-76ebf34
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Paired performance (${{ matrix.suite }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [kernel, sql]
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CARGO_INCREMENTAL: '0'
+      RUSTFLAGS: ''
+    steps:
+      - name: Check out proposed merge
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: candidate
+          persist-credentials: false
+      - name: Check out exact base
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || inputs.baseline }}
+          path: base
+          persist-credentials: false
+      - name: Select common harness and base-owned budgets
+        shell: bash
+        run: |
+          set -euo pipefail
+          control=base
+          if [[ ! -f base/tools/perf/policy.json ]]; then
+            control=candidate
+            echo '::notice::Bootstrap: base lacks the performance harness. Using the new harness for BOTH revisions; no baseline is skipped.'
+          fi
+          cp -R "$control/tools/perf" "$RUNNER_TEMP/perf-control"
+          mkdir -p "$RUNNER_TEMP/perf-harness/examples" "$RUNNER_TEMP/perf-harness/benches"
+          cp "$control/examples/ci_kernel.rs" "$RUNNER_TEMP/perf-harness/examples/"
+          cp "$control/benches/comparison.rs" "$RUNNER_TEMP/perf-harness/benches/"
+          echo "PERF_CONTROL=$RUNNER_TEMP/perf-control" >> "$GITHUB_ENV"
+      - name: Test guard and PR changes to guard
+        run: |
+          python3 -m unittest discover -s "$PERF_CONTROL" -p 'test_*.py'
+          python3 -m unittest discover -s candidate/tools/perf -p 'test_*.py'
+      - name: Install identical pinned toolchain
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal
+          rustup default 1.94.0
+      - name: Cache dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/perf-target
+          key: perf-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.suite }}-1.94.0-${{ hashFiles('base/Cargo.lock', 'candidate/Cargo.lock') }}
+          restore-keys: |
+            perf-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.suite }}-1.94.0-
+      - name: Build both revisions before measuring
+        env:
+          SUITE: ${{ matrix.suite }}
+        run: |
+          python3 "$PERF_CONTROL/guard.py" build --suite "$SUITE" \
+            --base base --candidate candidate \
+            --harness-root "$RUNNER_TEMP/perf-harness" \
+            --target "$RUNNER_TEMP/perf-target" --output perf-binaries
+      - name: Compare alternating runs on this VM
+        env:
+          SUITE: ${{ matrix.suite }}
+        run: |
+          python3 "$PERF_CONTROL/guard.py" run --suite "$SUITE" \
+            --binaries perf-binaries --output perf-results
+      - name: Retain raw measurements, environment, and decision
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: performance-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            perf-results/
+            perf-binaries/build.json
+            perf-binaries/*-build.jsonl
+          if-no-files-found: warn
+          retention-days: 30
+
+  gate:
+    name: Performance gate
+    needs: benchmark
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require both suites to pass
+        env:
+          BENCHMARK_RESULT: ${{ needs.benchmark.result }}
+        run: |
+          if [[ "$BENCHMARK_RESULT" != success ]]; then
+            echo "Performance checks did not pass: $BENCHMARK_RESULT"
+            exit 1
+          fi

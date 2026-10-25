@@ -1,0 +1,256 @@
+{
+  "protocol": 1,
+  "pairs": 6,
+  "minimum_bad_pairs": 5,
+  "max_paired_mad": 0.2,
+  "suites": {
+    "kernel": {
+      "rows": 10000,
+      "seconds": 1.0,
+      "timeout_seconds": 180,
+      "metrics": {
+        "memory_load_seconds": {
+          "unit": "seconds",
+          "direction": "lower",
+          "budget": 0.2,
+          "absolute_floor": 0.001
+        },
+        "durable_load_seconds": {
+          "unit": "seconds",
+          "direction": "lower",
+          "budget": 0.2,
+          "absolute_floor": 0.001
+        },
+        "checkpoint_seconds": {
+          "unit": "seconds",
+          "direction": "lower",
+          "budget": 0.2,
+          "absolute_floor": 0.001
+        },
+        "reopen_seconds": {
+          "unit": "seconds",
+          "direction": "lower",
+          "budget": 0.2,
+          "absolute_floor": 0.001
+        },
+        "checkpoint_file_bytes": {
+          "unit": "bytes",
+          "direction": "lower",
+          "budget": 0.2
+        },
+        "peak_rss_bytes": {
+          "unit": "bytes",
+          "direction": "lower",
+          "budget": 0.2
+        },
+        "fresh_read_ops_per_second": {
+          "unit": "ops_per_second",
+          "direction": "higher",
+          "budget": 0.15
+        },
+        "retained_read_ops_per_second": {
+          "unit": "ops_per_second",
+          "direction": "higher",
+          "budget": 0.15
+        },
+        "indexed_lookup_ops_per_second": {
+          "unit": "ops_per_second",
+          "direction": "higher",
+          "budget": 0.15
+        },
+        "owned_scan_rows_per_second": {
+          "unit": "rows_per_second",
+          "direction": "higher",
+          "budget": 0.15
+        },
+        "durable_1_writer_tps": {
+          "unit": "transactions_per_second",
+          "direction": "higher",
+          "budget": 0.2
+        },
+        "durable_1_writer_p50_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.25,
+          "absolute_floor": 100
+        },
+        "durable_1_writer_p99_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.25,
+          "absolute_floor": 100
+        },
+        "durable_8_writer_tps": {
+          "unit": "transactions_per_second",
+          "direction": "higher",
+          "budget": 0.2
+        },
+        "durable_8_writer_p50_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.25,
+          "absolute_floor": 100
+        },
+        "durable_8_writer_p99_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.25,
+          "absolute_floor": 100
+        }
+      },
+      "correctness": {
+        "schema": "bench.Item",
+        "rows": 10000,
+        "payload_bytes": 64,
+        "stable_ids": true,
+        "typed_values": true,
+        "indexes": true,
+        "private_denial": true,
+        "retained_immutable": true,
+        "exact_durable_counters": true,
+        "reopen": true
+      }
+    },
+    "sql": {
+      "people": 2000,
+      "timeout_seconds": 240,
+      "queries": [
+        "01_primary_key",
+        "02_indexed_equality",
+        "03_range_top_100",
+        "04_relationship_lookup",
+        "05_cross_app_five_way",
+        "06_cross_app_group_top_25",
+        "07_correlated_exists",
+        "08_filtered_nested_top_1",
+        "09_full_scan_aggregate"
+      ],
+      "metrics": {
+        "01_primary_key.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "01_primary_key.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "02_indexed_equality.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "02_indexed_equality.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "03_range_top_100.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "03_range_top_100.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "04_relationship_lookup.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "04_relationship_lookup.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "05_cross_app_five_way.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "05_cross_app_five_way.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "06_cross_app_group_top_25.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "06_cross_app_group_top_25.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "07_correlated_exists.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "07_correlated_exists.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "08_filtered_nested_top_1.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "08_filtered_nested_top_1.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "09_full_scan_aggregate.admin_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "09_full_scan_aggregate.reader_us": {
+          "unit": "microseconds",
+          "direction": "lower",
+          "budget": 0.15,
+          "absolute_floor": 0.1
+        },
+        "peak_rss_bytes": {
+          "unit": "bytes",
+          "direction": "lower",
+          "budget": 0.2
+        }
+      },
+      "query_iterations": {
+        "01_primary_key": 50000,
+        "02_indexed_equality": 2000,
+        "03_range_top_100": 1000,
+        "04_relationship_lookup": 10000,
+        "05_cross_app_five_way": 5000,
+        "06_cross_app_group_top_25": 10,
+        "07_correlated_exists": 50,
+        "08_filtered_nested_top_1": 50,
+        "09_full_scan_aggregate": 500
+      }
+    }
+  }
+}
