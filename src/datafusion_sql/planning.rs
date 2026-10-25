@@ -129,8 +129,8 @@ pub(super) fn cacheable(plan: &LogicalPlan) -> bool {
     logical_cacheable(plan, 0)
 }
 
-fn logical_cacheable(plan: &LogicalPlan, view_depth: usize) -> bool {
-    if view_depth > 32 {
+fn logical_cacheable(plan: &LogicalPlan, depth: usize) -> bool {
+    if depth > 32 {
         return false;
     }
     let mut allowed = true;
@@ -156,7 +156,7 @@ fn logical_cacheable(plan: &LogicalPlan, view_depth: usize) -> bool {
         }
         if let LogicalPlan::TableScan(scan) = node
             && let Some(view) = scan.source.get_logical_plan()
-            && !logical_cacheable(view.as_ref(), view_depth + 1)
+            && !logical_cacheable(view.as_ref(), depth + 1)
         {
             allowed = false;
             return Ok(TreeNodeRecursion::Stop);
@@ -173,12 +173,16 @@ fn logical_cacheable(plan: &LogicalPlan, view_depth: usize) -> bool {
                     Expr::WindowFunction(function) => {
                         function.fun.signature().volatility == Volatility::Immutable
                     }
+                    // Inspect raw subquery plans before optimization can fold
+                    // execution-time functions. Correlation is deterministic
+                    // for this pinned snapshot and exact parameter binding;
+                    // only the optimized logical plan is retained for joins.
+                    Expr::Exists(expr) => logical_cacheable(&expr.subquery.subquery, depth + 1),
+                    Expr::InSubquery(expr) => logical_cacheable(&expr.subquery.subquery, depth + 1),
+                    Expr::ScalarSubquery(query) => logical_cacheable(&query.subquery, depth + 1),
+                    Expr::OuterReferenceColumn(..) => depth > 0,
                     Expr::ScalarVariable(..)
-                    | Expr::Exists(_)
-                    | Expr::InSubquery(_)
-                    | Expr::ScalarSubquery(_)
                     | Expr::SetComparison(_)
-                    | Expr::OuterReferenceColumn(..)
                     | Expr::HigherOrderFunction(_)
                     | Expr::Lambda(_)
                     | Expr::LambdaVariable(_)
@@ -313,19 +317,35 @@ mod tests {
     }
 
     #[test]
-    fn stable_volatile_subquery_and_view_functions_are_not_cached() {
+    fn subqueries_are_checked_recursively_before_function_folding() {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
         runtime.block_on(async {
             let context = SessionContext::new();
-            for sql in ["SELECT now()", "SELECT random()", "SELECT (SELECT 1)"] {
+            for sql in [
+                "SELECT now()",
+                "SELECT random()",
+                "SELECT (SELECT now())",
+                "SELECT 1 WHERE EXISTS (SELECT 1 WHERE random() > 0)",
+                "SELECT 1 WHERE 1 IN (SELECT 1 WHERE now() = now())",
+                "SELECT 1 WHERE EXISTS (SELECT 1 WHERE EXISTS (SELECT 1 WHERE random() > 0))",
+            ] {
                 let frame = context.sql(sql).await.unwrap();
                 assert!(!cacheable(frame.logical_plan()), "{sql}");
             }
             let frame = context.sql("SELECT 1 + 2 AS x").await.unwrap();
             assert!(cacheable(frame.logical_plan()));
+            for sql in [
+                "SELECT (SELECT 1)",
+                "SELECT 1 WHERE EXISTS (SELECT 1)",
+                "SELECT 1 WHERE 1 IN (SELECT 1)",
+                "SELECT x FROM (VALUES (1), (2)) AS t(x) WHERE EXISTS (SELECT 1 WHERE t.x=1)",
+            ] {
+                let frame = context.sql(sql).await.unwrap();
+                assert!(cacheable(frame.logical_plan()), "{sql}");
+            }
             let view = context
                 .sql("SELECT now() AS clock")
                 .await
@@ -333,6 +353,11 @@ mod tests {
                 .into_view();
             context.register_table("clock_view", view).unwrap();
             let frame = context.sql("SELECT * FROM clock_view").await.unwrap();
+            assert!(!cacheable(frame.logical_plan()));
+            let frame = context
+                .sql("SELECT 1 WHERE EXISTS (SELECT 1 FROM clock_view WHERE clock IS NOT NULL)")
+                .await
+                .unwrap();
             assert!(!cacheable(frame.logical_plan()));
         });
     }

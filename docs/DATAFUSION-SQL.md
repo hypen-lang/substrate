@@ -40,8 +40,11 @@ queries reuse an optimized logical plan. A conservative whitelist of simple
 physical operators can additionally reuse an unexecuted template, rebuilding fresh
 operator instances and streams on every call, including the first. Joins, sorts,
 dynamic filters and unknown operators do not reuse physical templates. Stable or
-volatile functions, context variables and subqueries bypass the cache; views are
-inspected recursively. Changed bindings replace the entry; execution errors discard
+volatile functions and context variables bypass the cache. EXISTS, IN and scalar
+subqueries can reuse logical planning after recursive inspection of their raw
+plans and view sources; this prevents caching folded execution-time functions.
+Correlated references retain their meaning for the pinned snapshot and binding.
+Changed bindings replace the entry; execution errors discard
 it. The planning cache retains no result rows, cursors, task contexts or source budgets. This avoids
 the repeated top-k errors observed when mutable physical plans were reused.
 Parameters remain typed values;
@@ -64,12 +67,16 @@ Each SQL context has a 256 MiB DataFusion
 execution memory pool, with disk spilling disabled. These are accounting budgets,
 not a hard process RSS limit; Arrow metadata, source state and some temporary
 allocations are additional. Reusing handles and prepared queries amortizes schema
-registration and planning. Predicate-free full scans can reuse immutable projected Arrow pages in a cache
+registration and planning. Predicate-free full scans and numeric ranges without
+a pushed LIMIT can reuse immutable projected Arrow pages in a cache
 shared only by that SQL handle's pinned snapshot and authority. The FIFO cache is
 capped at 64 MiB of estimated retained memory and 4,096 entries; keys include the
-relation identity, ordered projection and page cursor. Cache hits recheck live
-authority and recharge the fresh execution source budget. Indexed scans continue
-to use native reads. First execution still pays conversion cost. Evicted pages
+relation identity, ordered projection and page cursor. Range keys also contain
+typed bounds, direction and every pushed predicate. Cache hits recheck live
+authority and recharge the original candidate-row count and projected bytes,
+including candidates discarded by additional predicates. Key storage is included
+in the cache accounting. Identity/equality lookups and reads with a pushed LIMIT
+continue to use native reads. First execution still pays conversion cost. Evicted pages
 held by active queries can outlive the cache entry, so the cache cap is not a hard
 process-memory cap.
 
@@ -112,6 +119,11 @@ the query against that pinned state. This preserves conflict detection but can p
 more conflicts than a future provider that records precise read dependencies.
 
 
-[Index-backed benchmark](benchmarks/DATAFUSION-INDEXED.md) compares this implementation
+[Initial index-backed benchmark](benchmarks/DATAFUSION-INDEXED.md) compares that milestone
 with the previous eager DataFusion adapter, the explicit SQLite compatibility
 adapter and ordinary indexed SQLite. Native read/write APIs remain unchanged.
+
+The [range/EXISTS/window follow-up](benchmarks/DATAFUSION-RANGE-EXISTS.md) compares
+both previous DataFusion adapters with the current implementation and SQLite.
+Ordered-range/top-k pushdown and join-driven index probes remain unimplemented;
+cached source pages do not remove DataFusion's sorting and hash-join work.

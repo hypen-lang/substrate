@@ -65,35 +65,97 @@ struct PageKey {
     relation: Id,
     projection: Vec<usize>,
     after: Option<Id>,
+    range: Option<RangeKey>,
+}
+/// Values are typed native values, never strings/JSON used as executable filters.
+/// Include all pushed predicates, not just the selected index bounds: additional
+/// role predicates can change the emitted rows within the same candidate page.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct RangeKey {
+    slot: usize,
+    lower: Bound<Value>,
+    upper: Bound<Value>,
+    descending: bool,
+    predicates: Vec<Predicate>,
+    after: Option<(Value, Id)>,
+}
+impl PageKey {
+    fn heap_bytes(&self) -> usize {
+        fn value_bytes(value: &Value) -> usize {
+            match value {
+                Value::Text(value) => value.capacity(),
+                Value::Bytes(value) => value.capacity(),
+                _ => 0,
+            }
+        }
+        fn bound_bytes(bound: &Bound<Value>) -> usize {
+            match bound {
+                Bound::Included(value) | Bound::Excluded(value) => value_bytes(value),
+                Bound::Unbounded => 0,
+            }
+        }
+        let mut size = self
+            .projection
+            .capacity()
+            .saturating_mul(std::mem::size_of::<usize>());
+        if let Some(range) = &self.range {
+            size = size.saturating_add(
+                range
+                    .predicates
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<Predicate>()),
+            );
+            for predicate in &range.predicates {
+                size = size.saturating_add(value_bytes(&predicate.value));
+            }
+            size = size
+                .saturating_add(bound_bytes(&range.lower))
+                .saturating_add(bound_bytes(&range.upper));
+            if let Some((value, _)) = &range.after {
+                size = size.saturating_add(value_bytes(value));
+            }
+        }
+        size
+    }
 }
 #[derive(Clone)]
 struct CachedPage {
     batch: RecordBatch,
     next: Option<Id>,
+    range_next: Option<(Value, Id)>,
+    source_rows: usize,
     payload_bytes: usize,
     estimated_bytes: usize,
 }
 impl CachedPage {
-    fn new(batch: RecordBatch, next: Option<Id>, payload_bytes: usize, key: &PageKey) -> Self {
+    fn new(
+        batch: RecordBatch,
+        next: Option<Id>,
+        range_next: Option<(Value, Id)>,
+        source_rows: usize,
+        payload_bytes: usize,
+        key: &PageKey,
+    ) -> Self {
         // Include bounded bookkeeping, ordered projection keys, and batch column
         // pointers in addition to Arrow buffer estimates. This is accounting,
         // not a hard RSS bound; shared schema metadata belongs to the SQL handle.
         let estimated_bytes = batch
             .get_array_memory_size()
-            .saturating_add(
-                key.projection
-                    .capacity()
-                    .saturating_mul(2 * std::mem::size_of::<usize>()),
-            )
+            .saturating_add(key.heap_bytes().saturating_mul(2))
             .saturating_add(
                 batch
                     .num_columns()
                     .saturating_mul(std::mem::size_of::<ArrayRef>()),
             )
-            .saturating_add(512);
+            .saturating_add(std::mem::size_of::<PageKey>().saturating_mul(2))
+            .saturating_add(std::mem::size_of::<CachedPage>())
+            // HashMap buckets, VecDeque slots, and allocation bookkeeping.
+            .saturating_add(256);
         Self {
             batch,
             next,
+            range_next,
+            source_rows,
             payload_bytes,
             estimated_bytes,
         }
@@ -106,7 +168,8 @@ struct CachedPages {
     bytes: usize,
 }
 /// A bounded FIFO of immutable authorized pages, private to one SQL snapshot.
-/// Native indexes remain uncached. No caller can detach the cached Arrow data.
+/// Full scans and unlimited numeric ranges can reuse projected pages. Identity
+/// and equality indexes remain direct; no caller can detach cached Arrow data.
 pub(super) struct BatchCache {
     inner: Mutex<CachedPages>,
     max_bytes: usize,
@@ -216,7 +279,7 @@ impl LiquidTable {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Predicate {
     column: usize,
     operator: Operator,
@@ -619,8 +682,8 @@ impl ExecutionPlan for LiquidScanExec {
             source_rows: MetricBuilder::new(&self.metrics).counter("source_rows", partition),
             output_rows: MetricBuilder::new(&self.metrics).counter("returned_rows", partition),
             cache_hits: MetricBuilder::new(&self.metrics).counter("cache_hits", partition),
-            cacheable: matches!(self.access, Access::Scan)
-                && self.predicates.is_empty()
+            cacheable: (matches!(self.access, Access::Scan) && self.predicates.is_empty()
+                || matches!(self.access, Access::Range(_)))
                 && self.limit.is_none(),
         };
         let stream = futures::stream::try_unfold(cursor, |mut cursor| async move {
@@ -670,16 +733,34 @@ impl Cursor {
             relation: self.source.declaration.id,
             projection: self.projection.clone(),
             after: self.after,
+            range: match &self.access {
+                Access::Range(range) => Some(RangeKey {
+                    slot: range.slot,
+                    lower: range.lower.clone(),
+                    upper: range.upper.clone(),
+                    descending: range.descending,
+                    predicates: self.predicates.clone(),
+                    after: self.range_after.clone(),
+                }),
+                _ => None,
+            },
         });
         if let Some(key) = &cache_key
             && let Some(page) = self.source.cache.get(key)?
         {
             let rows = page.batch.num_rows();
-            self.budget.charge(rows, page.payload_bytes)?;
+            // A filtered range page can emit fewer rows than the native cursor
+            // examined. Repeated executions must pay the original candidate charge.
+            self.budget.charge(page.source_rows, page.payload_bytes)?;
             self.after = page.next;
-            self.done = self.after.is_none();
+            self.range_after = page.range_next;
+            self.done = if matches!(self.access, Access::Range(_)) {
+                self.range_after.is_none()
+            } else {
+                self.after.is_none()
+            };
             self.remaining -= rows;
-            self.source_rows.add(rows);
+            self.source_rows.add(page.source_rows);
             self.output_rows.add(rows);
             self.cache_hits.add(1);
             self.source
@@ -741,8 +822,9 @@ impl Cursor {
                 page.rows
             }
         };
-        self.source_rows.add(rows.len());
-        self.budget.charge(rows.len(), 0)?;
+        let candidate_rows = rows.len();
+        self.source_rows.add(candidate_rows);
+        self.budget.charge(candidate_rows, 0)?;
         let rows = rows
             .into_iter()
             .filter(|row| self.predicates.iter().all(|p| p.matches(row)))
@@ -763,7 +845,14 @@ impl Cursor {
             .check_attached()
             .map_err(external)?;
         if let Some(key) = cache_key {
-            let page = CachedPage::new(batch.clone(), self.after, payload_bytes, &key);
+            let page = CachedPage::new(
+                batch.clone(),
+                self.after,
+                self.range_after.clone(),
+                candidate_rows,
+                payload_bytes,
+                &key,
+            );
             self.source.cache.insert(key, page)?;
         }
         Ok(Some(batch))
@@ -882,18 +971,20 @@ mod tests {
             &RecordBatchOptions::new().with_row_count(Some(1)),
         )
         .unwrap();
-        CachedPage::new(batch, None, 0, key)
+        CachedPage::new(batch, None, None, 1, 0, key)
     }
     fn page_key(number: u128) -> PageKey {
         PageKey {
             relation: Id::from_u128(number),
             projection: vec![],
             after: None,
+            range: None,
         }
     }
     #[test]
     fn page_cache_fifo_bounds_duplicate_insert_and_oversized_pages() {
-        let cache = BatchCache::new(1024, 2);
+        let capacity = empty_cached_page(&page_key(1)).estimated_bytes * 2;
+        let cache = BatchCache::new(capacity, 2);
         for number in 1..=3 {
             let key = page_key(number);
             cache.insert(key.clone(), empty_cached_page(&key)).unwrap();
@@ -908,10 +999,10 @@ mod tests {
         let state = cache.inner.lock().unwrap();
         assert_eq!(state.pages.len(), 2);
         assert_eq!(state.order.len(), 2);
-        assert_eq!(state.bytes, 1024);
+        assert_eq!(state.bytes, capacity);
         drop(state);
         let mut oversized = empty_cached_page(&page_key(4));
-        oversized.estimated_bytes = 1025;
+        oversized.estimated_bytes = capacity + 1;
         cache.insert(page_key(4), oversized).unwrap();
         assert!(cache.get(&page_key(4)).unwrap().is_none());
         let entry_limited = BatchCache::new(usize::MAX, 1);
@@ -1108,5 +1199,200 @@ mod tests {
                 .to_string()
                 .contains("access denied")
         );
+    }
+    fn range_cursor(table: &LiquidTable) -> Cursor {
+        let mut cursor = guarded_cursor(table);
+        cursor.access = Access::Range(NumericRange {
+            slot: 0,
+            lower: Bound::Included(Value::Int(0)),
+            upper: Bound::Unbounded,
+            descending: false,
+        });
+        cursor.predicates = vec![Predicate {
+            column: 1,
+            operator: Operator::GtEq,
+            value: Value::Int(0),
+        }];
+        cursor
+    }
+
+    #[test]
+    fn range_cache_preserves_candidate_charges_and_empty_page_continuations() {
+        let db = crate::Database::memory();
+        let mut tx = db.admin().transaction();
+        tx.install(crate::Module::new(
+            "cache",
+            1,
+            vec![],
+            vec![Relation::new(
+                "cache.Row",
+                vec![
+                    crate::Role::new("n", DataType::Int),
+                    crate::Role::new("m", DataType::Int),
+                ],
+            )],
+        ))
+        .unwrap();
+        for n in 0..1001 {
+            tx.insert(
+                "cache.Row",
+                vec![Value::Int(n), Value::Int(i64::from(n == 1000))],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+        let snapshot = db.admin().snapshot();
+        let table = LiquidTable::new(
+            snapshot.clone(),
+            snapshot.relations()[0].clone(),
+            Arc::new(BatchCache::default()),
+        )
+        .unwrap();
+        let cursor = || {
+            let mut cursor = range_cursor(&table);
+            cursor.predicates.push(Predicate {
+                column: 2,
+                operator: Operator::Gt,
+                value: Value::Int(0),
+            });
+            cursor
+        };
+        for warm in [false, true] {
+            let mut current = cursor();
+            assert_eq!(current.next_batch().unwrap().unwrap().num_rows(), 0);
+            assert_eq!(*current.budget.0.lock().unwrap(), (1000, 0));
+            assert_eq!(current.next_batch().unwrap().unwrap().num_rows(), 1);
+            assert!(current.next_batch().unwrap().is_none());
+            assert_eq!(*current.budget.0.lock().unwrap(), (1001, 8));
+            assert_eq!(current.source_rows.value(), 1001);
+            assert_eq!(current.cache_hits.value(), if warm { 2 } else { 0 });
+        }
+        for cold in [false, true] {
+            let mut capped = cursor();
+            if cold {
+                capped.source.cache = Arc::new(BatchCache::default());
+            }
+            capped.budget.charge(SOURCE_ROWS - 999, 0).unwrap();
+            assert!(capped.next_batch().is_err());
+            if cold {
+                assert!(capped.source.cache.inner.lock().unwrap().pages.is_empty());
+            }
+            let mut capped = cursor();
+            if cold {
+                capped.source.cache = Arc::new(BatchCache::default());
+            }
+            capped.budget.charge(0, SOURCE_BYTES).unwrap();
+            assert_eq!(capped.next_batch().unwrap().unwrap().num_rows(), 0);
+            assert!(capped.next_batch().is_err());
+            if cold {
+                // The successful empty page may be retained, but not the failed page.
+                assert_eq!(capped.source.cache.inner.lock().unwrap().pages.len(), 1);
+            }
+        }
+        let mut changed = cursor();
+        changed.predicates[1].value = Value::Int(-1);
+        assert_eq!(changed.next_batch().unwrap().unwrap().num_rows(), 1000);
+        assert_eq!(changed.cache_hits.value(), 0);
+    }
+
+    #[test]
+    fn range_cache_live_guards_recheck_between_pages() {
+        use crate::capability::{CapabilityScope, RelationCapability};
+        for expiry in [false, true] {
+            let db = authorized_fixture();
+            db.clock.set(1000);
+            let snapshot = if expiry {
+                let cap = db
+                    .issue_capability_until(
+                        Id::new(),
+                        "reader",
+                        CapabilityScope {
+                            relations: vec![RelationCapability {
+                                relation: db.admin().snapshot().schema("cache.Row").unwrap().id,
+                                grant: crate::Grant::read_only(),
+                            }],
+                            schema_namespace: None,
+                            delegations: 0,
+                        },
+                        Some(1010),
+                    )
+                    .unwrap();
+                db.session("reader")
+                    .with_capability(cap.id)
+                    .unwrap()
+                    .snapshot()
+            } else {
+                db.session("reader").snapshot()
+            };
+            let table = LiquidTable::new(
+                snapshot.clone(),
+                snapshot.relations()[0].clone(),
+                Arc::new(BatchCache::default()),
+            )
+            .unwrap();
+            let mut cold = range_cursor(&table);
+            while cold.next_batch().unwrap().is_some() {}
+            let mut warm = range_cursor(&table);
+            assert_eq!(warm.next_batch().unwrap().unwrap().num_rows(), 1000);
+            assert_eq!(warm.cache_hits.value(), 1);
+            if expiry {
+                db.clock.set(1010);
+            } else {
+                let mut tx = db.admin().transaction();
+                tx.revoke("reader", "cache.Row").unwrap();
+                tx.commit().unwrap();
+            }
+            assert!(
+                warm.next_batch()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("access denied")
+            );
+        }
+    }
+
+    #[test]
+    fn range_cache_keys_account_for_typed_bounds_direction_and_continuation() {
+        let base = PageKey {
+            range: Some(RangeKey {
+                slot: 0,
+                lower: Bound::Included(Value::Int(0)),
+                upper: Bound::Excluded(Value::Int(9)),
+                descending: false,
+                predicates: vec![],
+                after: None,
+            }),
+            ..page_key(1)
+        };
+        let cache = BatchCache::new(4096, 1);
+        cache
+            .insert(base.clone(), empty_cached_page(&base))
+            .unwrap();
+        let mut changed = base.clone();
+        changed.range.as_mut().unwrap().lower = Bound::Excluded(Value::Int(0));
+        assert!(cache.get(&changed).unwrap().is_none());
+        changed = base.clone();
+        changed.range.as_mut().unwrap().descending = true;
+        assert!(cache.get(&changed).unwrap().is_none());
+        changed = base.clone();
+        changed.range.as_mut().unwrap().after = Some((Value::Int(1), Id::from_u128(1)));
+        assert!(cache.get(&changed).unwrap().is_none());
+        cache
+            .insert(changed.clone(), empty_cached_page(&changed))
+            .unwrap();
+        assert!(cache.get(&base).unwrap().is_none());
+        assert_eq!(cache.inner.lock().unwrap().pages.len(), 1);
+        // Dynamic predicate values count against capacity in both owned keys.
+        let mut large = base;
+        large.range.as_mut().unwrap().predicates.push(Predicate {
+            column: 2,
+            operator: Operator::Eq,
+            value: Value::Text("x".repeat(4096)),
+        });
+        cache
+            .insert(large.clone(), empty_cached_page(&large))
+            .unwrap();
+        assert!(cache.get(&large).unwrap().is_none());
+        assert!(cache.get(&changed).unwrap().is_some());
     }
 }

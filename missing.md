@@ -5,8 +5,9 @@ milestones in the README. Package publication and Bend verification are explicit
 excluded from this implementation run. This is a status ledger, not a claim that
 queued features already work.
 
-Latest change: DataFusion now uses lazy native-index providers, bounded planning
-reuse and authorized projected-page caching; imbl remains adopted.
+Latest change: DataFusion now also reuses bounded numeric-range pages and
+recursively validates deterministic subqueries for logical-plan caching.
+Native query/storage paths and imbl remain unchanged.
 See the final adoption section for current limits; earlier sections retain the
 chronological benchmark and implementation history.
 
@@ -313,3 +314,41 @@ ordered-range/top-k execution and join-driven index probes remain priorities.
 Direct SQLite's 0.34 µs point reads also show substantial SQL dispatch/planning
 overhead remains. These are memory-resident synthetic reads, not native API,
 transport or durable-write measurements.
+
+## Range, EXISTS and window follow-up — 2026-10-25
+
+Implemented bounded projected-page reuse for unlimited numeric ranges, including
+exact predicate keys, candidate-budget charging and live authorization on hits.
+Deterministic subqueries can reuse optimized logical plans after recursively
+checking raw expressions; execution-time functions remain uncached and physical
+join/sort state is fresh. All **370 Rust tests** and strict all-target Clippy pass.
+Independent review's cache-key accounting concern was fixed; no actionable
+finding remains. Native query and storage code is unchanged.
+
+Next SQL pain points, in priority order:
+
+1. Join-driven identity/equality probes: selective SQL still scans whole joined
+   families when their IDs become known only during execution.
+2. Ordered-range/top-k pushdown: the provider still retrieves all range candidates
+   before DataFusion sorts and limits them. Warm caching does not improve the
+   first traversal or eliminate sorting.
+3. Small-query execution overhead: executor dispatch, task setup, authorization,
+   Arrow conversion and result allocation surround an already indexed lookup.
+4. Changed-parameter planning: the one-entry bound-plan cache misses on new
+   values; a safely reusable parameterized plan remains future work.
+5. Cold conversions and cache pressure: short-lived SQL handles and working sets
+   beyond the bounded page cache still pay conversion costs. Native engine state
+   still lives in RAM, and SQL transaction read dependencies remain conservative.
+
+The [follow-up benchmark](docs/benchmarks/DATAFUSION-RANGE-EXISTS.md) records
+measurement boundaries and both previous adapters alongside SQLite.
+
+All eighteen benchmark processes passed result checks. At 180k occurrences,
+warm range/EXISTS/window queries took 0.195/1.384/10.892 ms versus the previous
+indexed adapter's 2.569/3.423/23.780 ms and eager DataFusion's 0.462/1.506/11.550 ms.
+Point/selective paths did not improve. In the current same-fixture run, point
+reads cost 32.1 µs versus direct SQLite's 0.425 µs; the selective join cost
+1.22 ms versus 0.0075 ms. A separate one-row release probe measured a 10.4 µs
+executor round trip and 19.8 µs prepared constant query, showing substantial
+fixed overhead without assigning additive phase costs. New handles still pay
+source conversion; larger caches alone will not solve the remaining pain points.

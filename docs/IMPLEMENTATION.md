@@ -458,3 +458,33 @@ selective five-family join 1.96 → 0.84 ms. Range/top-k, correlated EXISTS and
 windows regressed; first-use conversion and changed-binding planning remain
 material costs. The report includes these regressions, both SQLite comparisons,
 and separate catalog/preparation/fresh-handle timings.
+
+## Range, EXISTS and window follow-up — 2026-10-25
+
+Unlimited numeric-range scans now reuse bounded authorized projected pages.
+Keys include typed predicates, bounds, projection and continuation; hits charge
+the original candidate-row count even when other predicates discarded rows.
+Reads with a pushed LIMIT remain uncached. Deterministic EXISTS, IN and scalar
+subqueries can reuse optimized logical plans after recursive inspection of raw
+subquery/view expressions. Stable/volatile functions still prevent reuse, and
+joins/sorts receive fresh physical plans.
+
+All **370 Rust tests including the doctest** passed, together with strict
+all-target Clippy. One manual optimized performance probe is intentionally
+ignored by the regular suite. The [independent review](reviews/DATAFUSION-RANGE-EXISTS.md)
+identified an increased cache-key bookkeeping cost; explicit inline sizes and
+dynamic allocations now contribute to the estimate. No actionable finding
+remains. Native query and storage files are unchanged.
+
+The [paired comparison](benchmarks/DATAFUSION-RANGE-EXISTS.md) measures both earlier
+DataFusion adapters, explicit SQLite compatibility and direct indexed SQLite,
+including changed parameters and first-use costs.
+
+All eighteen measured processes passed ordered result and repeated-query checks.
+At 180k occurrences, warm range/EXISTS/window medians improved from the first
+indexed adapter's 2.569/3.423/23.780 ms to 0.195/1.384/10.892 ms. Fresh eager-adapter
+medians were 0.462/1.506/11.550 ms. Smaller margins against eager DataFusion vary
+between runs; this is a shared-machine benchmark. Point/selective paths did not
+improve, and cold conversion remains significant. The separately executed manual
+release probe also passed and records the executor round-trip cost without
+claiming additive component profiling.

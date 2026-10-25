@@ -663,6 +663,9 @@ mod tests {
             "SELECT random()",
             "SELECT CAST(now() AS VARCHAR)",
             "SELECT stamp FROM clock_view",
+            "SELECT (SELECT CAST(now() AS VARCHAR))",
+            "SELECT 1 WHERE EXISTS (SELECT 1 WHERE random() > 0)",
+            "SELECT 1 WHERE EXISTS (SELECT 1 FROM clock_view WHERE stamp IS NOT NULL)",
         ] {
             let mut query = sql.prepare(text).unwrap();
             assert!(!query.cacheable, "{text}");
@@ -671,6 +674,138 @@ mod tests {
                 assert!(query.cache.get(&[]).is_none(), "{text}");
             }
         }
+    }
+
+    #[test]
+    fn deterministic_subquery_cache_preserves_bindings_and_live_authority() {
+        let db = Database::memory();
+        let mut tx = db.admin().transaction();
+        tx.install(demo::core()).unwrap();
+        tx.insert("core.Person", vec!["Ada".into()]).unwrap();
+        tx.insert("core.Person", vec!["Grace".into()]).unwrap();
+        tx.grant("reader", "core.Person", Grant::read_only())
+            .unwrap();
+        tx.commit().unwrap();
+        let snapshot = db.session("reader").snapshot();
+        let sql = DfSnapshot::new(snapshot.clone(), None).unwrap();
+        let sqlite = snapshot.sqlite_compat().unwrap();
+        for text in [
+            "SELECT p.name FROM core.Person p WHERE EXISTS (SELECT 1 FROM core.Person q WHERE q.id=p.id AND q.name=?1) ORDER BY p.name",
+            "SELECT p.name FROM core.Person p WHERE NOT EXISTS (SELECT 1 FROM core.Person q WHERE q.id=p.id AND q.name=?1) ORDER BY p.name",
+            "SELECT p.name FROM core.Person p WHERE p.id IN (SELECT q.id FROM core.Person q WHERE q.name=?1) ORDER BY p.name",
+            "SELECT p.name,(SELECT count(*) FROM core.Person q WHERE q.id=p.id AND q.name=?1) AS matches FROM core.Person p ORDER BY p.name",
+        ] {
+            let mut query = sql.prepare(text).unwrap();
+            assert!(query.cacheable, "{text}");
+            for value in [
+                SqlValue::Text("Ada".into()),
+                SqlValue::Text("Ada".into()),
+                SqlValue::Text("Grace".into()),
+                SqlValue::Text("Grace".into()),
+                SqlValue::Null,
+                SqlValue::Null,
+                SqlValue::Text("missing".into()),
+                SqlValue::Text("Ada".into()),
+            ] {
+                let binding = [value];
+                let expected = sqlite.query(text, &binding).unwrap();
+                assert_eq!(
+                    query.query(&binding, QueryLimits::default()).unwrap().rows,
+                    expected.rows,
+                    "{text}, {binding:?}"
+                );
+                // Non-null matching bindings retain joins/sorts and require
+                // fresh physical plans. NULL can fold to an immutable empty
+                // relation, which is safely eligible for template reuse.
+                if matches!(&binding[0], SqlValue::Text(name) if name == "Ada" || name == "Grace") {
+                    assert!(
+                        query
+                            .cache
+                            .get(&binding)
+                            .unwrap()
+                            .physical()
+                            .unwrap()
+                            .is_none()
+                    );
+                }
+            }
+        }
+        // A scalar subquery cardinality error must not leave a usable cached
+        // plan behind; a later valid binding can still execute successfully.
+        let mut scalar = sql
+            .prepare("SELECT (SELECT name FROM core.Person WHERE name>=?1) AS name")
+            .unwrap();
+        let many = [SqlValue::Text("Ada".into())];
+        assert!(scalar.query(&many, QueryLimits::default()).is_err());
+        assert!(scalar.cache.get(&many).is_none());
+        let one = [SqlValue::Text("Grace".into())];
+        for _ in 0..2 {
+            assert_eq!(
+                scalar.query(&one, QueryLimits::default()).unwrap().rows,
+                vec![vec![SqlValue::Text("Grace".into())]]
+            );
+        }
+        let mut query = sql.prepare("SELECT p.name FROM core.Person p WHERE EXISTS (SELECT 1 FROM core.Person q WHERE q.id=p.id) ORDER BY p.name").unwrap();
+        for _ in 0..2 {
+            assert_eq!(
+                query.query(&[], QueryLimits::default()).unwrap().rows.len(),
+                2
+            );
+        }
+        let mut tx = db.admin().transaction();
+        tx.revoke("reader", "core.Person").unwrap();
+        tx.commit().unwrap();
+        assert!(matches!(
+            query.query(&[], QueryLimits::default()),
+            Err(Error::Denied)
+        ));
+    }
+
+    /// Manual release-mode diagnostic. This measures an executor round trip,
+    /// not a subtractable profile of the complete point-query implementation.
+    #[test]
+    #[ignore = "manual release-mode performance probe"]
+    fn sql_execution_overhead_probe() {
+        use std::time::Instant;
+        let db = Database::memory();
+        let mut tx = db.admin().transaction();
+        tx.install(demo::core()).unwrap();
+        let id = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
+        tx.commit().unwrap();
+        let snapshot = db.admin().snapshot();
+        let sql = DfSnapshot::new(snapshot.clone(), None).unwrap();
+        let mut point = sql
+            .prepare("SELECT name FROM core.Person WHERE id=?1")
+            .unwrap();
+        let mut constant = sql.prepare("SELECT 1 AS n").unwrap();
+        let parameters = [SqlValue::Text(id.to_string())];
+        let measure = |name: &str, action: &mut dyn FnMut()| {
+            for _ in 0..100 {
+                action();
+            }
+            let mut samples = Vec::new();
+            for _ in 0..9 {
+                let start = Instant::now();
+                for _ in 0..1000 {
+                    action();
+                }
+                samples.push(start.elapsed().as_secs_f64() * 1000.0);
+            }
+            samples.sort_by(f64::total_cmp);
+            println!("{name}: {:.3} us/call (median of 9 x 1000)", samples[4]);
+        };
+        measure("executor_round_trip", &mut || {
+            run(async { Ok(()) }, SETUP_TIMEOUT_MS).unwrap();
+        });
+        measure("prepared_constant", &mut || {
+            std::hint::black_box(constant.query(&[], QueryLimits::default()).unwrap());
+        });
+        measure("prepared_identity", &mut || {
+            std::hint::black_box(point.query(&parameters, QueryLimits::default()).unwrap());
+        });
+        measure("native_identity", &mut || {
+            std::hint::black_box(snapshot.get("core.Person", id).unwrap());
+        });
     }
 
     #[test]

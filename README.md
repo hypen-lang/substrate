@@ -302,21 +302,31 @@ were slower. These are workload-specific results, with preparation costs reporte
 separately. JSON parsing and durability-matched storage tests did not justify
 replacing serde_json or redb. Reports include raw results and reproduction commands.
 
-The [index-backed adapter comparison](docs/benchmarks/DATAFUSION-INDEXED.md) verifies
-nine query results across three paired runs at each dataset size, comparing the
-[previous eager adapter](docs/benchmarks/DATAFUSION-NATIVE.md), the explicit SQLite
-compatibility adapter and direct indexed SQLite. At 180,000 occurrences, warm SQL
-point reads improved **117 → 15.6 µs**, and a selective five-way join improved
-**1.96 → 0.84 ms**. Grouped joins took **12.47 ms versus direct SQLite's 36.91 ms**,
-and a full-scan aggregate **247 versus 983 µs**. Direct SQLite still wins point
-reads at **0.34 µs**. Native indexed APIs retain their existing execution path.
+The [latest SQL comparison](docs/benchmarks/DATAFUSION-RANGE-EXISTS.md) verifies
+nine query shapes across 18 runs, comparing both the eager and initial indexed
+DataFusion adapters, explicit SQLite compatibility and direct indexed SQLite.
+Bounded authorized range-page reuse and deterministic subquery planning recover
+the warm range, EXISTS and window regressions from the
+[initial index-backed adapter](docs/benchmarks/DATAFUSION-INDEXED.md).
+At 180,000 occurrences, times in milliseconds were:
 
-The gains are workload-dependent: range/top-k regressed **0.37 → 1.24 ms**,
-correlated EXISTS **1.14 → 1.59 ms**, and the window query **8.09 → 15.10 ms**.
-Fresh handles pay source conversion on first use (the grouped join took 43.46 ms),
-and process initialization adds catalog/planning costs. Changing prepared
-parameters also still requires planning. The report separates these costs from
-warm execution and includes raw measurements, authorization boundaries and limits.
+| Query | Eager DataFusion | Initial indexed | Current | Direct SQLite |
+| --- | ---: | ---: | ---: | ---: |
+| Range / top 100 | 0.462 | 2.569 | 0.195 | 0.066 |
+| Correlated EXISTS | 1.506 | 3.423 | 1.384 | 0.527 |
+| Nested window | 11.55 | 23.78 | 10.89 | 31.29 |
+
+These are warm process medians on a shared machine; individual runs vary.
+Point reads still cost **32.1 µs versus SQLite's 0.425 µs**, and the selective
+five-family join **1.22 ms versus 0.0075 ms**. This change does not improve those
+paths. The point path pays executor/task and result-conversion overhead; selective
+joins still scan families whose identities become known only during the join.
+Native indexed APIs retain their existing execution path.
+
+Fresh handles still pay conversion: first range, EXISTS and window execution took
+**2.77, 17.44 and 37.97 ms** for admin access. The report separates setup, first-use
+and warm costs, and includes changed-parameter reads, authorization checks, raw
+results and the remaining ordering/join/planning work.
 
 The implementation queue and remaining limitations are tracked in [missing.md](missing.md).
 Package publication and Bend verification are excluded from this run. Additive schema
