@@ -3,3 +3,4 @@
 /experiments/**/target/
 /experiments/**/.venv/
 **/__pycache__/
+/landing/
