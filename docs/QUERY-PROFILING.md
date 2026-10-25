@@ -80,9 +80,9 @@ result printing, writes, commit synchronization or client concurrency.
 - Per-execution wall-clock samples, mean, min/max and nearest-rank p50/p95/p99.
 - Initial setup timings and database open time, separate from repeated timings.
 - Actual measured row-count bounds, so empty or unexpectedly broad results stand out.
-- `EXPLAIN QUERY PLAN` output, collected after timing with the same parameters.
+- DataFusion `EXPLAIN` output, collected after timing with the same parameters.
 - The initial revision, execution mode, warmup count, iterations, OS, architecture,
-  SQLite/package versions and whether debug assertions are enabled.
+  SQL engine, compatibility SQLite and package versions and whether debug assertions are enabled.
 
 The first query is executed once, then `--warmup` additional times (default 10),
 then `--iterations` measured times (default 200). Percentiles are individual local
@@ -106,7 +106,7 @@ the repeated workload, not an individual query timeout. A long query can overrun
 
 Wide frames indicate sampled inclusive cost; widths are not exact stopwatch
 durations or a chronological sequence. Look underneath the execution roots for
-SQLite planning/execution, Liquid cursors, policy checks, index traversal,
+DataFusion planning/execution, authorized Arrow construction, policy checks,
 allocation and value conversion. Use the unsampled benchmark to quantify a change.
 
 Samply's sampling differs by platform: on Linux it currently samples on-CPU work;
@@ -143,6 +143,9 @@ Call `sample_query` from an executable under a native profiler for stack samples
 Prepared mode pins its snapshot. Embedded request mode can observe newer revisions
 if other threads write concurrently, which should be accounted for in comparisons.
 
-Reports omit SQL text, parameter values and returned cells, but query plans may
-include schema/expression information. Native profiles can include local paths
-and symbols. Inspect artifacts before sharing them.
+Reports omit separate SQL, parameter and returned-cell fields, but DataFusion
+EXPLAIN plans can contain SQL literals, bound values and schema information.
+Native profiles can include local paths and symbols. Inspect artifacts before
+sharing them and keep reports within the requesting host's trust boundary. Physical execution state is rebuilt for every
+prepared invocation; plans in the report describe logical/physical stages, not
+SQLite virtual-table index choices.

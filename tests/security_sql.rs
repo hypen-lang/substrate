@@ -3,13 +3,13 @@ use common::*;
 use rusqlite::types::Value as S;
 use substrate_liquid::*;
 #[test]
-fn sql_cross_app_join_and_index_pushdown_match_native() {
+fn sqlite_compat_join_and_index_pushdown_match_native() {
     let (db, p) = fixture();
     let mut tx = db.admin().transaction();
     workout(&mut tx, p, 45);
     deal(&mut tx, p, 125050);
     tx.commit().unwrap();
-    let sql = db.admin().snapshot().sql().unwrap();
+    let sql = db.admin().snapshot().sqlite_compat().unwrap();
     assert_eq!(
         sql.query(demo::CROSS_APP_SQL, &[]).unwrap().rows,
         vec![vec![

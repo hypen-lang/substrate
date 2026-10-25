@@ -110,7 +110,7 @@ export class SelectQuery<P extends Projection> {
     return result.rows.map(row=>{if(row.length!==entries.length)throw new Error("invalid result arity");return Object.fromEntries(entries.map(([k,c],i)=>[k,decode(c.spec,row[i])])) as Selected<P>;});
   }
   async explain(client:QueryClient):Promise<{sql:string;params:SqlParameter[];plan:unknown}> {
-    const q=this.compile();const plan=await client.request({op:"checked",contracts:q.contracts,command:{op:"query",sql:"EXPLAIN QUERY PLAN "+q.sql,params:q.params}});return {sql:q.sql,params:q.params,plan};
+    const q=this.compile();const plan=await client.request({op:"checked",contracts:q.contracts,command:{op:"query",sql:"EXPLAIN "+q.sql,params:q.params}});return {sql:q.sql,params:q.params,plan};
   }
 }
 export function select<P extends Projection>(projection:P) {return {from<T,R extends string>(source:Table<T,R>):SelectQuery<P>{return new SelectQuery(source,projection);}};}

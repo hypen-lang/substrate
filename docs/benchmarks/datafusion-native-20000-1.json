@@ -1,0 +1,867 @@
+{
+  "children_per_app_per_person": 2,
+  "environment": {
+    "arch": "aarch64",
+    "datafusion_execution": "55.2.0",
+    "datafusion_facade": "55.0.0",
+    "imbl": "7.0.2",
+    "os": "macos",
+    "postgres": null,
+    "sql_engine": "DataFusion",
+    "sqlite": "3.46.0",
+    "substrate": "0.1.0"
+  },
+  "iterations": 10,
+  "measurements": [
+    {
+      "name": "01_primary_key",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "3",
+            "0",
+            "0",
+            "SEARCH Person USING INDEX sqlite_autoindex_Person_1 (id=?)"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Filter: core.Person.id = Utf8(\"00000000-0000-0000-0000-000000002711\")\n  TableScan: core.Person projection=[id, name]"
+          ],
+          [
+            "physical_plan",
+            "FilterExec: id@0 = 00000000-0000-0000-0000-000000002711\n  DataSourceExec: partitions=1, partition_sizes=[20]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.00425,
+        "substrate_admin": 0.7292919999999999,
+        "substrate_reader": 0.124125
+      },
+      "repeat_verified": true,
+      "rows": 1,
+      "sha256": "b21d7d487a388d2f5f27250a60f63cb90dbe38ade5cd15618e489cc972eab0f7",
+      "sql": "SELECT id,name FROM core.\"Person\" WHERE id='00000000-0000-0000-0000-000000002711'",
+      "sqlite": {
+        "max_us": 0.44580000000000003,
+        "median_us": 0.35,
+        "min_us": 0.3417,
+        "samples_us": [
+          0.44580000000000003,
+          0.38330000000000003,
+          0.35,
+          0.35,
+          0.3417,
+          0.3542,
+          0.3417
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 132.94170000000003,
+        "median_us": 122.20840000000001,
+        "min_us": 113.04170000000002,
+        "samples_us": [
+          132.94170000000003,
+          123.325,
+          113.04170000000002,
+          126.76670000000001,
+          121.075,
+          122.20840000000001,
+          116.6292
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 122.6375,
+        "median_us": 119.8833,
+        "min_us": 111.0542,
+        "samples_us": [
+          121.65,
+          116.6375,
+          111.0542,
+          120.93329999999999,
+          122.6375,
+          119.8833,
+          119.275
+        ]
+      }
+    },
+    {
+      "name": "02_indexed_equality",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "4",
+            "0",
+            "0",
+            "SEARCH Workout USING INDEX workout_duration (durationMinutes=?)"
+          ],
+          [
+            "14",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: fitness.Workout.id ASC NULLS FIRST\n  Filter: fitness.Workout.durationMinutes = Int64(45)\n    TableScan: fitness.Workout projection=[id, durationMinutes]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: expr=[id@0 ASC], preserve_partitioning=[false]\n  FilterExec: durationMinutes@1 = 45\n    DataSourceExec: partitions=1, partition_sizes=[40]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.012374999999999999,
+        "substrate_admin": 0.079917,
+        "substrate_reader": 0.064792
+      },
+      "repeat_verified": true,
+      "rows": 334,
+      "sha256": "d273c148116e69c6546ee12f6f88e1d14ae11cf5b86eeb4a387cfee80cc7549a",
+      "sql": "SELECT id,\"durationMinutes\" FROM fitness.\"Workout\" WHERE \"durationMinutes\"=45 ORDER BY id",
+      "sqlite": {
+        "max_us": 90.75840000000001,
+        "median_us": 79.6125,
+        "min_us": 78.3083,
+        "samples_us": [
+          79.76669999999999,
+          78.3083,
+          78.71669999999999,
+          79.3375,
+          79.6125,
+          90.75840000000001,
+          82.1459
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 192.6875,
+        "median_us": 177.9208,
+        "min_us": 170.85,
+        "samples_us": [
+          192.6875,
+          171.8625,
+          183.00420000000003,
+          189.13330000000002,
+          177.9208,
+          173.07080000000002,
+          170.85
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 185.55419999999998,
+        "median_us": 175.2292,
+        "min_us": 172.3291,
+        "samples_us": [
+          174.025,
+          185.55419999999998,
+          175.2292,
+          172.8125,
+          172.3291,
+          180.7916,
+          180.5667
+        ]
+      }
+    },
+    {
+      "name": "03_range_top_100",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "5",
+            "0",
+            "0",
+            "SEARCH Workout USING INDEX workout_duration (durationMinutes>? AND durationMinutes<?)"
+          ],
+          [
+            "29",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: fitness.Workout.durationMinutes ASC NULLS FIRST, fitness.Workout.id ASC NULLS FIRST, fetch=100\n  Filter: fitness.Workout.durationMinutes >= Int64(40) AND fitness.Workout.durationMinutes < Int64(60)\n    TableScan: fitness.Workout projection=[id, durationMinutes]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: TopK(fetch=100), expr=[durationMinutes@1 ASC, id@0 ASC], preserve_partitioning=[false]\n  FilterExec: durationMinutes@1 >= 40 AND durationMinutes@1 < 60\n    DataSourceExec: partitions=1, partition_sizes=[40]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.013708,
+        "substrate_admin": 0.108208,
+        "substrate_reader": 0.07525
+      },
+      "repeat_verified": true,
+      "rows": 100,
+      "sha256": "e19a8ab4eef2a39c92b3bacfd51ac5c4583e20c838d19e27cf6534f283e5f424",
+      "sql": "SELECT id,\"durationMinutes\" FROM fitness.\"Workout\" WHERE \"durationMinutes\">=40 AND \"durationMinutes\"<60 ORDER BY \"durationMinutes\",id LIMIT 100",
+      "sqlite": {
+        "max_us": 62.37919999999999,
+        "median_us": 56.45,
+        "min_us": 55.34580000000001,
+        "samples_us": [
+          58.1792,
+          55.929199999999994,
+          55.9791,
+          56.666700000000006,
+          55.34580000000001,
+          56.45,
+          62.37919999999999
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 352.3958,
+        "median_us": 330.8667,
+        "min_us": 320.6708,
+        "samples_us": [
+          352.3958,
+          324.875,
+          350.0209,
+          330.8667,
+          339.0917,
+          323.2125,
+          320.6708
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 346.7958,
+        "median_us": 331.2417,
+        "min_us": 324.6708,
+        "samples_us": [
+          335.1833,
+          326.8958,
+          346.7958,
+          325.8833,
+          324.6708,
+          336.4375,
+          331.2417
+        ]
+      }
+    },
+    {
+      "name": "04_relationship_lookup",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "6",
+            "0",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "11",
+            "0",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ],
+          [
+            "23",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: f.id ASC NULLS FIRST\n  Projection: f.id, w.id, w.durationMinutes\n    Inner Join: f.workout = w.id\n      SubqueryAlias: f\n        Projection: fitness.Performed.id, fitness.Performed.workout\n          Filter: fitness.Performed.athlete = Utf8(\"00000000-0000-0000-0000-000000002711\")\n            TableScan: fitness.Performed projection=[id, athlete, workout]\n      SubqueryAlias: w\n        TableScan: fitness.Workout projection=[id, durationMinutes]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: expr=[id@0 ASC], preserve_partitioning=[false]\n  HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(workout@1, id@0)], projection=[id@0, id@2, durationMinutes@3]\n    FilterExec: athlete@1 = 00000000-0000-0000-0000-000000002711, projection=[id@0, workout@2]\n      DataSourceExec: partitions=1, partition_sizes=[40]\n    DataSourceExec: partitions=1, partition_sizes=[40]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.020083,
+        "substrate_admin": 0.147209,
+        "substrate_reader": 0.090917
+      },
+      "repeat_verified": true,
+      "rows": 2,
+      "sha256": "36376da69111cdfa3c83fcc6ac7c25f16953b1656490d77f6515f434b232dcd6",
+      "sql": "SELECT f.id,w.id,w.\"durationMinutes\" FROM fitness.\"Performed\" f JOIN fitness.\"Workout\" w ON w.id=f.workout WHERE f.athlete='00000000-0000-0000-0000-000000002711' ORDER BY f.id",
+      "sqlite": {
+        "max_us": 1.4041000000000001,
+        "median_us": 1.1042,
+        "min_us": 1.0916000000000001,
+        "samples_us": [
+          1.4041000000000001,
+          1.175,
+          1.15,
+          1.1,
+          1.1,
+          1.1042,
+          1.0916000000000001
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 512.1042,
+        "median_us": 508.0,
+        "min_us": 485.7542,
+        "samples_us": [
+          511.34170000000006,
+          485.7542,
+          496.1791999999999,
+          508.0,
+          512.1042,
+          505.59170000000006,
+          508.65830000000005
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 510.5625,
+        "median_us": 493.6833,
+        "min_us": 479.9958,
+        "samples_us": [
+          501.725,
+          510.5625,
+          493.6833,
+          486.2166,
+          497.125,
+          479.9958,
+          489.9333
+        ]
+      }
+    },
+    {
+      "name": "05_cross_app_five_way",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "11",
+            "0",
+            "0",
+            "SEARCH p USING COVERING INDEX sqlite_autoindex_Person_1 (id=?)"
+          ],
+          [
+            "15",
+            "0",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "22",
+            "0",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ],
+          [
+            "27",
+            "0",
+            "0",
+            "SEARCH c USING INDEX customer_person (customer=?)"
+          ],
+          [
+            "34",
+            "0",
+            "0",
+            "SEARCH d USING INDEX sqlite_autoindex_Deal_1 (id=?)"
+          ],
+          [
+            "50",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: f.id ASC NULLS FIRST, c.id ASC NULLS FIRST\n  Projection: p.id, f.id, w.durationMinutes, c.id, d.amount\n    Inner Join: c.deal = d.id\n      Projection: p.id, f.id, w.durationMinutes, c.id, c.deal\n        Inner Join: p.id = c.customer\n          Projection: p.id, f.id, w.durationMinutes\n            Inner Join: f.workout = w.id\n              Projection: p.id, f.id, f.workout\n                Inner Join: p.id = f.athlete\n                  SubqueryAlias: p\n                    Filter: core.Person.id = Utf8(\"00000000-0000-0000-0000-000000002711\")\n                      TableScan: core.Person projection=[id]\n                  SubqueryAlias: f\n                    Filter: fitness.Performed.athlete = Utf8(\"00000000-0000-0000-0000-000000002711\")\n                      TableScan: fitness.Performed projection=[id, athlete, workout]\n              SubqueryAlias: w\n                TableScan: fitness.Workout projection=[id, durationMinutes]\n          SubqueryAlias: c\n            Filter: crm.CustomerDeal.customer = Utf8(\"00000000-0000-0000-0000-000000002711\")\n              TableScan: crm.CustomerDeal projection=[id, customer, deal]\n      SubqueryAlias: d\n        TableScan: crm.Deal projection=[id, amount]"
+          ],
+          [
+            "physical_plan",
+            "HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, deal@4)], projection=[id@2, id@3, durationMinutes@4, id@5, amount@1]\n  DataSourceExec: partitions=1, partition_sizes=[40]\n  SortExec: expr=[id@1 ASC, id@3 ASC], preserve_partitioning=[false]\n    FilterExec: DynamicFilter [ empty ]\n      HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(customer@1, id@0)], projection=[id@3, id@4, durationMinutes@5, id@0, deal@2]\n        FilterExec: customer@1 = 00000000-0000-0000-0000-000000002711\n          DataSourceExec: partitions=1, partition_sizes=[40]\n        HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, workout@2)], projection=[id@2, id@3, durationMinutes@1]\n          DataSourceExec: partitions=1, partition_sizes=[40]\n          HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, athlete@1)], projection=[id@0, id@1, workout@3]\n            FilterExec: id@0 = 00000000-0000-0000-0000-000000002711\n              DataSourceExec: partitions=1, partition_sizes=[20]\n            FilterExec: athlete@1 = 00000000-0000-0000-0000-000000002711\n              DataSourceExec: partitions=1, partition_sizes=[40]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.024624999999999998,
+        "substrate_admin": 0.178375,
+        "substrate_reader": 0.157416
+      },
+      "repeat_verified": true,
+      "rows": 4,
+      "sha256": "347d73f8350190e8b9dee803b748cc099e9b15089b4eaab1b793dd58a6a8129c",
+      "sql": "SELECT p.id,f.id,w.\"durationMinutes\",c.id,d.amount FROM core.\"Person\" p JOIN fitness.\"Performed\" f ON f.athlete=p.id JOIN fitness.\"Workout\" w ON w.id=f.workout JOIN crm.\"CustomerDeal\" c ON c.customer=p.id JOIN crm.\"Deal\" d ON d.id=c.deal WHERE p.id='00000000-0000-0000-0000-000000002711' ORDER BY f.id,c.id",
+      "sqlite": {
+        "max_us": 3.4333,
+        "median_us": 3.1582999999999997,
+        "min_us": 3.1416,
+        "samples_us": [
+          3.4333,
+          3.1582999999999997,
+          3.1541,
+          3.2,
+          3.1708000000000003,
+          3.1542,
+          3.1416
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 2090.3084,
+        "median_us": 1983.8334,
+        "min_us": 1844.5375,
+        "samples_us": [
+          1882.1875,
+          1844.5375,
+          1999.7625,
+          2090.3084,
+          1946.3959,
+          1983.8334,
+          2046.7875
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 2198.5167,
+        "median_us": 2071.275,
+        "min_us": 1859.2958999999998,
+        "samples_us": [
+          2011.9833999999998,
+          2071.275,
+          2198.5167,
+          2080.9916000000003,
+          2086.0791,
+          1859.2958999999998,
+          1965.5458000000003
+        ]
+      }
+    },
+    {
+      "name": "06_cross_app_group_top_25",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "16",
+            "0",
+            "0",
+            "SCAN p USING COVERING INDEX sqlite_autoindex_Person_1"
+          ],
+          [
+            "18",
+            "0",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "27",
+            "0",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ],
+          [
+            "32",
+            "0",
+            "0",
+            "SEARCH c USING INDEX customer_person (customer=?)"
+          ],
+          [
+            "41",
+            "0",
+            "0",
+            "SEARCH d USING INDEX sqlite_autoindex_Deal_1 (id=?)"
+          ],
+          [
+            "89",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: sum(d.amount) DESC NULLS LAST, p.id ASC NULLS FIRST, fetch=25\n  Projection: p.id, count(Int64(1)) AS count(*), sum(w.durationMinutes), sum(d.amount)\n    Aggregate: groupBy=[[p.id]], aggr=[[count(Int64(1)), sum(CAST(CAST(w.durationMinutes AS Int64) AS Int64)), sum(CAST(CAST(d.amount AS Int64) AS Int64))]]\n      Projection: p.id, w.durationMinutes, d.amount\n        Inner Join: c.deal = d.id\n          Projection: p.id, w.durationMinutes, c.deal\n            Inner Join: p.id = c.customer\n              Projection: p.id, w.durationMinutes\n                Inner Join: f.workout = w.id\n                  Projection: p.id, f.workout\n                    Inner Join: p.id = f.athlete\n                      SubqueryAlias: p\n                        TableScan: core.Person projection=[id]\n                      SubqueryAlias: f\n                        TableScan: fitness.Performed projection=[athlete, workout]\n                  SubqueryAlias: w\n                    TableScan: fitness.Workout projection=[id, durationMinutes]\n              SubqueryAlias: c\n                TableScan: crm.CustomerDeal projection=[customer, deal]\n          SubqueryAlias: d\n            TableScan: crm.Deal projection=[id, amount]"
+          ],
+          [
+            "physical_plan",
+            "ProjectionExec: expr=[id@0 as id, count(Int64(1))@1 as count(*), sum(w.durationMinutes)@2 as sum(w.durationMinutes), sum(d.amount)@3 as sum(d.amount)]\n  SortExec: TopK(fetch=25), expr=[sum(d.amount)@3 DESC NULLS LAST, id@0 ASC], preserve_partitioning=[false]\n    AggregateExec: mode=Single, gby=[id@0 as id], aggr=[count(Int64(1)), sum(w.durationMinutes), sum(d.amount)]\n      HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(deal@2, id@0)], projection=[id@0, durationMinutes@1, amount@4]\n        HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, customer@0)], projection=[id@0, durationMinutes@1, deal@3]\n          HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(workout@1, id@0)], projection=[id@0, durationMinutes@3]\n            HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, athlete@0)], projection=[id@0, workout@2]\n              DataSourceExec: partitions=1, partition_sizes=[20]\n              DataSourceExec: partitions=1, partition_sizes=[40]\n            DataSourceExec: partitions=1, partition_sizes=[40]\n          DataSourceExec: partitions=1, partition_sizes=[40]\n        DataSourceExec: partitions=1, partition_sizes=[40]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.040625,
+        "substrate_admin": 0.443625,
+        "substrate_reader": 0.205666
+      },
+      "repeat_verified": true,
+      "rows": 25,
+      "sha256": "f5b5b9cb8af4d983848fbd263c26bb60ba6c6d5cc82ac23be5400a9b41a6f445",
+      "sql": "SELECT p.id,COUNT(*),SUM(w.\"durationMinutes\"),SUM(d.amount) FROM core.\"Person\" p JOIN fitness.\"Performed\" f ON f.athlete=p.id JOIN fitness.\"Workout\" w ON w.id=f.workout JOIN crm.\"CustomerDeal\" c ON c.customer=p.id JOIN crm.\"Deal\" d ON d.id=c.deal GROUP BY p.id ORDER BY SUM(d.amount) DESC,p.id LIMIT 25",
+      "sqlite": {
+        "max_us": 37704.5042,
+        "median_us": 37601.2625,
+        "min_us": 37004.0584,
+        "samples_us": [
+          37601.2625,
+          37704.5042,
+          37686.4375,
+          37663.3292,
+          37215.7625,
+          37004.0584,
+          37032.3625
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 12608.9125,
+        "median_us": 12486.1583,
+        "min_us": 12197.6208,
+        "samples_us": [
+          12197.6208,
+          12460.658300000001,
+          12593.2084,
+          12511.287500000002,
+          12486.1583,
+          12455.2167,
+          12608.9125
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 12588.3875,
+        "median_us": 12460.0708,
+        "min_us": 12009.291699999998,
+        "samples_us": [
+          12460.0708,
+          12250.2583,
+          12588.3875,
+          12521.325,
+          12009.9792,
+          12009.291699999998,
+          12581.895800000002
+        ]
+      }
+    },
+    {
+      "name": "07_correlated_exists",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "5",
+            "0",
+            "0",
+            "SCAN p USING INDEX sqlite_autoindex_Person_1"
+          ],
+          [
+            "9",
+            "0",
+            "0",
+            "CORRELATED SCALAR SUBQUERY 1"
+          ],
+          [
+            "16",
+            "9",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "22",
+            "9",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: p.id ASC NULLS FIRST, fetch=100\n  LeftSemi Join: p.id = __correlated_sq_1.athlete\n    SubqueryAlias: p\n      TableScan: core.Person projection=[id, name]\n    SubqueryAlias: __correlated_sq_1\n      Projection: f.athlete\n        LeftSemi Join: f.workout = w.id\n          SubqueryAlias: f\n            TableScan: fitness.Performed projection=[athlete, workout]\n          SubqueryAlias: w\n            Projection: fitness.Workout.id\n              Filter: fitness.Workout.durationMinutes > Int64(110)\n                TableScan: fitness.Workout projection=[id, durationMinutes]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: TopK(fetch=100), expr=[id@0 ASC], preserve_partitioning=[false]\n  HashJoinExec: mode=CollectLeft, join_type=LeftSemi, on=[(id@0, athlete@0)]\n    DataSourceExec: partitions=1, partition_sizes=[20]\n    HashJoinExec: mode=CollectLeft, join_type=RightSemi, on=[(id@0, workout@1)], projection=[athlete@0]\n      FilterExec: durationMinutes@1 > 110, projection=[id@0]\n        DataSourceExec: partitions=1, partition_sizes=[40]\n      DataSourceExec: partitions=1, partition_sizes=[40]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.02775,
+        "substrate_admin": 0.179167,
+        "substrate_reader": 0.116125
+      },
+      "repeat_verified": true,
+      "rows": 100,
+      "sha256": "24acedce654066dbb4e699f2dd531ddd3cc39117158860fb03bab4823de0b4d9",
+      "sql": "SELECT p.id,p.name FROM core.\"Person\" p WHERE EXISTS (SELECT 1 FROM fitness.\"Performed\" f JOIN fitness.\"Workout\" w ON w.id=f.workout WHERE f.athlete=p.id AND w.\"durationMinutes\">110) ORDER BY p.id LIMIT 100",
+      "sqlite": {
+        "max_us": 451.4,
+        "median_us": 439.82910000000004,
+        "min_us": 434.5834,
+        "samples_us": [
+          447.3208000000001,
+          451.4,
+          439.82910000000004,
+          438.0959,
+          440.2416,
+          439.1834,
+          434.5834
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 1071.675,
+        "median_us": 1017.0417,
+        "min_us": 986.6625,
+        "samples_us": [
+          1071.675,
+          1045.3125,
+          992.3540999999999,
+          1017.0417,
+          992.375,
+          986.6625,
+          1041.2207999999998
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 1069.0375,
+        "median_us": 991.0,
+        "min_us": 967.4958,
+        "samples_us": [
+          1069.0375,
+          991.0,
+          977.2083,
+          1012.2375,
+          980.3,
+          967.4958,
+          1042.1833000000001
+        ]
+      }
+    },
+    {
+      "name": "08_filtered_nested_top_1",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "2",
+            "0",
+            "0",
+            "CO-ROUTINE ranked"
+          ],
+          [
+            "5",
+            "2",
+            "0",
+            "CO-ROUTINE (subquery-3)"
+          ],
+          [
+            "12",
+            "5",
+            "0",
+            "SCAN p USING COVERING INDEX sqlite_autoindex_Person_1"
+          ],
+          [
+            "14",
+            "5",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "20",
+            "5",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ],
+          [
+            "46",
+            "5",
+            "0",
+            "USE TEMP B-TREE FOR LAST 2 TERMS OF ORDER BY"
+          ],
+          [
+            "70",
+            "2",
+            "0",
+            "SCAN (subquery-3)"
+          ],
+          [
+            "122",
+            "0",
+            "0",
+            "SCAN ranked"
+          ],
+          [
+            "139",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: ranked.person_id ASC NULLS FIRST, fetch=100\n  SubqueryAlias: ranked\n    Projection: p.id AS person_id, f.id AS link_id, w.id AS workout_id, w.durationMinutes AS minutes\n      Filter: row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW <= UInt64(1)\n        WindowAggr: windowExpr=[[row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW]]\n          Projection: p.id, f.id, w.id, w.durationMinutes\n            Inner Join: f.workout = w.id\n              Projection: p.id, f.id, f.workout\n                Inner Join: p.id = f.athlete\n                  SubqueryAlias: p\n                    TableScan: core.Person projection=[id]\n                  SubqueryAlias: f\n                    TableScan: fitness.Performed projection=[id, athlete, workout]\n              SubqueryAlias: w\n                Filter: fitness.Workout.durationMinutes >= Int64(30)\n                  TableScan: fitness.Workout projection=[id, durationMinutes]"
+          ],
+          [
+            "physical_plan",
+            "ProjectionExec: expr=[id@0 as person_id, id@1 as link_id, id@2 as workout_id, durationMinutes@3 as minutes]\n  FilterExec: row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW@4 <= 1, projection=[id@0, id@1, id@2, durationMinutes@3], fetch=100\n    BoundedWindowAggExec: wdw=[row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW: Field { \"row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\": UInt64 }, frame: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW], mode=[Sorted]\n      SortExec: expr=[id@0 ASC NULLS LAST, durationMinutes@3 DESC NULLS LAST, id@1 ASC], preserve_partitioning=[false]\n        HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(workout@2, id@0)], projection=[id@0, id@1, id@3, durationMinutes@4]\n          HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, athlete@1)], projection=[id@0, id@1, workout@3]\n            DataSourceExec: partitions=1, partition_sizes=[20]\n            DataSourceExec: partitions=1, partition_sizes=[40]\n          FilterExec: durationMinutes@1 >= 30\n            DataSourceExec: partitions=1, partition_sizes=[40]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.097083,
+        "substrate_admin": 0.28275,
+        "substrate_reader": 0.208042
+      },
+      "repeat_verified": true,
+      "rows": 100,
+      "sha256": "52195ac623aa4f3cddfdb92fd502f457a60e91a14dc3d6c89a5a566ef2b9678b",
+      "sql": "SELECT person_id,link_id,workout_id,minutes FROM (SELECT p.id AS person_id,f.id AS link_id,w.id AS workout_id,w.\"durationMinutes\" AS minutes,ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY w.\"durationMinutes\" DESC,f.id) AS rn FROM core.\"Person\" p JOIN fitness.\"Performed\" f ON f.athlete=p.id JOIN fitness.\"Workout\" w ON w.id=f.workout WHERE w.\"durationMinutes\">=30) ranked WHERE rn<=1 ORDER BY person_id LIMIT 100",
+      "sqlite": {
+        "max_us": 24562.8458,
+        "median_us": 24254.7625,
+        "min_us": 24097.366700000002,
+        "samples_us": [
+          24562.8458,
+          24297.716699999997,
+          24331.3792,
+          24220.9625,
+          24226.975,
+          24097.366700000002,
+          24254.7625
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 7743.5667,
+        "median_us": 7517.6042,
+        "min_us": 7206.304099999999,
+        "samples_us": [
+          7732.0291,
+          7206.304099999999,
+          7260.3583,
+          7212.325,
+          7517.6042,
+          7743.5667,
+          7667.6291999999985
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 7769.15,
+        "median_us": 7585.2333,
+        "min_us": 7464.45,
+        "samples_us": [
+          7600.8083,
+          7543.8292,
+          7464.45,
+          7534.8667000000005,
+          7717.7541,
+          7585.2333,
+          7769.15
+        ]
+      }
+    },
+    {
+      "name": "09_full_scan_aggregate",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "3",
+            "0",
+            "0",
+            "SCAN Workout USING COVERING INDEX workout_duration"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Projection: count(Int64(1)) AS count(*), sum(fitness.Workout.durationMinutes), min(fitness.Workout.durationMinutes), max(fitness.Workout.durationMinutes)\n  Aggregate: groupBy=[[]], aggr=[[count(Int64(1)), sum(CAST(CAST(fitness.Workout.durationMinutes AS Int64) AS Int64)), min(fitness.Workout.durationMinutes), max(fitness.Workout.durationMinutes)]]\n    TableScan: fitness.Workout projection=[durationMinutes]"
+          ],
+          [
+            "physical_plan",
+            "ProjectionExec: expr=[count(Int64(1))@0 as count(*), sum(fitness.Workout.durationMinutes)@1 as sum(fitness.Workout.durationMinutes), min(fitness.Workout.durationMinutes)@2 as min(fitness.Workout.durationMinutes), max(fitness.Workout.durationMinutes)@3 as max(fitness.Workout.durationMinutes)]\n  AggregateExec: mode=Single, gby=[], aggr=[count(Int64(1)), sum(fitness.Workout.durationMinutes), min(fitness.Workout.durationMinutes), max(fitness.Workout.durationMinutes)]\n    DataSourceExec: partitions=1, partition_sizes=[40]\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.031124999999999996,
+        "substrate_admin": 0.23666700000000002,
+        "substrate_reader": 0.115625
+      },
+      "repeat_verified": true,
+      "rows": 1,
+      "sha256": "710e14c98f045929e176ba7b441ff75c5dae3f6c7bc07dd91dcacd746bb81879",
+      "sql": "SELECT COUNT(*),SUM(\"durationMinutes\"),MIN(\"durationMinutes\"),MAX(\"durationMinutes\") FROM fitness.\"Workout\"",
+      "sqlite": {
+        "max_us": 1057.1,
+        "median_us": 999.1875,
+        "min_us": 969.0582999999999,
+        "samples_us": [
+          1052.3083000000001,
+          1057.1,
+          999.1875,
+          973.4875,
+          994.0208,
+          969.0582999999999,
+          999.4875
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 280.8166,
+        "median_us": 260.86659999999995,
+        "min_us": 251.55,
+        "samples_us": [
+          280.8166,
+          260.86659999999995,
+          260.35,
+          272.4292,
+          251.55,
+          266.7417,
+          253.7292
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 254.7875,
+        "median_us": 249.5459,
+        "min_us": 246.125,
+        "samples_us": [
+          252.62910000000002,
+          246.125,
+          249.7125,
+          249.5459,
+          246.5625,
+          247.2167,
+          254.7875
+        ]
+      }
+    }
+  ],
+  "occurrences": 180000,
+  "people": 20000,
+  "postgres_measured": false,
+  "postgres_timing": "psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency",
+  "prepared": true,
+  "samples": 7,
+  "setup_ms": {
+    "postgres": null,
+    "sqlite": 43987.549792000005,
+    "substrate": 885.7978330000001,
+    "substrate_admin_sql_catalog": 46.736125,
+    "substrate_reader_sql_catalog": 144.089666
+  },
+  "warm_cache": true,
+  "benchmark_binary_sha256": "ea991198ad0172a22c1a52ca7134c4de8349f6439c2768d9632b5d1f8f7c34d3",
+  "benchmark_binary_bytes": 121132464
+}

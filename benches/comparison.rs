@@ -133,6 +133,7 @@ fn workloads(n: usize) -> Vec<(&'static str, String)> {
         ("06_cross_app_group_top_25",r#"SELECT p.id,COUNT(*),SUM(w."durationMinutes"),SUM(d.amount) FROM core."Person" p JOIN fitness."Performed" f ON f.athlete=p.id JOIN fitness."Workout" w ON w.id=f.workout JOIN crm."CustomerDeal" c ON c.customer=p.id JOIN crm."Deal" d ON d.id=c.deal GROUP BY p.id ORDER BY SUM(d.amount) DESC,p.id LIMIT 25"#.into()),
         ("07_correlated_exists",r#"SELECT p.id,p.name FROM core."Person" p WHERE EXISTS (SELECT 1 FROM fitness."Performed" f JOIN fitness."Workout" w ON w.id=f.workout WHERE f.athlete=p.id AND w."durationMinutes">110) ORDER BY p.id LIMIT 100"#.into()),
         ("08_filtered_nested_top_1",r#"SELECT person_id,link_id,workout_id,minutes FROM (SELECT p.id AS person_id,f.id AS link_id,w.id AS workout_id,w."durationMinutes" AS minutes,ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY w."durationMinutes" DESC,f.id) AS rn FROM core."Person" p JOIN fitness."Performed" f ON f.athlete=p.id JOIN fitness."Workout" w ON w.id=f.workout WHERE w."durationMinutes">=30) ranked WHERE rn<=1 ORDER BY person_id LIMIT 100"#.into()),
+        ("09_full_scan_aggregate",r#"SELECT COUNT(*),SUM("durationMinutes"),MIN("durationMinutes"),MAX("durationMinutes") FROM fitness."Workout""#.into()),
     ]
 }
 fn canonical(rows: Vec<Vec<S>>) -> Rows {
@@ -171,8 +172,27 @@ fn measure(mut f: impl FnMut()) -> J {
     stats(means)
 }
 fn stats(mut means: Vec<f64>) -> J {
+    let samples = means.clone();
     means.sort_by(f64::total_cmp);
-    json!({"median_us":means[means.len()/2],"min_us":means[0],"max_us":means[means.len()-1]})
+    json!({"median_us":means[means.len()/2],"min_us":means[0],"max_us":means[means.len()-1],"samples_us":samples})
+}
+fn timed<T>(f: impl FnOnce() -> T) -> (T, f64) {
+    let start = Instant::now();
+    let result = f();
+    (result, start.elapsed().as_secs_f64() * 1000.)
+}
+fn locked_version(package: &str) -> &'static str {
+    let name = format!("name = \"{package}\"");
+    include_str!("../Cargo.lock")
+        .split("[[package]]")
+        .find(|block| block.lines().any(|line| line == name))
+        .and_then(|block| {
+            block
+                .lines()
+                .find_map(|line| line.strip_prefix("version = \""))
+        })
+        .and_then(|version| version.strip_suffix('"'))
+        .expect("benchmark dependency must be in Cargo.lock")
 }
 fn psql(dsn: &str, sql: &str) -> String {
     let mut child = Command::new("psql")
@@ -247,8 +267,8 @@ fn main() {
     let start = Instant::now();
     let db = fixture(n);
     let substrate_setup = start.elapsed().as_secs_f64() * 1000.;
-    let sql = db.admin().snapshot().sql().unwrap();
-    let authorized = db.session("reader").snapshot().sql().unwrap();
+    let (sql, admin_catalog_ms) = timed(|| db.admin().snapshot().sql().unwrap());
+    let (authorized, reader_catalog_ms) = timed(|| db.session("reader").snapshot().sql().unwrap());
     let conn = Connection::open_in_memory().unwrap();
     let start = Instant::now();
     conn.execute_batch(&ddl(false)).unwrap();
@@ -261,9 +281,10 @@ fn main() {
     });
     let mut measurements = vec![];
     for (name, query) in workloads(n) {
-        let mut ordinary = conn.prepare(&flatten(&query)).unwrap();
-        let mut liquid = sql.prepare(&query).unwrap();
-        let mut restricted = authorized.prepare(&query).unwrap();
+        let flattened = flatten(&query);
+        let (mut ordinary, sqlite_prepare_ms) = timed(|| conn.prepare(&flattened).unwrap());
+        let (mut liquid, admin_prepare_ms) = timed(|| sql.prepare(&query).unwrap());
+        let (mut restricted, reader_prepare_ms) = timed(|| authorized.prepare(&query).unwrap());
         let expected = sqlite_rows(&mut ordinary);
         assert_eq!(
             canonical(liquid.query(&[]).unwrap().rows),
@@ -291,19 +312,38 @@ fn main() {
         let substrate_reader = measure(|| {
             black_box(canonical(restricted.query(&[]).unwrap().rows));
         });
+        // Repeated physical execution must not retain LIMIT/dynamic-filter state.
+        assert_eq!(
+            sqlite_rows(&mut ordinary),
+            expected,
+            "SQLite repeat: {name}"
+        );
+        assert_eq!(
+            canonical(liquid.query(&[]).unwrap().rows),
+            expected,
+            "Substrate admin repeat: {name}"
+        );
+        assert_eq!(
+            canonical(restricted.query(&[]).unwrap().rows),
+            expected,
+            "Substrate reader repeat: {name}"
+        );
         let postgres = pg.as_ref().map(|dsn| pg_measure(dsn, &query));
-        let explain = format!("EXPLAIN QUERY PLAN {query}");
-        let sqlite_plan = sqlite_rows(&mut conn.prepare(&flatten(&explain)).unwrap());
-        let substrate_plan = canonical(sql.query(&explain, &[]).unwrap().rows);
+        let sqlite_plan = sqlite_rows(
+            &mut conn
+                .prepare(&flatten(&format!("EXPLAIN QUERY PLAN {query}")))
+                .unwrap(),
+        );
+        let substrate_plan = canonical(sql.query(&format!("EXPLAIN {query}"), &[]).unwrap().rows);
         let postgres_plan = pg.as_ref().map(|dsn| {
             serde_json::from_str::<J>(&psql(dsn, &format!("EXPLAIN (FORMAT JSON) {query};")))
                 .unwrap()
         });
-        measurements.push(json!({"name":name,"sql":query,"rows":expected.len(),"sha256":digest,"sqlite":sqlite,"substrate_admin":substrate_admin,"substrate_reader":substrate_reader,"postgres_psql":postgres,"plans":{"sqlite":sqlite_plan,"substrate":substrate_plan,"postgres":postgres_plan}}));
+        measurements.push(json!({"name":name,"sql":query,"rows":expected.len(),"sha256":digest,"repeat_verified":true,"prepare_ms":{"sqlite":sqlite_prepare_ms,"substrate_admin":admin_prepare_ms,"substrate_reader":reader_prepare_ms},"sqlite":sqlite,"substrate_admin":substrate_admin,"substrate_reader":substrate_reader,"postgres_psql":postgres,"plans":{"sqlite":sqlite_plan,"substrate":substrate_plan,"postgres":postgres_plan}}));
         eprintln!("verified and measured {name}");
     }
     let postgres_version = pg
         .as_ref()
         .map(|dsn| psql(dsn, "SELECT version();").trim().to_owned());
-    println!("{}",serde_json::to_string_pretty(&json!({"people":n,"occurrences":n*9,"children_per_app_per_person":2,"samples":SAMPLES,"iterations":ITERATIONS,"warm_cache":true,"prepared":true,"environment":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"sqlite":rusqlite::version(),"substrate":env!("CARGO_PKG_VERSION"),"postgres":postgres_version},"setup_ms":{"substrate":substrate_setup,"sqlite":sqlite_setup,"postgres":postgres_setup},"postgres_measured":pg.is_some(),"postgres_timing":"psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency","measurements":measurements})).unwrap());
+    println!("{}",serde_json::to_string_pretty(&json!({"people":n,"occurrences":n*9,"children_per_app_per_person":2,"samples":SAMPLES,"iterations":ITERATIONS,"warm_cache":true,"prepared":true,"environment":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"sqlite":rusqlite::version(),"substrate":env!("CARGO_PKG_VERSION"),"sql_engine":"DataFusion","datafusion_facade":datafusion::DATAFUSION_VERSION,"datafusion_execution":locked_version("datafusion-physical-plan"),"imbl":locked_version("imbl"),"postgres":postgres_version},"setup_ms":{"substrate":substrate_setup,"substrate_admin_sql_catalog":admin_catalog_ms,"substrate_reader_sql_catalog":reader_catalog_ms,"sqlite":sqlite_setup,"postgres":postgres_setup},"postgres_measured":pg.is_some(),"postgres_timing":"psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency","measurements":measurements})).unwrap());
 }

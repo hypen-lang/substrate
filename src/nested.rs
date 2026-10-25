@@ -217,7 +217,7 @@ fn prepare(
         .as_ref()
         .map(|p| predicate(&def, p, &mut params, 0, predicates))
         .transpose()?
-        .unwrap_or_else(|| "1".into());
+        .unwrap_or_else(|| "TRUE".into());
     let mut order = vec![];
     let mut seen = BTreeSet::new();
     for o in &plan.order {
@@ -414,6 +414,7 @@ fn load(
             max_rows: budget.rows,
             max_bytes: budget.bytes,
             vm_steps: 1_000_000,
+            timeout_ms: 5_000,
         },
     )?;
     stats.sql_statements += 1;

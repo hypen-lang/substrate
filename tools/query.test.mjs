@@ -54,5 +54,5 @@ test("projection decoders preserve bool, bytes, timestamp and decimal domains",a
 test("explain submits parameterized plan introspection in one checked request",async()=>{
  let seen;const q=select({id:p.c.id}).from(p).where(eq(p.c.name,"Ada"));
  const result=await q.explain({request:async c=>{seen=c;return {kind:"query",columns:[],rows:[]};}});
- assert.ok(seen.command.sql.startsWith("EXPLAIN QUERY PLAN SELECT"));assert.equal(seen.contracts[0].schema_id,core_Person.schemaId);assert.deepEqual(result.params,[{Text:"Ada"},{Integer:"100"}]);
+ assert.ok(seen.command.sql.startsWith("EXPLAIN SELECT"));assert.equal(seen.contracts[0].schema_id,core_Person.schemaId);assert.deepEqual(result.params,[{Text:"Ada"},{Integer:"100"}]);
 });

@@ -1,0 +1,86 @@
+# DataFusion SQL reads
+
+The default `Snapshot::sql()`, `sql_selected()`, prepared SQL reads, remote SQL
+reads, typed SQL builder and nested SQL loader now use DataFusion. Native
+`scan`, `lookup`, `Table` projection/join, transaction validation, packed storage
+and redb durability are unchanged. Persistent collections now use imbl 7.0.2.
+
+The Rust dependency is pinned to DataFusion 55.0.0 with its execution crates
+locked to 55.2.0. The Python 55.0.0 benchmark wheel reports the same 55.2.0 native
+engine. Rust 1.94 is now required. The comparison and its boundaries are in
+[the DataFusion experiment](benchmarks/DATAFUSION-EXPERIMENT.md).
+
+## Execution and authority
+
+Each SQL handle builds an isolated, immutable Arrow catalog from its authorized
+Liquid snapshot. Rows pass the existing row filters and transitive reference
+visibility checks before entering batches. Only discoverable relation schemas
+are registered. `sql_selected()` limits the catalog to explicitly selected
+families. No raw DataFusion context, detached Arrow batch or table provider is
+returned to the application.
+
+The handle retains its live authorization guard, including capability and
+credential dependencies. Creation, preparation, execution and final result release
+check that authority. Revocation, expiry, rotation and source-host loss invalidate
+retained handles. Data remains pinned to the original revision; authority remains
+live. Already delivered values cannot be recalled.
+
+Prepared queries cache logical plans. Every execution builds fresh physical
+execution state: reusing physical plans was observed to return incorrect repeated
+top-k results because dynamic filters retain state. Parameters remain typed values;
+`?`, `?1`, and `$1` are normalized using SQL tokens, never string interpolation.
+Exact signed integers, decimal minor units and timestamps use Arrow Int64;
+references remain canonical UUID strings and byte values remain binary.
+
+The synchronous API schedules work on a separate shared Tokio runtime, so calling
+it inside an application's Tokio runtime does not nest `block_on`. Every query
+uses a separate execution future and either returns a complete result or an error.
+
+## Bounds and SQL surface
+
+Catalog materialization is limited to one million visible rows and approximately
+128 MiB of encoded column payload, with a 1 MiB limit per source cell. Parameter
+payloads are also bounded. Native reads retain their existing value limits.
+Each SQL context has a 256 MiB DataFusion
+execution memory pool, with disk spilling disabled. These are accounting budgets,
+not a hard process RSS limit; Arrow metadata, source state and some temporary
+allocations are additional. Catalog construction costs should be amortized by
+reusing handles for repeated queries.
+
+`QueryLimits` bounds returned rows, bytes, and execution time (`timeout_ms`). Its
+legacy `vm_steps` field counts returned cells in DataFusion; it is not an opcode or
+CPU budget. In the explicit SQLite compatibility adapter it still counts SQLite
+VM instructions. Deadlines are cooperative cancellation, not process isolation.
+
+Only one read query or EXPLAIN is accepted. DDL, DML, session configuration,
+external table registration, file/network table functions and protected system
+catalogs are unavailable through this API. Unbounded expansion functions and
+collection/string aggregation are outside this initial SQL surface. Invoker views use the same catalog and
+guard. Use `EXPLAIN SELECT ...` for the DataFusion plan. Profiling reports include
+these plans, which can contain literal and bound values.
+
+## Compatibility
+
+DataFusion is a different SQL dialect. It uses stronger typing than SQLite;
+SQLite affinity/coercion tricks, `COLLATE NOCASE`, `PRAGMA`, and SQLite-specific
+functions are not a compatibility promise. The output API remains `SqlTable`
+with primitive SQL values, including NULL. Unsupported result types and integers
+outside the signed 64-bit output range return errors rather than silently losing
+precision. Signed integer arithmetic is rewritten before optimization into checked
+operations, including constants, predicates, mixed widths and bound parameters.
+Integer SUM uses a checked widened accumulator, including sliding windows; an
+out-of-range final result returns an error. SUM DISTINCT is currently unsupported.
+Unsigned/decimal arithmetic requires an explicit BIGINT or DOUBLE cast. Floating
+arithmetic is approximate; non-finite returned values are rejected. Use explicit
+casts and aliases for portable queries.
+
+`Snapshot::sqlite_compat()` and `sqlite_compat_selected()` retain the previous
+adapter explicitly for applications that need its dialect. There is no silent
+fallback after a DataFusion failure. The native query API is unchanged.
+
+`SqlTransaction::execute()` still uses SQLite's mutation adapter to call Liquid's
+typed transactional insert/update/delete operations. SQLite is not canonical
+storage. Transactional SELECTs use DataFusion over the transaction's staged state;
+the adapter conservatively records reads of all visible families before executing
+the immutable batch query. This preserves conflict detection but can produce
+more conflicts than a future provider that records precise read dependencies.

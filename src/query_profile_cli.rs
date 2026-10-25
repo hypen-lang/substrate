@@ -119,7 +119,7 @@ pub fn run(args: &[String]) -> CliResult<()> {
         let benchmark = benchmark_query(&session, &sql, &params, options)?;
         let report = serde_json::json!({
             "environment": { "os": std::env::consts::OS, "arch": std::env::consts::ARCH,
-                "sqlite": rusqlite::version(), "debug_assertions": cfg!(debug_assertions),
+                "sql_engine": "DataFusion", "datafusion": datafusion::DATAFUSION_VERSION, "sqlite_compatibility": rusqlite::version(), "debug_assertions": cfg!(debug_assertions),
                 "package_version": env!("CARGO_PKG_VERSION") },
             "database_open_ms": database_open_ms,
             "benchmark": benchmark,

@@ -1,3 +1,4 @@
+//! Legacy SQLite dialect/index adapter regressions; default read SQL uses DataFusion.
 use rusqlite::{Connection, types::Value as SqlValue};
 use substrate_liquid::*;
 fn fixture() -> (Database, Connection) {
@@ -61,7 +62,7 @@ fn sqlite_query(db: &Connection, sql: &str, params: &[SqlValue]) -> Vec<Vec<SqlV
         .collect::<rusqlite::Result<_>>()
         .unwrap()
 }
-fn plan(sql: &SqlSnapshot, query: &str) -> String {
+fn plan(sql: &SqliteSnapshot, query: &str) -> String {
     format!(
         "{:?}",
         sql.query(&format!("EXPLAIN QUERY PLAN {query}"), &[])
@@ -72,7 +73,7 @@ fn plan(sql: &SqlSnapshot, query: &str) -> String {
 #[test]
 fn identity_selection_ignores_predicate_order_and_broad_buckets() {
     let (db, _) = fixture();
-    let sql = db.admin().snapshot().sql().unwrap();
+    let sql = db.admin().snapshot().sqlite_compat().unwrap();
     for clause in [
         "i.visible=o.visible AND i.id=o.id",
         "i.id=o.id AND i.visible=o.visible",
@@ -90,7 +91,7 @@ fn identity_selection_ignores_predicate_order_and_broad_buckets() {
 #[test]
 fn numeric_ranges_match_sqlite_with_coercions_boundaries_duplicates_and_limits() {
     let (db, sqlite) = fixture();
-    let sql = db.admin().snapshot().sql().unwrap();
+    let sql = db.admin().snapshot().sqlite_compat().unwrap();
     let bounds = [
         (SqlValue::Integer(-20), SqlValue::Integer(20)),
         (SqlValue::Integer(i64::MIN), SqlValue::Integer(i64::MAX)),
@@ -125,7 +126,7 @@ fn numeric_ranges_match_sqlite_with_coercions_boundaries_duplicates_and_limits()
 #[test]
 fn range_ordering_is_reported_only_when_supported() {
     let (db, _) = fixture();
-    let sql = db.admin().snapshot().sql().unwrap();
+    let sql = db.admin().snapshot().sqlite_compat().unwrap();
     let indexed = plan(
         &sql,
         "SELECT n FROM bench.Item WHERE n>=0 AND n<20 ORDER BY n DESC LIMIT 100",
@@ -144,7 +145,7 @@ fn range_ordering_is_reported_only_when_supported() {
 fn ordered_limit_filters_authorization_before_counting_rows_and_honors_revocation() {
     let (db, sqlite) = fixture();
     let snapshot = db.session("reader").snapshot();
-    let sql = snapshot.sql().unwrap();
+    let sql = snapshot.sqlite_compat().unwrap();
     for order in ["ASC", "DESC"] {
         let query = format!("SELECT n FROM bench.Item WHERE n>=-30 ORDER BY n {order} LIMIT 100");
         let expected = sqlite_query(

@@ -1,3 +1,8 @@
+The recorded pre-adoption experiment used the source preserved in commit `abb0a72`.
+Run reproduction from that revision to compare the same SQL engine. The helper
+also supports the current manifest, but its results then measure the current
+DataFusion implementation and must be labeled separately.
+
 # Persistent collection experiment
 
 This experiment compares the real engine with `im = 15.1.0` against the same

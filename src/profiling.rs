@@ -148,19 +148,16 @@ fn decode_plan(table: SqlTable) -> Result<Vec<QueryPlanStep>> {
     table
         .rows
         .into_iter()
-        .map(|row| match row.as_slice() {
-            [
-                Value::Integer(id),
-                Value::Integer(parent),
-                _,
-                Value::Text(detail),
-            ] => Ok(QueryPlanStep {
-                id: *id,
-                parent: *parent,
-                detail: detail.clone(),
+        .enumerate()
+        .map(|(index, row)| match row.as_slice() {
+            [Value::Text(kind), Value::Text(plan)] => Ok(QueryPlanStep {
+                // Each EXPLAIN stage is one root; these are not physical operator IDs.
+                id: index as i64,
+                parent: -1,
+                detail: format!("{kind}: {plan}"),
             }),
             _ => Err(crate::Error::Query(
-                "unexpected EXPLAIN QUERY PLAN result".into(),
+                "unexpected DataFusion EXPLAIN result".into(),
             )),
         })
         .collect()
@@ -169,7 +166,7 @@ fn decode_plan(table: SqlTable) -> Result<Vec<QueryPlanStep>> {
 /// Benchmark read-only SQL under the supplied session's actual authorization.
 /// `Prepared` pins a snapshot; `Request` can observe newer revisions if the caller
 /// writes concurrently. All result rows are materialized; use SQL LIMIT for large
-/// results. No SQL text, parameter values or returned cells appear in the report.
+/// results. Plans can contain SQL literals and bound values; reports belong to the requesting host.
 pub fn benchmark_query(
     session: &Session,
     sql: &str,
@@ -198,7 +195,7 @@ pub fn benchmark_query(
         }
     };
     // Explain only after measurements so it cannot prime the first execution.
-    let plan = decode_plan(context.query(&format!("EXPLAIN QUERY PLAN {sql}"), params)?)?;
+    let plan = decode_plan(context.query(&format!("EXPLAIN {sql}"), params)?)?;
     Ok(QueryBenchmark {
         format: 1,
         mode: options.mode,

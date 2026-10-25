@@ -30,6 +30,7 @@ pub mod profiling;
 mod query;
 mod runtime;
 pub use runtime::RuntimeDescriptor;
+mod datafusion_sql;
 mod sql;
 mod storage;
 mod wire;
@@ -41,4 +42,6 @@ pub use engine::{
 };
 pub use model::*;
 pub use query::Table;
-pub use sql::{QueryLimits, SqlQuery, SqlSnapshot, SqlTable, SqlTransaction};
+pub use sql::{
+    QueryLimits, SqlQuery, SqlSnapshot, SqlTable, SqlTransaction, SqliteQuery, SqliteSnapshot,
+};

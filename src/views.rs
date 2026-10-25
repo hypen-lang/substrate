@@ -172,7 +172,7 @@ impl Database {
             // SqlSnapshot::view reject DML, multiple statements and forbidden SQL.
             sql.view(RESULT_VIEW, select)?;
             let columns = sql
-                .query("SELECT * FROM temp.__liquid_result LIMIT 0", &[])?
+                .query("SELECT * FROM public.__liquid_result LIMIT 0", &[])?
                 .columns;
             let version = snapshot
                 .state
@@ -288,7 +288,7 @@ impl Snapshot {
         let mut sql = self.sql_selected(&names)?;
         sql.view(RESULT_VIEW, &definition.select)?;
         let columns = sql
-            .query("SELECT * FROM temp.__liquid_result LIMIT 0", &[])?
+            .query("SELECT * FROM public.__liquid_result LIMIT 0", &[])?
             .columns;
         if columns != definition.columns {
             return Err(Error::Schema("view result contract changed".into()));
@@ -317,7 +317,7 @@ impl DurableView {
     }
     pub fn query(&self) -> Result<SqlTable> {
         self.sql.query_with_limits(
-            "SELECT * FROM temp.__liquid_result",
+            "SELECT * FROM public.__liquid_result",
             &[],
             QueryLimits::default(),
         )

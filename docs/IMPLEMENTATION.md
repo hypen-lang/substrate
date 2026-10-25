@@ -393,3 +393,36 @@ shared-machine caveats. These runs do not measure credential/TLS/Effect overhead
 Operational security, trustworthy time across restart, larger-than-RAM serving,
 range planning, durable views, distributed work and Bend verification remain
 outstanding. This milestone does not claim public-service production readiness.
+
+
+## DataFusion SQL and imbl — 2026-10-25
+
+The pre-change implementation was committed as `abb0a72`. Production persistent
+collections now use imbl 7.0.2; the existing native read/write APIs and physical
+redb storage remain intact. SQL reads now execute through DataFusion, including
+transactional reads, durable invoker views, nested SQL loading and query profiling.
+SQLite is retained explicitly for dialect compatibility and SQL mutation translation
+into Liquid transactions; queries never silently fall back after a DataFusion error.
+
+The adapter creates an isolated authorized Arrow catalog, retains live authority,
+binds typed parameters, and creates fresh physical execution plans for each call.
+It checks signed arithmetic and SUM overflow before optimizer folding and after
+parameter binding. Resource accounting, output bounds and cooperative deadlines
+limit queries; they are not hard process isolation. Transactional reads currently
+track all visible families conservatively. See [the SQL guide](DATAFUSION-SQL.md)
+for supported types, syntax differences and current limits.
+
+The executable [example](../examples/datafusion_sql.rs) combines a parameterized
+relationship join/aggregate, native indexed lookup and live revocation. The
+[independent review](reviews/DATAFUSION.md) found integer wrapping and OVERLAY
+allocation amplification; both were fixed and re-reviewed. Candidate and final
+production measurements are separate: [raw engine comparison](benchmarks/DATAFUSION-EXPERIMENT.md)
+and [native adapter benchmark](benchmarks/DATAFUSION-NATIVE.md).
+
+
+Integrated verification: **341 Rust tests including the doctest** and **50
+TypeScript tests** passed. Strict all-target Clippy and formatting checks passed.
+The DataFusion example returned the expected joined aggregate, preserved native
+lookup behavior, and denied its retained SQL handle immediately after revocation.
+The review report records both findings and their fixes. Native benchmark results
+and timing boundaries are recorded separately in the linked report.

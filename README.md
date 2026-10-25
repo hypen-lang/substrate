@@ -73,7 +73,9 @@ UUIDs remain stable. Rust already groups types as `core::Person`.
 
 ## Run it
 
-Requires Rust 1.89 or newer. The checked-in lockfile pins dependencies.
+Requires Rust 1.94 or newer. The checked-in lockfile pins dependencies.
+Run `cargo run --example datafusion_sql` for a SQL join/aggregate, native lookup
+and live-revocation example.
 
 ```sh
 cargo run -- demo
@@ -236,13 +238,15 @@ See [the checkpoint decision](docs/adr/005-checkpoints.md) and
 | Tooling | Locked manifests, TS/Rust generation with clean aliases, Effect 3 service, validators, authorized catalog, dynamic descriptors, scoped proposals/approval/online apply, namespace quotas and lifecycle metadata | Published SDK packages, operator approval UI, ownership transfer, destructive retirement, derive macros, graphical studio |
 | Verification | Rust reference properties, concurrency, SQL differential, corruption, subprocess crash and I/O fault tests | Bend 2 oracle, formal proofs, exhaustive power-loss testing |
 
-The SQL adapter uses SQLite virtual tables, **not SQLite canonical storage**. It
-pushes compatible equality predicates to Liquid indexes and supports SQLite's
-SELECT/WHERE/JOIN/GROUP BY/ORDER BY/LIMIT behavior. It is not PostgreSQL wire or type
-compatibility. One attached in-memory SQLite schema is used per selected namespace (all readable
-namespaces for raw SQL); the bundled SQLite default limits a SQL snapshot to ten
-such namespaces. Typed queries and nested reads register only selected families.
-Native queries and storage do not have that namespace limit.
+SQL reads use **DataFusion over authorized Arrow batches**. Native indexed queries,
+relational algebra and redb storage retain their existing semantics. SQL handles
+pin data while checking live permissions before releasing results. Typed queries
+and nested reads register only selected families. The default SQL catalog has no
+SQLite attached-schema limit; materialization and execution budgets apply instead.
+Explicit `sqlite_compat()` handles preserve the old dialect, and embedded SQL
+mutations retain the SQLite adapter into Liquid transactions. There is no silent
+query fallback. See [DataFusion SQL](docs/DATAFUSION-SQL.md) for dialect differences,
+resource bounds, prepared execution, and migration details.
 
 redb retains one active writer per file. Concurrent independent transactions can
 share one durable redb commit while retaining separate revisions and conflict outcomes.
@@ -264,8 +268,8 @@ or failover, and follower permissions remain eventual until revocations arrive.
 
 ## Performance and next priorities
 
-Substrate remains slower than direct SQLite in the measured embedded read workloads.
-The latest 2,000-person run verified all eight results and measured approximately
+Before the DataFusion replacement, Substrate was slower than direct SQLite in the
+embedded read workloads. That 2,000-person run verified all eight results and measured approximately
 **2.5×** SQLite time for a primary-key lookup, **2.3×** for a five-family point join,
 **3.3×** for an aggregate, and **5.3×** for range/top 100. The latter was about 33.7×
 in the earlier repeated baseline. These are warm prepared-read measurements from a
@@ -287,15 +291,24 @@ and timing boundaries differ from the full comparison. See [query planning](docs
 [checkpoint measurements](docs/benchmarks/INCREMENTAL-CHECKPOINTS.md), and
 [operational hardening](docs/OPERATIONAL-HARDENING.md).
 
-Isolated [candidate experiments](docs/benchmarks/CANDIDATES.md) compare `imbl`,
-`simd-json`, DuckDB over Arrow, SQLite WAL and RocksDB against the current engine.
-`imbl` substantially improves the tested memory-only writes but has mixed read
-results. JSON parsing shows no authenticated-read improvement and exposes parser
-compatibility differences. Durability-matched storage measurements show no useful
-backend advantage over redb for the tested append workloads. The analytical
-experiment accounts separately for authorized export, column conversion and reuse.
-These experiments leave production dependencies unchanged; their reports include
-raw results, correctness checks and commands to reproduce them.
+The [candidate experiments](docs/benchmarks/CANDIDATES.md) informed adoption of
+`imbl` for persistent collections and DataFusion for SQL reads. `imbl` improved
+the tested memory-only inserts and updates by roughly twofold, with mixed native
+read results. [DataFusion versus DuckDB](docs/benchmarks/DATAFUSION-EXPERIMENT.md)
+favored DataFusion for grouped joins, windows and correlated EXISTS; point queries
+were slower. These are workload-specific results, with preparation costs reported
+separately. JSON parsing and durability-matched storage tests did not justify
+replacing serde_json or redb. Reports include raw results and reproduction commands.
+
+The [final production SQL benchmark](docs/benchmarks/DATAFUSION-NATIVE.md) verified
+nine identical queries across three runs at each dataset size. At 180,000 occurrences,
+DataFusion's grouped join took **12.31 ms versus SQLite's 37.49 ms**, the nested
+window query **7.61 versus 24.36 ms**, and a full-scan aggregate **260 versus 999 µs**.
+SQL point reads took **122 versus 0.36 µs**, and a selective five-way join
+**1.73 ms versus 3.18 µs**. Catalog construction added **35 ms for admin access** or
+**111 ms for the restricted reader**, separate from those warm timings. Native
+indexed APIs keep their existing execution path. DataFusion improves these larger
+analytical queries; point/selective SQL and catalog setup remain optimization work.
 
 The implementation queue and remaining limitations are tracked in [missing.md](missing.md).
 Package publication and Bend verification are excluded from this run. Additive schema

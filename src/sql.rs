@@ -15,7 +15,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub struct SqlSnapshot {
+pub struct SqliteSnapshot {
     connection: Connection,
     live: crate::engine::LiveGuard,
 }
@@ -31,11 +31,11 @@ struct Source {
     transaction: Option<Arc<Mutex<Transaction>>>,
 }
 impl Snapshot {
-    pub fn sql(&self) -> Result<SqlSnapshot> {
-        SqlSnapshot::new(self.clone())
+    pub fn sqlite_compat(&self) -> Result<SqliteSnapshot> {
+        SqliteSnapshot::new(self.clone())
     }
 }
-impl SqlSnapshot {
+impl SqliteSnapshot {
     fn new(snapshot: Snapshot) -> Result<Self> {
         snapshot.check_live()?;
         Ok(Self {
@@ -76,7 +76,7 @@ impl SqlSnapshot {
         self.prepare(sql)?.query(params)
     }
     /// Prepare once and rebind parameters against the same immutable snapshot.
-    pub fn prepare(&self, sql: &str) -> Result<SqlQuery<'_>> {
+    pub fn prepare(&self, sql: &str) -> Result<SqliteQuery<'_>> {
         self.live.check()?;
         let statement = prepare_one(&self.connection, sql)?;
         if !statement.readonly() || statement.column_count() == 0 {
@@ -84,17 +84,17 @@ impl SqlSnapshot {
                 "read-only result-producing SQL required".into(),
             ));
         }
-        Ok(SqlQuery {
+        Ok(SqliteQuery {
             statement,
             live: self.live.clone(),
         })
     }
 }
-pub struct SqlQuery<'a> {
+pub struct SqliteQuery<'a> {
     statement: rusqlite::Statement<'a>,
     live: crate::engine::LiveGuard,
 }
-impl SqlQuery<'_> {
+impl SqliteQuery<'_> {
     pub fn query(&mut self, params: &[SqlValue]) -> Result<SqlTable> {
         self.live.check()?;
         let columns = self
@@ -592,17 +592,18 @@ impl SqlTransaction {
             return Err(Error::Aborted);
         }
         let result = (|| {
-            let statement = prepare_one(&self.connection, sql)?;
-            if !statement.readonly() || statement.column_count() == 0 {
-                return Err(Error::Query("use execute for SQL mutations".into()));
-            }
-            let live = self
-                .transaction
-                .lock()
-                .map_err(|_| Error::Denied)?
-                .snapshot()
-                .live;
-            SqlQuery { statement, live }.query(params)
+            let snapshot = {
+                let mut transaction = self.transaction.lock().map_err(|_| Error::Denied)?;
+                let snapshot = transaction.snapshot();
+                // DataFusion reads immutable authorized batches. Conservatively
+                // record family/visibility dependencies before releasing them so
+                // SQL transaction reads remain serializable with later writes.
+                for relation in snapshot.relations() {
+                    transaction.scan(&relation.name)?;
+                }
+                snapshot
+            };
+            snapshot.sql()?.query(sql, params)
         })();
         if result.is_err() {
             self.failed = true;
@@ -740,7 +741,10 @@ impl UpdateVTab<'_> for LiquidTab {
 pub struct QueryLimits {
     pub max_rows: usize,
     pub max_bytes: usize,
+    /// SQLite VM instructions in compatibility mode; output cells in DataFusion.
     pub vm_steps: u64,
+    /// Cooperative DataFusion execution deadline in milliseconds.
+    pub timeout_ms: u64,
 }
 impl Default for QueryLimits {
     fn default() -> Self {
@@ -748,10 +752,11 @@ impl Default for QueryLimits {
             max_rows: 1000,
             max_bytes: 1024 * 1024,
             vm_steps: 1_000_000,
+            timeout_ms: 5_000,
         }
     }
 }
-impl SqlSnapshot {
+impl SqliteSnapshot {
     /// Limits output buffering and SQLite VM work. Native policy traversal and
     /// schema registration are outside the VM-step budget.
     pub fn query_with_limits(
@@ -831,6 +836,39 @@ impl Snapshot {
     /// Build a SQL catalog for exactly these readable families. Explicit selection
     /// avoids registering unrelated schemas; canonical IDs and authorization stay
     /// bound to this snapshot. Names omitted here are unavailable to this SQL handle.
+    pub fn sqlite_compat_selected(&self, names: &[&str]) -> Result<SqliteSnapshot> {
+        let selected = names
+            .iter()
+            .map(|name| self.resolve_read(name).map(|r| r.id))
+            .collect::<Result<BTreeSet<_>>>()?;
+        self.sqlite_for_relations(&selected)
+    }
+    /// Restrict SQL registration to explicitly selected contracts; native reference
+    /// visibility still uses the complete authorized snapshot.
+    pub(crate) fn sqlite_for_relations(&self, selected: &BTreeSet<Id>) -> Result<SqliteSnapshot> {
+        self.check_live()?;
+        Ok(SqliteSnapshot {
+            live: self.live.clone(),
+            connection: connection(self.clone(), None, Some(selected))?,
+        })
+    }
+}
+
+/// SQL reads use DataFusion over a principal-bound, immutable Arrow catalog.
+/// SQLite remains an explicit compatibility adapter for its dialect and mutations.
+pub struct SqlSnapshot {
+    backend: crate::datafusion_sql::DfSnapshot,
+}
+pub struct SqlQuery<'a> {
+    query: crate::datafusion_sql::DfQuery,
+    owner: std::marker::PhantomData<&'a SqlSnapshot>,
+}
+impl Snapshot {
+    pub fn sql(&self) -> Result<SqlSnapshot> {
+        Ok(SqlSnapshot {
+            backend: crate::datafusion_sql::DfSnapshot::new(self.clone(), None)?,
+        })
+    }
     pub fn sql_selected(&self, names: &[&str]) -> Result<SqlSnapshot> {
         let selected = names
             .iter()
@@ -838,14 +876,45 @@ impl Snapshot {
             .collect::<Result<BTreeSet<_>>>()?;
         self.sql_for_relations(&selected)
     }
-    /// Restrict SQL registration to explicitly selected contracts; native reference
-    /// visibility still uses the complete authorized snapshot.
     pub(crate) fn sql_for_relations(&self, selected: &BTreeSet<Id>) -> Result<SqlSnapshot> {
-        self.check_live()?;
         Ok(SqlSnapshot {
-            live: self.live.clone(),
-            connection: connection(self.clone(), None, Some(selected))?,
+            backend: crate::datafusion_sql::DfSnapshot::new(self.clone(), Some(selected))?,
         })
+    }
+}
+impl SqlSnapshot {
+    pub fn view(&mut self, name: &str, select: &str) -> Result<()> {
+        self.backend.view(name, select)
+    }
+    pub fn prepare(&self, sql: &str) -> Result<SqlQuery<'_>> {
+        Ok(SqlQuery {
+            query: self.backend.prepare(sql)?,
+            owner: std::marker::PhantomData,
+        })
+    }
+    pub fn query(&self, sql: &str, params: &[SqlValue]) -> Result<SqlTable> {
+        self.prepare(sql)?.query(params)
+    }
+    pub fn query_with_limits(
+        &self,
+        sql: &str,
+        params: &[SqlValue],
+        limits: QueryLimits,
+    ) -> Result<SqlTable> {
+        self.backend.prepare(sql)?.query(params, limits)
+    }
+}
+impl SqlQuery<'_> {
+    pub fn query(&mut self, params: &[SqlValue]) -> Result<SqlTable> {
+        self.query.query(
+            params,
+            QueryLimits {
+                max_rows: 1_000_000,
+                max_bytes: 128 * 1024 * 1024,
+                vm_steps: 10_000_000,
+                timeout_ms: 30_000,
+            },
+        )
     }
 }
 
@@ -861,7 +930,7 @@ mod live_revocation_tests {
         tx.grant("reader", "core.Person", Grant::read_only())
             .unwrap();
         tx.commit().unwrap();
-        let sql = db.session("reader").snapshot().sql().unwrap();
+        let sql = db.session("reader").snapshot().sqlite_compat().unwrap();
         let barrier = Arc::new(std::sync::Barrier::new(2));
         let signal = barrier.clone();
         let revoker = std::thread::spawn(move || {

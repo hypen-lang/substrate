@@ -3,7 +3,14 @@
 These experiments follow the implementation of group commit, incremental
 checkpoints, shared query rows, index/planner improvements and visibility caching.
 They evaluate the current implementation rather than extrapolating from upstream
-benchmark claims. Production dependencies and defaults remain unchanged.
+benchmark claims. This report records the pre-adoption experiments at `abb0a72`.
+
+**Follow-up:** production now uses imbl 7.0.2 and DataFusion for SQL reads, as
+requested after these comparisons. Native queries and redb remain unchanged.
+See [DataFusion behavior and compatibility](../DATAFUSION-SQL.md), the
+[candidate comparison](DATAFUSION-EXPERIMENT.md), and the
+[final native benchmark](DATAFUSION-NATIVE.md). The decisions below are the
+historical experiment results, not the current dependency inventory.
 
 The [updated full read comparison](COMPARISON.md) verifies eight identical results
 at 2,000 people. Substrate still takes 2.53× direct SQLite time for point reads,

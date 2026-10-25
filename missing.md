@@ -5,6 +5,10 @@ milestones in the README. Package publication and Bend verification are explicit
 excluded from this implementation run. This is a status ledger, not a claim that
 queued features already work.
 
+Latest change: DataFusion is the default SQL read engine and imbl is adopted.
+See the final adoption section for current limits; earlier sections retain the
+chronological benchmark and implementation history.
+
 Three subagents can run concurrently with the coordinating agent. Remaining agents
 start as slots become available. Each workstream must report implemented behavior,
 verification, measured results where appropriate, and the parts still missing.
@@ -209,13 +213,14 @@ source row/state Arcs. Eight tests passed. Lease-exclusive Rust allocations meas
 50.9 MB → 1.18 MB, with slower point reads (1.67 → 125.75 µs p50). The mutable engine
 still requires RAM. See `docs/DISK-SNAPSHOTS.md`.
 
-New user-requested experiments are isolated from production dependencies:
+The initial user-requested experiments were isolated from production dependencies.
+The subsequent adoption milestone is recorded below:
 
 | Candidate | Status | Findings / remaining work |
 | --- | --- | --- |
-| im → imbl | Isolated engine experiment completed; production remains im | Candidate passed 316 frozen-engine tests; 10k-row single inserts/updates about 2.2× faster, native reads mixed; paired SQL comparison and raw results in the collections report |
+| im → imbl | Adopted imbl 7.0.2 after isolated engine experiment | Candidate passed 316 frozen-engine tests; 10k-row single inserts/updates about 2.2× faster, native reads mixed; paired SQL comparison and raw results in the collections report |
 | serde_json → simd-json | Completed; retain serde_json | Nine tests expose malformed-surrogate and default depth differences; structured parsing improves ~14–15%, authenticated read dispatch does not; large text regresses |
-| Analytical DataFusion / DuckDB | DuckDB experiment completed; DataFusion unmeasured | Nine query outputs match at 18k/180k occurrences; warm grouped aggregate ~20× faster than Substrate at larger size, but ~249 ms materialization and slower point reads; production authorized batch/cache adapter remains |
+| Analytical DataFusion / DuckDB | Both measured; DataFusion adopted for SQL reads | Nine query outputs match at 18k/180k occurrences; warm grouped aggregate ~20× faster than Substrate at larger size, but ~249 ms materialization and slower point reads; authorized DataFusion batch adapter now implemented; lazy/index-aware providers remain |
 | redb → SQLite WAL / RocksDB | Completed; retain redb | All ~4 ms/durable group with matched platform flush; 32-record throughput within ~2.4% of redb; reopen/process-loss tests pass; sustained compaction and full-engine adapters remain unmeasured |
 
 No candidate is adopted just because an upstream microbenchmark claims it is faster.
@@ -226,4 +231,47 @@ including the doctest, and strict all-target Clippy. The frozen imbl comparison
 retains its separately verified 316-test count. Isolated parser tests (9), storage
 tests (2, covering all three backends), and analytical tests (2 Rust + 3 Python)
 passed; all isolated Rust experiment crates passed strict Clippy. No production
-dependency was switched. The earlier 50-test TypeScript result is unchanged.
+dependency was switched in that experiment checkpoint. The earlier 50-test TypeScript result is unchanged.
+
+
+## DataFusion SQL and imbl adoption — 2026-10-25
+
+The user selected DataFusion as the SQL read engine. `Snapshot::sql()` and
+transactional SELECTs now use isolated authorized Arrow catalogs, retained live
+revocation/expiry/credential guards, typed parameters and fresh physical execution
+plans per call. Native queries, typed writes and redb storage retain their APIs.
+SQLite remains an explicit dialect compatibility API and the SQL mutation adapter;
+there is no silent read fallback. Production persistent collections use imbl 7.0.2.
+
+Independent review found wrapping integer arithmetic and an OVERLAY allocation
+amplification path. Checked integer operators/SUM and both OVERLAY syntax guards
+address these findings, with regression tests. Signed SUM DISTINCT and unsigned
+or decimal arithmetic without an explicit cast remain unsupported. Detailed SQL
+semantics and resource bounds are in [the adapter guide](docs/DATAFUSION-SQL.md).
+
+Remaining SQL work: lazy/index-aware authorized providers, cheaper selected catalog
+construction, precise transaction read dependencies, larger-than-catalog-budget
+queries, hard CPU/RSS isolation, wider checked arithmetic/aggregate coverage, and
+broader dialect compatibility. The current pool and deadlines are accounting and
+cooperative limits, not a sandbox against arbitrary untrusted SQL. Point queries
+can be slower than SQLite; the [native benchmark](docs/benchmarks/DATAFUSION-NATIVE.md)
+separates catalog setup, planning and warm execution from raw candidate results.
+
+
+Integrated verification: **341 Rust tests including the doctest** and **50
+TypeScript tests** passed. Strict all-target Clippy and formatting checks passed.
+The DataFusion example returned the expected joined aggregate, preserved native
+lookup behavior, and denied its retained SQL handle immediately after revocation.
+The review report records both findings and their fixes. Native benchmark results
+and timing boundaries are recorded separately in the linked report.
+
+
+The final native SQL benchmark completed all six runs (2k/20k people, three repeats)
+with nine exact ordered result comparisons before and after repeated execution.
+At 180k occurrences, grouped joins, nested windows and the full-scan aggregate
+beat direct SQLite by about 3.0×, 3.2× and 3.8× respectively. SQL point and selective
+join overhead remains substantial: 122 µs and 1.73 ms versus direct SQLite's
+0.36 µs and 3.18 µs. Authorized catalog setup takes 35 ms admin / 111 ms reader.
+Optimizing prepared planning and lazy/index-aware SQL providers is a priority;
+physical execution state must remain fresh to preserve repeated-query correctness.
+These figures exclude transport and are not native indexed-query measurements.

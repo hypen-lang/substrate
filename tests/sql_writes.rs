@@ -239,11 +239,12 @@ fn sql_delete_respects_incoming_references_and_releases_them_atomically() {
 #[test]
 fn sqlite_value_allocation_budget_resets_after_errors() {
     let db = fixture();
-    let sql = db.admin().snapshot().sql().unwrap();
+    let sql = db.admin().snapshot().sqlite_compat().unwrap();
     let limits = QueryLimits {
         max_rows: 10,
         max_bytes: 128,
         vm_steps: 10000,
+        timeout_ms: 5_000,
     };
     assert!(
         sql.query_with_limits("SELECT zeroblob(1000000)", &[], limits)

@@ -276,6 +276,7 @@ fn sql_budgets_stop_work_and_reset_for_the_next_query() {
         max_rows: 2,
         max_bytes: 64,
         vm_steps: 1000,
+        timeout_ms: 5_000,
     };
     assert!(
         sql.query_with_limits(
