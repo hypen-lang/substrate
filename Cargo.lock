@@ -2438,6 +2438,7 @@ dependencies = [
 name = "substrate-liquid"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "datafusion",
  "futures",
  "imbl",

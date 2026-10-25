@@ -373,7 +373,15 @@ fn datafusion_rejects_expanding_functions_and_oversized_source_cells() {
     )
     .unwrap();
     tx.commit().unwrap();
-    assert!(db.admin().snapshot().sql().is_err());
+    let lazy = db.admin().snapshot().sql().unwrap();
+    assert!(lazy.query("SELECT name FROM core.Person", &[]).is_err());
+    // Source budgets apply only to projected cells, not unrelated payloads.
+    assert_eq!(
+        lazy.query("SELECT count(*) FROM core.Person", &[])
+            .unwrap()
+            .rows,
+        vec![vec![S::Integer(2)]]
+    );
     // Native reads keep their existing behavior and can access this large value.
     assert_eq!(db.admin().snapshot().scan("core.Person").unwrap().len(), 2);
 }

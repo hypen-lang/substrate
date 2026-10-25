@@ -95,6 +95,43 @@ CREATE INDEX customer_deal ON crm."CustomerDeal"(deal);
     );
     if postgres { sql } else { flatten(&sql) }
 }
+// Prepared fixture loading avoids benchmarking a giant SQL script parser.
+// Fixture setup remains excluded from all read measurements.
+fn load_sqlite(conn: &mut Connection, n: usize) {
+    let tx = conn.transaction().unwrap();
+    {
+        let mut person_insert = tx.prepare("INSERT INTO Person VALUES (?1,?2)").unwrap();
+        let mut workout = tx.prepare("INSERT INTO Workout VALUES (?1,?2)").unwrap();
+        let mut performed = tx
+            .prepare("INSERT INTO Performed VALUES (?1,?2,?3)")
+            .unwrap();
+        let mut deal = tx.prepare("INSERT INTO Deal VALUES (?1,?2)").unwrap();
+        let mut customer = tx
+            .prepare("INSERT INTO CustomerDeal VALUES (?1,?2,?3)")
+            .unwrap();
+        for i in 0..n {
+            let p = person(i).to_string();
+            person_insert
+                .execute(rusqlite::params![p, format!("Person{i:06}")])
+                .unwrap();
+            for j in 0..2 {
+                let w = occurrence(1, i, j).to_string();
+                let f = occurrence(2, i, j).to_string();
+                let d = occurrence(3, i, j).to_string();
+                let c = occurrence(4, i, j).to_string();
+                workout
+                    .execute(rusqlite::params![w, ((i * 7 + j * 19) % 120) as i64])
+                    .unwrap();
+                performed.execute(rusqlite::params![f, p, w]).unwrap();
+                deal.execute(rusqlite::params![d, ((i + 1) * 100 + j * 17) as i64])
+                    .unwrap();
+                customer.execute(rusqlite::params![c, p, d]).unwrap();
+            }
+        }
+    }
+    tx.commit().unwrap();
+    conn.execute_batch("ANALYZE").unwrap();
+}
 fn inserts(n: usize) -> String {
     let mut s = String::from("BEGIN;\n");
     for i in 0..n {
@@ -150,10 +187,15 @@ fn canonical(rows: Vec<Vec<S>>) -> Rows {
         .collect()
 }
 fn sqlite_rows(statement: &mut rusqlite::Statement<'_>) -> Rows {
+    sqlite_rows_with(statement, &[])
+}
+fn sqlite_rows_with(statement: &mut rusqlite::Statement<'_>, params: &[S]) -> Rows {
     let count = statement.column_count();
     canonical(
         statement
-            .query_map([], |r| (0..count).map(|c| r.get(c)).collect())
+            .query_map(rusqlite::params_from_iter(params), |r| {
+                (0..count).map(|c| r.get(c)).collect()
+            })
             .unwrap()
             .collect::<rusqlite::Result<Vec<Vec<S>>>>()
             .unwrap(),
@@ -257,6 +299,220 @@ fn pg_measure(dsn: &str, sql: &str) -> J {
             .collect(),
     )
 }
+fn measure_rebinding(
+    label: &str,
+    cases: &[Vec<S>],
+    expected: &[Rows],
+    mut query: impl FnMut(&[S]) -> Rows,
+) -> J {
+    for (params, expected) in cases.iter().zip(expected) {
+        assert_eq!(&query(params), expected, "{label}: before rebinding");
+    }
+    let mut cursor = 0;
+    let timing = measure(|| {
+        black_box(query(&cases[cursor % cases.len()]));
+        cursor += 1;
+    });
+    for (params, expected) in cases.iter().zip(expected) {
+        assert_eq!(&query(params), expected, "{label}: after rebinding");
+    }
+    timing
+}
+fn parameter_workloads(
+    n: usize,
+    conn: &Connection,
+    admin: &SqlSnapshot,
+    reader: &SqlSnapshot,
+    compat: &SqliteSnapshot,
+    compat_reader: &SqliteSnapshot,
+) -> Vec<J> {
+    let cases = [
+        (
+            "id_same_value",
+            r#"SELECT id,name FROM core."Person" WHERE id=?1"#,
+            vec![vec![S::Text(person(n / 2).to_string())]],
+        ),
+        (
+            "id_16_values",
+            r#"SELECT id,name FROM core."Person" WHERE id=?1"#,
+            (0..16)
+                .map(|i| vec![S::Text(person((i * 97) % n).to_string())])
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "numeric_equality_16_values",
+            r#"SELECT id,"durationMinutes" FROM fitness."Workout" WHERE "durationMinutes"=?1 ORDER BY id"#,
+            (0..16).map(|i| vec![S::Integer(i * 7)]).collect(),
+        ),
+        (
+            "numeric_range_16_values",
+            r#"SELECT id,"durationMinutes" FROM fitness."Workout" WHERE "durationMinutes">=?1 AND "durationMinutes"<?2 ORDER BY "durationMinutes",id LIMIT 10"#,
+            (0..16)
+                .map(|i| vec![S::Integer(i * 7), S::Integer(i * 7 + 5)])
+                .collect(),
+        ),
+    ];
+    cases.into_iter().map(|(name, sql, parameters)| {
+        let query = flatten(sql);
+        let (mut sqlite, sqlite_prepare_ms) = timed(|| conn.prepare(&query).unwrap());
+        let (mut liquid, admin_prepare_ms) = timed(|| admin.prepare(sql).unwrap());
+        let (mut authorized, reader_prepare_ms) = timed(|| reader.prepare(sql).unwrap());
+        let (mut old, compat_prepare_ms) = timed(|| compat.prepare(sql).unwrap());
+        let (mut old_reader, compat_reader_prepare_ms) = timed(|| compat_reader.prepare(sql).unwrap());
+        let expected = parameters.iter().map(|params| sqlite_rows_with(&mut sqlite, params)).collect::<Vec<_>>();
+        let digest = format!("{:x}", Sha256::digest(serde_json::to_vec(&expected).unwrap()));
+        let ordinary = measure_rebinding(name, &parameters, &expected, |params| sqlite_rows_with(&mut sqlite, params));
+        let substrate_admin = measure_rebinding(name, &parameters, &expected, |params| canonical(liquid.query(params).unwrap().rows));
+        let substrate_reader = measure_rebinding(name, &parameters, &expected, |params| canonical(authorized.query(params).unwrap().rows));
+        let sqlite_compat_admin = measure_rebinding(name, &parameters, &expected, |params| canonical(old.query(params).unwrap().rows));
+        let sqlite_compat_reader = measure_rebinding(name, &parameters, &expected, |params| canonical(old_reader.query(params).unwrap().rows));
+        json!({"name":name,"sql":sql,"distinct_parameter_sets":parameters.len(),"sha256":digest,"repeat_verified":true,"prepare_ms":{"sqlite":sqlite_prepare_ms,"substrate_admin":admin_prepare_ms,"substrate_reader":reader_prepare_ms,"sqlite_compat_admin":compat_prepare_ms,"sqlite_compat_reader":compat_reader_prepare_ms},"sqlite":ordinary,"substrate_admin":substrate_admin,"substrate_reader":substrate_reader,"sqlite_compat_admin":sqlite_compat_admin,"sqlite_compat_reader":sqlite_compat_reader})
+    }).collect()
+}
+fn projection_workload() -> J {
+    const ROWS: usize = 256;
+    const PAYLOAD_BYTES: usize = 16 * 1024;
+    let db = Database::memory();
+    let mut tx = db.admin().transaction();
+    tx.install(Module::new(
+        "bench",
+        1,
+        vec![],
+        vec![Relation::new(
+            "bench.Payload",
+            vec![
+                Role::new("n", DataType::Int),
+                Role::new("payload", DataType::Text),
+                Role::new("visible", DataType::Bool),
+            ],
+        )],
+    ))
+    .unwrap();
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch("CREATE TABLE Payload(id TEXT PRIMARY KEY,n INTEGER NOT NULL,payload TEXT NOT NULL,visible INTEGER NOT NULL);CREATE INDEX payload_n ON Payload(n);CREATE INDEX payload_visible ON Payload(visible,n);").unwrap();
+    {
+        let sqlite_tx = conn.transaction().unwrap();
+        let mut insert = sqlite_tx
+            .prepare("INSERT INTO Payload VALUES(?1,?2,?3,?4)")
+            .unwrap();
+        for i in 0..ROWS {
+            let id = Id::from_u128(i as u128 + 1);
+            let payload = "x".repeat(PAYLOAD_BYTES);
+            tx.insert_with_id(
+                "bench.Payload",
+                id,
+                vec![
+                    Value::Int(i as i64),
+                    Value::Text(payload.clone()),
+                    Value::Bool(i % 2 == 0),
+                ],
+            )
+            .unwrap();
+            insert
+                .execute(rusqlite::params![
+                    id.to_string(),
+                    i as i64,
+                    payload,
+                    i % 2 == 0
+                ])
+                .unwrap();
+        }
+        drop(insert);
+        sqlite_tx.commit().unwrap();
+    }
+    tx.grant(
+        "reader",
+        "bench.Payload",
+        Grant {
+            filter: RowFilter::Equals {
+                role: "visible".into(),
+                value: Value::Bool(true),
+            },
+            ..Grant::read_only()
+        },
+    )
+    .unwrap();
+    tx.commit().unwrap();
+    let (admin, admin_catalog_ms) = timed(|| db.admin().snapshot().sql().unwrap());
+    let (reader, reader_catalog_ms) = timed(|| db.session("reader").snapshot().sql().unwrap());
+    let (compat, compat_catalog_ms) = timed(|| db.admin().snapshot().sqlite_compat().unwrap());
+    let (compat_reader, compat_reader_catalog_ms) =
+        timed(|| db.session("reader").snapshot().sqlite_compat().unwrap());
+    let mut timings = Vec::new();
+    for (label, query) in [
+        (
+            "project_without_payload",
+            "SELECT n FROM bench.Payload ORDER BY n",
+        ),
+        (
+            "count_without_payload",
+            "SELECT COUNT(*) FROM bench.Payload",
+        ),
+    ] {
+        let plain = query.replace("bench.Payload", "Payload");
+        let filtered = plain.replace("Payload", "Payload WHERE visible=1");
+        let mut ordinary = conn.prepare(&plain).unwrap();
+        let mut ordinary_reader = conn.prepare(&filtered).unwrap();
+        let mut liquid = admin.prepare(query).unwrap();
+        let mut authorized = reader.prepare(query).unwrap();
+        let mut old = compat.prepare(query).unwrap();
+        let mut old_reader = compat_reader.prepare(query).unwrap();
+        let expected = vec![sqlite_rows(&mut ordinary)];
+        let expected_reader = vec![sqlite_rows(&mut ordinary_reader)];
+        let params = vec![vec![]];
+        let sqlite = measure_rebinding(label, &params, &expected, |p| {
+            sqlite_rows_with(&mut ordinary, p)
+        });
+        let sqlite_filtered = measure_rebinding(label, &params, &expected_reader, |p| {
+            sqlite_rows_with(&mut ordinary_reader, p)
+        });
+        let substrate_admin = measure_rebinding(label, &params, &expected, |p| {
+            canonical(liquid.query(p).unwrap().rows)
+        });
+        let substrate_reader = measure_rebinding(label, &params, &expected_reader, |p| {
+            canonical(authorized.query(p).unwrap().rows)
+        });
+        let sqlite_compat_admin = measure_rebinding(label, &params, &expected, |p| {
+            canonical(old.query(p).unwrap().rows)
+        });
+        let sqlite_compat_reader = measure_rebinding(label, &params, &expected_reader, |p| {
+            canonical(old_reader.query(p).unwrap().rows)
+        });
+        timings.push(json!({"name":label,"repeat_verified":true,"admin_rows":expected[0].len(),"reader_rows":expected_reader[0].len(),"admin_sha256":format!("{:x}", Sha256::digest(serde_json::to_vec(&expected).unwrap())),"reader_sha256":format!("{:x}", Sha256::digest(serde_json::to_vec(&expected_reader).unwrap())),"sqlite":sqlite,"sqlite_filtered":sqlite_filtered,"substrate_admin":substrate_admin,"substrate_reader":substrate_reader,"sqlite_compat_admin":sqlite_compat_admin,"sqlite_compat_reader":sqlite_compat_reader}));
+    }
+    json!({"fixture_rows":ROWS,"unselected_payload_bytes_per_row":PAYLOAD_BYTES,"row_policy":"reader sees visible=true rows only; direct SQLite reader query has equivalent WHERE","catalog_ms":{"substrate_admin":admin_catalog_ms,"substrate_reader":reader_catalog_ms,"sqlite_compat_admin":compat_catalog_ms,"sqlite_compat_reader":compat_reader_catalog_ms},"measurements":timings})
+}
+
+// A new SQL handle gives each execution an unprimed authorized Arrow-page cache.
+// The native database and CPU/OS caches are already warm; this is not cold IO.
+fn fresh_handles(db: &Database, sql: &str, expected: &Rows) -> J {
+    let mut result = serde_json::Map::new();
+    for principal in ["admin", "reader"] {
+        let session = if principal == "admin" {
+            db.admin()
+        } else {
+            db.session("reader")
+        };
+        let (handle, catalog_ms) = timed(|| session.snapshot().sql().unwrap());
+        let (mut prepared, prepare_ms) = timed(|| handle.prepare(sql).unwrap());
+        let (rows, execution_ms) = timed(|| canonical(prepared.query(&[]).unwrap().rows));
+        assert_eq!(&rows, expected, "fresh DataFusion {principal}: {sql}");
+        result.insert(
+            format!("substrate_{principal}"),
+            json!({"catalog_ms":catalog_ms,"prepare_ms":prepare_ms,"execution_ms":execution_ms}),
+        );
+        let (handle, catalog_ms) = timed(|| session.snapshot().sqlite_compat().unwrap());
+        let (mut prepared, prepare_ms) = timed(|| handle.prepare(sql).unwrap());
+        let (rows, execution_ms) = timed(|| canonical(prepared.query(&[]).unwrap().rows));
+        assert_eq!(&rows, expected, "fresh compatibility {principal}: {sql}");
+        result.insert(
+            format!("sqlite_compat_{principal}"),
+            json!({"catalog_ms":catalog_ms,"prepare_ms":prepare_ms,"execution_ms":execution_ms}),
+        );
+    }
+    J::Object(result)
+}
+
 fn main() {
     let n = std::env::var("SUBSTRATE_BENCH_ROWS")
         .ok()
@@ -269,10 +525,14 @@ fn main() {
     let substrate_setup = start.elapsed().as_secs_f64() * 1000.;
     let (sql, admin_catalog_ms) = timed(|| db.admin().snapshot().sql().unwrap());
     let (authorized, reader_catalog_ms) = timed(|| db.session("reader").snapshot().sql().unwrap());
-    let conn = Connection::open_in_memory().unwrap();
+    let (compat, compat_admin_catalog_ms) =
+        timed(|| db.admin().snapshot().sqlite_compat().unwrap());
+    let (compat_reader, compat_reader_catalog_ms) =
+        timed(|| db.session("reader").snapshot().sqlite_compat().unwrap());
+    let mut conn = Connection::open_in_memory().unwrap();
     let start = Instant::now();
     conn.execute_batch(&ddl(false)).unwrap();
-    conn.execute_batch(&flatten(&inserts(n))).unwrap();
+    load_sqlite(&mut conn, n);
     let sqlite_setup = start.elapsed().as_secs_f64() * 1000.;
     let postgres_setup = pg.as_ref().map(|dsn| {
         let t = Instant::now();
@@ -285,17 +545,20 @@ fn main() {
         let (mut ordinary, sqlite_prepare_ms) = timed(|| conn.prepare(&flattened).unwrap());
         let (mut liquid, admin_prepare_ms) = timed(|| sql.prepare(&query).unwrap());
         let (mut restricted, reader_prepare_ms) = timed(|| authorized.prepare(&query).unwrap());
-        let expected = sqlite_rows(&mut ordinary);
-        assert_eq!(
-            canonical(liquid.query(&[]).unwrap().rows),
-            expected,
-            "Substrate admin: {name}"
-        );
-        assert_eq!(
-            canonical(restricted.query(&[]).unwrap().rows),
-            expected,
-            "Substrate reader: {name}"
-        );
+        let (mut old, compat_admin_prepare_ms) = timed(|| compat.prepare(&query).unwrap());
+        let (mut old_reader, compat_reader_prepare_ms) =
+            timed(|| compat_reader.prepare(&query).unwrap());
+        let (expected, sqlite_first_ms) = timed(|| sqlite_rows(&mut ordinary));
+        let (old_rows, compat_admin_first_ms) = timed(|| canonical(old.query(&[]).unwrap().rows));
+        let (old_reader_rows, compat_reader_first_ms) =
+            timed(|| canonical(old_reader.query(&[]).unwrap().rows));
+        let (liquid_rows, admin_first_ms) = timed(|| canonical(liquid.query(&[]).unwrap().rows));
+        let (reader_rows, reader_first_ms) =
+            timed(|| canonical(restricted.query(&[]).unwrap().rows));
+        assert_eq!(old_rows, expected, "compat admin: {name}");
+        assert_eq!(old_reader_rows, expected, "compat reader: {name}");
+        assert_eq!(liquid_rows, expected, "Substrate admin: {name}");
+        assert_eq!(reader_rows, expected, "Substrate reader: {name}");
         if let Some(dsn) = &pg {
             assert_eq!(pg_rows(dsn, &query), expected, "PostgreSQL: {name}");
         }
@@ -312,6 +575,22 @@ fn main() {
         let substrate_reader = measure(|| {
             black_box(canonical(restricted.query(&[]).unwrap().rows));
         });
+        let sqlite_compat_admin = measure(|| {
+            black_box(canonical(old.query(&[]).unwrap().rows));
+        });
+        let sqlite_compat_reader = measure(|| {
+            black_box(canonical(old_reader.query(&[]).unwrap().rows));
+        });
+        assert_eq!(
+            canonical(old.query(&[]).unwrap().rows),
+            expected,
+            "compat admin repeat: {name}"
+        );
+        assert_eq!(
+            canonical(old_reader.query(&[]).unwrap().rows),
+            expected,
+            "compat reader repeat: {name}"
+        );
         // Repeated physical execution must not retain LIMIT/dynamic-filter state.
         assert_eq!(
             sqlite_rows(&mut ordinary),
@@ -339,11 +618,14 @@ fn main() {
             serde_json::from_str::<J>(&psql(dsn, &format!("EXPLAIN (FORMAT JSON) {query};")))
                 .unwrap()
         });
-        measurements.push(json!({"name":name,"sql":query,"rows":expected.len(),"sha256":digest,"repeat_verified":true,"prepare_ms":{"sqlite":sqlite_prepare_ms,"substrate_admin":admin_prepare_ms,"substrate_reader":reader_prepare_ms},"sqlite":sqlite,"substrate_admin":substrate_admin,"substrate_reader":substrate_reader,"postgres_psql":postgres,"plans":{"sqlite":sqlite_plan,"substrate":substrate_plan,"postgres":postgres_plan}}));
+        let fresh_handle = fresh_handles(&db, &query, &expected);
+        measurements.push(json!({"name":name,"sql":query,"rows":expected.len(),"sha256":digest,"repeat_verified":true,"prepare_ms":{"sqlite":sqlite_prepare_ms,"substrate_admin":admin_prepare_ms,"substrate_reader":reader_prepare_ms,"sqlite_compat_admin":compat_admin_prepare_ms,"sqlite_compat_reader":compat_reader_prepare_ms},"fresh_handle":fresh_handle,"first_execution_ms":{"sqlite":sqlite_first_ms,"substrate_admin":admin_first_ms,"substrate_reader":reader_first_ms,"sqlite_compat_admin":compat_admin_first_ms,"sqlite_compat_reader":compat_reader_first_ms},"sqlite_compat_admin":sqlite_compat_admin,"sqlite_compat_reader":sqlite_compat_reader,"sqlite":sqlite,"substrate_admin":substrate_admin,"substrate_reader":substrate_reader,"postgres_psql":postgres,"plans":{"sqlite":sqlite_plan,"substrate":substrate_plan,"postgres":postgres_plan}}));
         eprintln!("verified and measured {name}");
     }
+    let rebinding = parameter_workloads(n, &conn, &sql, &authorized, &compat, &compat_reader);
+    let projection = projection_workload();
     let postgres_version = pg
         .as_ref()
         .map(|dsn| psql(dsn, "SELECT version();").trim().to_owned());
-    println!("{}",serde_json::to_string_pretty(&json!({"people":n,"occurrences":n*9,"children_per_app_per_person":2,"samples":SAMPLES,"iterations":ITERATIONS,"warm_cache":true,"prepared":true,"environment":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"sqlite":rusqlite::version(),"substrate":env!("CARGO_PKG_VERSION"),"sql_engine":"DataFusion","datafusion_facade":datafusion::DATAFUSION_VERSION,"datafusion_execution":locked_version("datafusion-physical-plan"),"imbl":locked_version("imbl"),"postgres":postgres_version},"setup_ms":{"substrate":substrate_setup,"substrate_admin_sql_catalog":admin_catalog_ms,"substrate_reader_sql_catalog":reader_catalog_ms,"sqlite":sqlite_setup,"postgres":postgres_setup},"postgres_measured":pg.is_some(),"postgres_timing":"psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency","measurements":measurements})).unwrap());
+    println!("{}",serde_json::to_string_pretty(&json!({"people":n,"occurrences":n*9,"children_per_app_per_person":2,"samples":SAMPLES,"iterations":ITERATIONS,"warm_cache":true,"prepared":true,"environment":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"sqlite":rusqlite::version(),"substrate":env!("CARGO_PKG_VERSION"),"sql_engine":"DataFusion","datafusion_facade":datafusion::DATAFUSION_VERSION,"datafusion_execution":locked_version("datafusion-physical-plan"),"imbl":locked_version("imbl"),"postgres":postgres_version},"setup_ms":{"substrate":substrate_setup,"substrate_admin_sql_catalog":admin_catalog_ms,"substrate_reader_sql_catalog":reader_catalog_ms,"sqlite_compat_admin_catalog":compat_admin_catalog_ms,"sqlite_compat_reader_catalog":compat_reader_catalog_ms,"sqlite":sqlite_setup,"postgres":postgres_setup},"postgres_measured":pg.is_some(),"postgres_timing":"psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency","measurements":measurements,"parameter_rebinding":rebinding,"projection":projection})).unwrap());
 }

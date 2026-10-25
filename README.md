@@ -238,11 +238,13 @@ See [the checkpoint decision](docs/adr/005-checkpoints.md) and
 | Tooling | Locked manifests, TS/Rust generation with clean aliases, Effect 3 service, validators, authorized catalog, dynamic descriptors, scoped proposals/approval/online apply, namespace quotas and lifecycle metadata | Published SDK packages, operator approval UI, ownership transfer, destructive retirement, derive macros, graphical studio |
 | Verification | Rust reference properties, concurrency, SQL differential, corruption, subprocess crash and I/O fault tests | Bend 2 oracle, formal proofs, exhaustive power-loss testing |
 
-SQL reads use **DataFusion over authorized Arrow batches**. Native indexed queries,
+SQL reads use **DataFusion with lazy, authorized native-index providers**. Native indexed queries,
 relational algebra and redb storage retain their existing semantics. SQL handles
 pin data while checking live permissions before releasing results. Typed queries
 and nested reads register only selected families. The default SQL catalog has no
-SQLite attached-schema limit; materialization and execution budgets apply instead.
+SQLite attached-schema limit and does not copy rows at creation. Execution source
+and output budgets apply instead. Prepared queries reuse safe planning work while
+creating fresh execution state.
 Explicit `sqlite_compat()` handles preserve the old dialect, and embedded SQL
 mutations retain the SQLite adapter into Liquid transactions. There is no silent
 query fallback. See [DataFusion SQL](docs/DATAFUSION-SQL.md) for dialect differences,
@@ -300,15 +302,21 @@ were slower. These are workload-specific results, with preparation costs reporte
 separately. JSON parsing and durability-matched storage tests did not justify
 replacing serde_json or redb. Reports include raw results and reproduction commands.
 
-The [final production SQL benchmark](docs/benchmarks/DATAFUSION-NATIVE.md) verified
-nine identical queries across three runs at each dataset size. At 180,000 occurrences,
-DataFusion's grouped join took **12.31 ms versus SQLite's 37.49 ms**, the nested
-window query **7.61 versus 24.36 ms**, and a full-scan aggregate **260 versus 999 µs**.
-SQL point reads took **122 versus 0.36 µs**, and a selective five-way join
-**1.73 ms versus 3.18 µs**. Catalog construction added **35 ms for admin access** or
-**111 ms for the restricted reader**, separate from those warm timings. Native
-indexed APIs keep their existing execution path. DataFusion improves these larger
-analytical queries; point/selective SQL and catalog setup remain optimization work.
+The [index-backed adapter comparison](docs/benchmarks/DATAFUSION-INDEXED.md) verifies
+nine query results across three paired runs at each dataset size, comparing the
+[previous eager adapter](docs/benchmarks/DATAFUSION-NATIVE.md), the explicit SQLite
+compatibility adapter and direct indexed SQLite. At 180,000 occurrences, warm SQL
+point reads improved **117 → 15.6 µs**, and a selective five-way join improved
+**1.96 → 0.84 ms**. Grouped joins took **12.47 ms versus direct SQLite's 36.91 ms**,
+and a full-scan aggregate **247 versus 983 µs**. Direct SQLite still wins point
+reads at **0.34 µs**. Native indexed APIs retain their existing execution path.
+
+The gains are workload-dependent: range/top-k regressed **0.37 → 1.24 ms**,
+correlated EXISTS **1.14 → 1.59 ms**, and the window query **8.09 → 15.10 ms**.
+Fresh handles pay source conversion on first use (the grouped join took 43.46 ms),
+and process initialization adds catalog/planning costs. Changing prepared
+parameters also still requires planning. The report separates these costs from
+warm execution and includes raw measurements, authorization boundaries and limits.
 
 The implementation queue and remaining limitations are tracked in [missing.md](missing.md).
 Package publication and Bend verification are excluded from this run. Additive schema

@@ -12,12 +12,22 @@ engine. Rust 1.94 is now required. The comparison and its boundaries are in
 
 ## Execution and authority
 
-Each SQL handle builds an isolated, immutable Arrow catalog from its authorized
-Liquid snapshot. Rows pass the existing row filters and transitive reference
-visibility checks before entering batches. Only discoverable relation schemas
-are registered. `sql_selected()` limits the catalog to explicitly selected
-families. No raw DataFusion context, detached Arrow batch or table provider is
-returned to the application.
+Each SQL handle registers discoverable schemas and lazy native table providers
+against one authorized Liquid snapshot. Creating the handle does not copy rows.
+Providers use native identity, typed role-equality and numeric-range indexes when
+predicates have exact matching semantics; unsupported comparisons remain DataFusion
+filters. Both range bounds are intersected. Only requested columns are converted
+into Arrow batches, in pages of at most 1,000 authorized candidates. Row policies
+and transitive reference visibility still run through the native read APIs before
+any row enters Arrow. LIMIT is pushed only when residual filters cannot discard
+needed rows. `sql_selected()` limits the catalog to explicitly selected families.
+No raw DataFusion context, detached Arrow batch or table provider escapes.
+
+EXPLAIN exposes `LiquidScanExec` with identity, role-equality, numeric-range or
+family-scan access. EXPLAIN ANALYZE's `source_rows` counts authorized candidates
+served by the provider, including cached pages, not all underlying index entries
+or hidden rows traversed during authorization. `cache_hits` counts reused pages.
+Neither metric is a CPU-work counter.
 
 The handle retains its live authorization guard, including capability and
 credential dependencies. Creation, preparation, execution and final result release
@@ -25,9 +35,16 @@ check that authority. Revocation, expiry, rotation and source-host loss invalida
 retained handles. Data remains pinned to the original revision; authority remains
 live. Already delivered values cannot be recalled.
 
-Prepared queries cache logical plans. Every execution builds fresh physical
-execution state: reusing physical plans was observed to return incorrect repeated
-top-k results because dynamic filters retain state. Parameters remain typed values;
+Each prepared query caches one exact typed parameter binding. Deterministic
+queries reuse an optimized logical plan. A conservative whitelist of simple
+physical operators can additionally reuse an unexecuted template, rebuilding fresh
+operator instances and streams on every call, including the first. Joins, sorts,
+dynamic filters and unknown operators do not reuse physical templates. Stable or
+volatile functions, context variables and subqueries bypass the cache; views are
+inspected recursively. Changed bindings replace the entry; execution errors discard
+it. The planning cache retains no result rows, cursors, task contexts or source budgets. This avoids
+the repeated top-k errors observed when mutable physical plans were reused.
+Parameters remain typed values;
 `?`, `?1`, and `$1` are normalized using SQL tokens, never string interpolation.
 Exact signed integers, decimal minor units and timestamps use Arrow Int64;
 references remain canonical UUID strings and byte values remain binary.
@@ -38,14 +55,23 @@ uses a separate execution future and either returns a complete result or an erro
 
 ## Bounds and SQL surface
 
-Catalog materialization is limited to one million visible rows and approximately
-128 MiB of encoded column payload, with a 1 MiB limit per source cell. Parameter
-payloads are also bounded. Native reads retain their existing value limits.
+Each execution shares a source budget across all its scans: one million authorized
+candidate rows and approximately 128 MiB of projected column payload, with a 1 MiB
+limit per projected source cell. A large unselected field no longer prevents SQL
+handle creation or COUNT. Parameter payloads are also bounded. Native reads retain
+their existing value limits.
 Each SQL context has a 256 MiB DataFusion
 execution memory pool, with disk spilling disabled. These are accounting budgets,
 not a hard process RSS limit; Arrow metadata, source state and some temporary
-allocations are additional. Catalog construction costs should be amortized by
-reusing handles for repeated queries.
+allocations are additional. Reusing handles and prepared queries amortizes schema
+registration and planning. Predicate-free full scans can reuse immutable projected Arrow pages in a cache
+shared only by that SQL handle's pinned snapshot and authority. The FIFO cache is
+capped at 64 MiB of estimated retained memory and 4,096 entries; keys include the
+relation identity, ordered projection and page cursor. Cache hits recheck live
+authority and recharge the fresh execution source budget. Indexed scans continue
+to use native reads. First execution still pays conversion cost. Evicted pages
+held by active queries can outlive the cache entry, so the cache cap is not a hard
+process-memory cap.
 
 `QueryLimits` bounds returned rows, bytes, and execution time (`timeout_ms`). Its
 legacy `vm_steps` field counts returned cells in DataFusion; it is not an opcode or
@@ -82,5 +108,10 @@ fallback after a DataFusion failure. The native query API is unchanged.
 typed transactional insert/update/delete operations. SQLite is not canonical
 storage. Transactional SELECTs use DataFusion over the transaction's staged state;
 the adapter conservatively records reads of all visible families before executing
-the immutable batch query. This preserves conflict detection but can produce
+the query against that pinned state. This preserves conflict detection but can produce
 more conflicts than a future provider that records precise read dependencies.
+
+
+[Index-backed benchmark](benchmarks/DATAFUSION-INDEXED.md) compares this implementation
+with the previous eager DataFusion adapter, the explicit SQLite compatibility
+adapter and ordinary indexed SQLite. Native read/write APIs remain unchanged.

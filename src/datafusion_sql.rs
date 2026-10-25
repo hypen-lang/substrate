@@ -2,14 +2,15 @@
 //! No raw DataFusion context or detached table provider escapes this module.
 use crate::*;
 mod checked;
+mod planning;
+mod provider;
 use datafusion::{
     arrow::{
         array::{
-            ArrayRef, BinaryArray, BinaryViewArray, Int64Array, LargeBinaryArray, LargeStringArray,
+            ArrayRef, BinaryArray, BinaryViewArray, LargeBinaryArray, LargeStringArray,
             StringArray, StringViewArray,
         },
-        datatypes::{DataType as ArrowType, Field, Schema},
-        record_batch::RecordBatch,
+        datatypes::DataType as ArrowType,
     },
     catalog::{
         CatalogProvider,
@@ -17,13 +18,15 @@ use datafusion::{
     },
     common::ScalarValue,
     dataframe::DataFrame,
-    datasource::{MemTable, view::ViewTable},
+    datasource::view::ViewTable,
     execution::{
+        TaskContext,
         context::SQLOptions,
         disk_manager::{DiskManagerBuilder, DiskManagerMode},
         runtime_env::RuntimeEnvBuilder,
     },
     logical_expr::LogicalPlan,
+    physical_plan::execute_stream,
     prelude::{SessionConfig, SessionContext},
     sql::sqlparser::{
         ast::{BinaryOperator, Expr, Statement, TableFactor, Visit, Visitor},
@@ -42,8 +45,6 @@ use std::{
     time::Duration,
 };
 
-const MATERIALIZED_BYTES: usize = 128 * 1024 * 1024;
-const MATERIALIZED_ROWS: usize = 1_000_000;
 const QUERY_MEMORY: usize = 256 * 1024 * 1024;
 const SETUP_TIMEOUT_MS: u64 = 30_000;
 
@@ -99,6 +100,8 @@ pub(crate) struct DfQuery {
     context: SessionContext,
     plan: LogicalPlan,
     parameter_count: usize,
+    cache: planning::PlanCache,
+    cacheable: bool,
     live: crate::engine::LiveGuard,
 }
 impl DfSnapshot {
@@ -123,10 +126,9 @@ impl DfSnapshot {
             .register_schema("public", Arc::new(MemorySchemaProvider::new()))
             .map_err(query_error)?;
         context.register_catalog("liquid", catalog.clone());
-        let mut bytes = 0usize;
-        let mut rows = 0usize;
         // relations() filters both grants and protected referenced type metadata.
         let declarations = snapshot.relations();
+        let pages = Arc::new(provider::BatchCache::default());
         if let Some(selected) = selected
             && !selected
                 .iter()
@@ -148,109 +150,11 @@ impl DfSnapshot {
                     .register_schema(namespace, Arc::new(MemorySchemaProvider::new()))
                     .map_err(query_error)?;
             }
-            let schema = Arc::new(Schema::new(
-                std::iter::once(Field::new("id", ArrowType::Utf8, false))
-                    .chain(declaration.roles.iter().map(|role| {
-                        Field::new(
-                            &role.name,
-                            match role.data_type {
-                                DataType::Text | DataType::Ref(_) => ArrowType::Utf8,
-                                DataType::Bytes => ArrowType::Binary,
-                                _ => ArrowType::Int64,
-                            },
-                            false,
-                        )
-                    }))
-                    .collect::<Vec<_>>(),
-            ));
-            let mut batches = Vec::new();
-            let mut after = None;
-            loop {
-                let page = snapshot.page_shared(&declaration.name, None, after, 1000)?;
-                for row in &page.rows {
-                    rows = rows.checked_add(1).ok_or_else(|| {
-                        Error::Query("SQL materialization row budget exceeded".into())
-                    })?;
-                    bytes = bytes.saturating_add(36 + 4);
-                    for value in &row.values {
-                        if matches!(value, Value::Text(v) if v.len() > 1024 * 1024)
-                            || matches!(value, Value::Bytes(v) if v.len() > 1024 * 1024)
-                        {
-                            return Err(Error::Query(
-                                "SQL source cell exceeds 1 MiB budget".into(),
-                            ));
-                        }
-                        bytes = bytes.saturating_add(match value {
-                            Value::Text(s) => s.len().saturating_add(4),
-                            Value::Bytes(v) => v.len().saturating_add(4),
-                            Value::Ref(_) => 40,
-                            _ => 8,
-                        });
-                    }
-                    if rows > MATERIALIZED_ROWS || bytes > MATERIALIZED_BYTES {
-                        return Err(Error::Query(
-                            "SQL materialization budget exceeded; select fewer relation families"
-                                .into(),
-                        ));
-                    }
-                }
-                let mut arrays: Vec<ArrayRef> = vec![Arc::new(StringArray::from(
-                    page.rows
-                        .iter()
-                        .map(|r| r.id.to_string())
-                        .collect::<Vec<_>>(),
-                ))];
-                for (index, role) in declaration.roles.iter().enumerate() {
-                    let array: ArrayRef = match role.data_type {
-                        DataType::Text => Arc::new(StringArray::from(
-                            page.rows
-                                .iter()
-                                .map(|r| match &r.values[index] {
-                                    Value::Text(value) => Ok(value.as_str()),
-                                    _ => Err(Error::Storage("typed SQL source mismatch".into())),
-                                })
-                                .collect::<Result<Vec<_>>>()?,
-                        )),
-                        DataType::Ref(_) => Arc::new(StringArray::from(
-                            page.rows
-                                .iter()
-                                .map(|r| match &r.values[index] {
-                                    Value::Ref(value) => Ok(value.to_string()),
-                                    _ => Err(Error::Storage("typed SQL source mismatch".into())),
-                                })
-                                .collect::<Result<Vec<_>>>()?,
-                        )),
-                        DataType::Bytes => Arc::new(BinaryArray::from(
-                            page.rows
-                                .iter()
-                                .map(|r| match &r.values[index] {
-                                    Value::Bytes(value) => Ok(value.as_slice()),
-                                    _ => Err(Error::Storage("typed SQL source mismatch".into())),
-                                })
-                                .collect::<Result<Vec<_>>>()?,
-                        )),
-                        _ => Arc::new(Int64Array::from(
-                            page.rows
-                                .iter()
-                                .map(|r| match &r.values[index] {
-                                    Value::Bool(value) => Ok(i64::from(*value)),
-                                    Value::Int(value)
-                                    | Value::Decimal(value)
-                                    | Value::Timestamp(value) => Ok(*value),
-                                    _ => Err(Error::Storage("typed SQL source mismatch".into())),
-                                })
-                                .collect::<Result<Vec<_>>>()?,
-                        )),
-                    };
-                    arrays.push(array);
-                }
-                batches.push(RecordBatch::try_new(schema.clone(), arrays).map_err(query_error)?);
-                after = page.next;
-                if after.is_none() {
-                    break;
-                }
-            }
-            let provider = Arc::new(MemTable::try_new(schema, vec![batches]).map_err(query_error)?);
+            let provider = Arc::new(provider::LiquidTable::new(
+                snapshot.clone(),
+                declaration.clone(),
+                pages.clone(),
+            )?);
             catalog
                 .schema(namespace)
                 .ok_or_else(|| Error::Query("SQL schema disappeared".into()))?
@@ -284,8 +188,10 @@ impl DfSnapshot {
         self.live.check_attached()?;
         Ok(DfQuery {
             context: self.context.clone(),
+            cacheable: planning::cacheable(&plan),
             plan,
             parameter_count,
+            cache: planning::PlanCache::default(),
             live: self.live.clone(),
         })
     }
@@ -340,40 +246,84 @@ impl DfQuery {
         if parameter_bytes > 1024 * 1024 {
             return Err(Error::Query("SQL parameter byte budget exceeded".into()));
         }
-        let values = params
-            .iter()
-            .map(|v| match v {
-                SqlValue::Null => ScalarValue::Null,
-                SqlValue::Integer(v) => ScalarValue::Int64(Some(*v)),
-                SqlValue::Real(v) => ScalarValue::Float64(Some(*v)),
-                SqlValue::Text(v) => ScalarValue::Utf8(Some(v.clone())),
-                SqlValue::Blob(v) => ScalarValue::Binary(Some(v.clone())),
-            })
-            .collect::<Vec<_>>();
         let context = self.context.clone();
         let plan = self.plan.clone();
         let live = self.live.clone();
+        let mut cache = std::mem::take(&mut self.cache);
+        let cacheable = self.cacheable;
+        let binding = params.to_vec();
         let result = run(
             async move {
                 live.check_attached()?;
-                // Execution plans contain mutable dynamic-filter/LIMIT state. Always
-                // create a fresh physical plan; only the logical plan is reusable.
-                let frame = DataFrame::new(context.state(), plan)
-                    .with_param_values(values)
-                    .map_err(query_error)?;
-                let plan = checked::rewrite(frame.logical_plan().clone()).map_err(query_error)?;
-                let frame = DataFrame::new(context.state(), plan);
-                let columns = frame
+                let physical = if let Some(cached) = cache.get(&binding) {
+                    if let Some(fresh) = cached.physical().map_err(query_error)? {
+                        fresh
+                    } else {
+                        let state = context.state();
+                        state
+                            .query_planner()
+                            .create_physical_plan(&cached.optimized, &state)
+                            .await
+                            .map_err(query_error)?
+                    }
+                } else {
+                    let values = binding
+                        .iter()
+                        .map(|v| match v {
+                            SqlValue::Null => ScalarValue::Null,
+                            SqlValue::Integer(v) => ScalarValue::Int64(Some(*v)),
+                            SqlValue::Real(v) => ScalarValue::Float64(Some(*v)),
+                            SqlValue::Text(v) => ScalarValue::Utf8(Some(v.clone())),
+                            SqlValue::Blob(v) => ScalarValue::Binary(Some(v.clone())),
+                        })
+                        .collect::<Vec<_>>();
+                    let state = context.state();
+                    let frame = DataFrame::new(state.clone(), plan)
+                        .with_param_values(values)
+                        .map_err(query_error)?;
+                    let checked =
+                        checked::rewrite(frame.logical_plan().clone()).map_err(query_error)?;
+                    let optimized = state.optimize(&checked).map_err(query_error)?;
+                    let physical = state
+                        .query_planner()
+                        .create_physical_plan(&optimized, &state)
+                        .await
+                        .map_err(query_error)?;
+                    if cacheable {
+                        // The stored template is never executed. Instantiate fresh state
+                        // even for the first call; non-whitelisted plans are not retained.
+                        cache.put(&binding, optimized, physical.clone());
+                        match cache
+                            .get(&binding)
+                            .map(|entry| entry.physical())
+                            .transpose()
+                            .map_err(query_error)?
+                            .flatten()
+                        {
+                            Some(fresh) => fresh,
+                            None => physical,
+                        }
+                    } else {
+                        physical
+                    }
+                };
+                let columns = physical
                     .schema()
                     .fields()
                     .iter()
-                    .map(|f| f.name().clone())
+                    .map(|field| field.name().clone())
                     .collect::<Vec<_>>();
+                let task = TaskContext::from(&context);
+                let config = task
+                    .session_config()
+                    .clone()
+                    .with_extension(Arc::new(provider::SourceBudget::default()));
+                let task = Arc::new(task.with_session_config(config));
                 let mut bytes = columns.iter().map(|s| s.len()).sum::<usize>();
                 if bytes > limits.max_bytes {
                     return Err(Error::Query("query byte budget exceeded".into()));
                 }
-                let mut stream = frame.execute_stream().await.map_err(query_error)?;
+                let mut stream = execute_stream(physical, task).map_err(query_error)?;
                 let mut rows = Vec::new();
                 let mut work = 0u64;
                 while let Some(batch) = stream.next().await {
@@ -404,12 +354,21 @@ impl DfQuery {
                     }
                 }
                 live.check_attached()?;
-                Ok(SqlTable { columns, rows })
+                Ok((SqlTable { columns, rows }, cache))
             },
             limits.timeout_ms,
         );
         self.live.check_attached()?;
-        result
+        match result {
+            Ok((table, cache)) => {
+                self.cache = cache;
+                Ok(table)
+            }
+            Err(error) => {
+                self.cache.clear();
+                Err(error)
+            }
+        }
     }
 }
 
@@ -640,6 +599,80 @@ mod tests {
         db.clock.set(1010);
         assert!(matches!(query.query(&[]), Err(Error::Denied)));
     }
+    #[test]
+    fn planning_cache_is_binding_local_and_discards_failed_execution() {
+        let db = Database::memory();
+        let mut tx = db.admin().transaction();
+        tx.install(demo::core()).unwrap();
+        let ada = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
+        let grace = tx.insert("core.Person", vec!["Grace".into()]).unwrap();
+        tx.commit().unwrap();
+        let sql = DfSnapshot::new(db.admin().snapshot(), None).unwrap();
+        let mut query = sql
+            .prepare("SELECT name FROM core.Person WHERE id=?1")
+            .unwrap();
+        let first = [SqlValue::Text(ada.to_string())];
+        let second = [SqlValue::Text(grace.to_string())];
+        assert!(query.cache.get(&first).is_none());
+        for _ in 0..3 {
+            assert_eq!(
+                query.query(&first, QueryLimits::default()).unwrap().rows,
+                vec![vec![SqlValue::Text("Ada".into())]]
+            );
+            assert!(
+                query
+                    .cache
+                    .get(&first)
+                    .unwrap()
+                    .physical()
+                    .unwrap()
+                    .is_some()
+            );
+        }
+        assert_eq!(
+            query.query(&second, QueryLimits::default()).unwrap().rows,
+            vec![vec![SqlValue::Text("Grace".into())]]
+        );
+        assert!(query.cache.get(&first).is_none());
+        assert!(query.cache.get(&second).is_some());
+        assert!(
+            query
+                .query(
+                    &second,
+                    QueryLimits {
+                        max_bytes: 1,
+                        ..QueryLimits::default()
+                    }
+                )
+                .is_err()
+        );
+        assert!(query.cache.get(&second).is_none());
+        assert_eq!(
+            query.query(&first, QueryLimits::default()).unwrap().rows,
+            vec![vec![SqlValue::Text("Ada".into())]]
+        );
+    }
+
+    #[test]
+    fn context_dependent_queries_and_views_never_cache_folded_values() {
+        let db = Database::memory();
+        let mut sql = DfSnapshot::new(db.admin().snapshot(), None).unwrap();
+        sql.view("clock_view", "SELECT CAST(now() AS VARCHAR) AS stamp")
+            .unwrap();
+        for text in [
+            "SELECT random()",
+            "SELECT CAST(now() AS VARCHAR)",
+            "SELECT stamp FROM clock_view",
+        ] {
+            let mut query = sql.prepare(text).unwrap();
+            assert!(!query.cacheable, "{text}");
+            for _ in 0..2 {
+                query.query(&[], QueryLimits::default()).unwrap();
+                assert!(query.cache.get(&[]).is_none(), "{text}");
+            }
+        }
+    }
+
     #[test]
     fn numeric_result_conversion_never_truncates() {
         assert!(sql_value(ScalarValue::UInt64(Some(u64::MAX))).is_err());

@@ -26,7 +26,7 @@ fn sql_transaction_reads_staged_writes_through_datafusion() {
     let plan = tx
         .query("EXPLAIN SELECT name FROM core.Person", &[])
         .unwrap();
-    assert!(format!("{plan:?}").contains("DataSourceExec"));
+    assert!(format!("{plan:?}").contains("LiquidScanExec"));
     tx.commit().unwrap();
     assert_eq!(
         db.admin()

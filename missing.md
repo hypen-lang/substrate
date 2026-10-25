@@ -5,7 +5,8 @@ milestones in the README. Package publication and Bend verification are explicit
 excluded from this implementation run. This is a status ledger, not a claim that
 queued features already work.
 
-Latest change: DataFusion is the default SQL read engine and imbl is adopted.
+Latest change: DataFusion now uses lazy native-index providers, bounded planning
+reuse and authorized projected-page caching; imbl remains adopted.
 See the final adoption section for current limits; earlier sections retain the
 chronological benchmark and implementation history.
 
@@ -19,7 +20,7 @@ operation is not implied by a small replication/sharding implementation.
 
 | Workstream | Agent/status | First acceptance criteria | Further work within the milestone |
 | --- | --- | --- | --- |
-| SQL execution and planning | `query_performance` — initial slice implemented/tested | Prefer identity equality independent of predicate order; share cursor rows; safe indexed numeric ranges/order; authorization/coercion regression tests and measured before/after probes | Better selectivity statistics, wider range domains, projection/limit pushdown, request catalog setup costs |
+| SQL execution and planning | Native slice and index-backed DataFusion implemented/tested | Identity/equality/range indexes, projection/safe LIMIT pushdown, bounded planning/page caches, authorization/coercion regression tests and paired measurements | Better selectivity statistics, wider range domains, indexed join probes, ordered-range/top-k pushdown, changed-parameter planning |
 | Operational hardening and transport | `operational_hardening` — initial slice implemented/tested | Bounded per-peer admission/failure limits, safe observability, remove accept polling/duplicate serialization where feasible; preserve per-operation auth and test real sockets | Enrollment/OIDC or mTLS mapping, certificate reload/rotation, durable audit history, stronger CPU/memory isolation, cancellation and request CPU isolation |
 | Incremental checkpoints | `checkpoint_scaling` — incremental v2 implemented/tested | Avoid rewriting unchanged checkpoint rows; retain atomic head/checkpoint/prune, integrity and old-file compatibility; crash tests and write-amplification measurements | Background work with bounded publication stalls, recovery-cost bounds under maintenance lag |
 | Durable group commit and separate publication lock | `durable_group_commit` — implemented/tested | Bounded queue; ordered OCC/auth validation against evolving tentative state; one revision per accepted transaction; one Immediate durable redb transaction per group; publish/ack only after persistence; individual conflicts and fail-stop errors | Benchmark optional collection windows and caps,1/8/32 writers,p50/p99,reader stalls,checkpoint/crash boundaries |
@@ -220,7 +221,7 @@ The subsequent adoption milestone is recorded below:
 | --- | --- | --- |
 | im → imbl | Adopted imbl 7.0.2 after isolated engine experiment | Candidate passed 316 frozen-engine tests; 10k-row single inserts/updates about 2.2× faster, native reads mixed; paired SQL comparison and raw results in the collections report |
 | serde_json → simd-json | Completed; retain serde_json | Nine tests expose malformed-surrogate and default depth differences; structured parsing improves ~14–15%, authenticated read dispatch does not; large text regresses |
-| Analytical DataFusion / DuckDB | Both measured; DataFusion adopted for SQL reads | Nine query outputs match at 18k/180k occurrences; warm grouped aggregate ~20× faster than Substrate at larger size, but ~249 ms materialization and slower point reads; authorized DataFusion batch adapter now implemented; lazy/index-aware providers remain |
+| Analytical DataFusion / DuckDB | Both measured; DataFusion adopted for SQL reads | Initial candidate favored DataFusion for analytics; production now uses lazy authorized index-backed providers and bounded planning/page caches. See the paired adapter report below for current costs and remaining gaps |
 | redb → SQLite WAL / RocksDB | Completed; retain redb | All ~4 ms/durable group with matched platform flush; 32-record throughput within ~2.4% of redb; reopen/process-loss tests pass; sustained compaction and full-engine adapters remain unmeasured |
 
 No candidate is adopted just because an upstream microbenchmark claims it is faster.
@@ -275,3 +276,40 @@ join overhead remains substantial: 122 µs and 1.73 ms versus direct SQLite's
 Optimizing prepared planning and lazy/index-aware SQL providers is a priority;
 physical execution state must remain fresh to preserve repeated-query correctness.
 These figures exclude transport and are not native indexed-query measurements.
+
+
+## Index-backed DataFusion and planning reuse — 2026-10-25
+
+Implemented lazy native identity/equality/numeric-range providers with projection
+and safe LIMIT pushdown. SQL catalog construction registers schemas without copying
+rows. Only exact typed comparisons are pushed; residual conditions remain in
+DataFusion. Native APIs and storage are unchanged. Optimized planning is cached
+for one exact parameter binding per prepared query; simple physical templates are
+rebuilt into fresh operators, while mutable joins/sorts get newly planned trees.
+Stable/volatile expressions and subqueries bypass planning reuse.
+
+A 64 MiB / 4,096-entry FIFO cache stores projected authorized pages for unlimited,
+predicate-free family scans, scoped to one pinned SQL snapshot and principal.
+Cached reads still enforce live authority and fresh per-execution source budgets.
+This preserves analytical reuse without eager catalog-wide materialization.
+
+Remaining work: indexed join probes driven by join results, native ordered-range
+and top-k pushdown, cheaper changed-parameter planning, precise transactional read
+dependencies, larger-than-RAM serving and hard CPU/RSS isolation. Numeric range
+queries still materialize their candidates before DataFusion sorts them. The
+[paired benchmark](docs/benchmarks/DATAFUSION-INDEXED.md) separates unprimed source
+conversion from warm repeats and compares both previous adapters with SQLite.
+
+Integrated verification: **363 Rust tests including the doctest** and **50
+TypeScript tests** passed, as did strict all-target Clippy and the SQL example.
+Independent review found an unnecessarily one-sided range scan; intersecting
+both bounds fixed it. No actionable review finding remains in this milestone.
+
+The final twelve-process paired benchmark verified all query outputs. At 180k
+occurrences, warm SQL point reads improved 117 → 15.6 µs and the selective join
+1.96 → 0.84 ms. Range/top-k regressed 0.37 → 1.24 ms, EXISTS 1.14 → 1.59 ms,
+and windows 8.09 → 15.10 ms. Unprimed source conversion remains expensive; native
+ordered-range/top-k execution and join-driven index probes remain priorities.
+Direct SQLite's 0.34 µs point reads also show substantial SQL dispatch/planning
+overhead remains. These are memory-resident synthetic reads, not native API,
+transport or durable-write measurements.

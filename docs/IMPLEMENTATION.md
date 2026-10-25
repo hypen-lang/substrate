@@ -426,3 +426,35 @@ The DataFusion example returned the expected joined aggregate, preserved native
 lookup behavior, and denied its retained SQL handle immediately after revocation.
 The review report records both findings and their fixes. Native benchmark results
 and timing boundaries are recorded separately in the linked report.
+
+
+## Index-backed DataFusion — 2026-10-25
+
+The eager authorized Arrow catalog was replaced with lazy native-index providers.
+Identity/equality/range predicates, projection and safe LIMIT pushdown preserve
+row policies, transitive reference visibility and pinned data with live authority.
+Prepared execution reuses safe planning work for one exact typed binding and
+creates fresh execution state. Stable/volatile functions and subqueries bypass
+reuse. Unlimited family scans can reuse bounded projected source pages within a
+single SQL snapshot; cache hits recharge execution budgets and recheck authority.
+
+The [independent review](reviews/DATAFUSION-INDEXED.md) covered exact predicate
+semantics, authority, parameter/cache isolation and error paths. It identified a
+one-sided range scan that was fixed by intersecting both bounds. The
+[paired benchmark](benchmarks/DATAFUSION-INDEXED.md) compares the eager DataFusion
+baseline, SQLite compatibility adapter and direct SQLite, and reports first-use
+costs separately. Native query and storage source code is unchanged.
+
+Integrated verification passed **363 Rust tests including the doctest**, **50
+TypeScript tests**, and strict all-target Clippy. The executable example verifies
+an identity-index plan, repeated prepared reads, the joined aggregate, native
+lookup and immediate denial after revocation. Regression coverage includes
+typed/coercion differential queries, exact index candidate counts, bounded cache
+eviction, concurrent cache fills, and revocation/expiry between cached pages.
+
+All twelve paired benchmark processes passed exact result and repeated-query
+checks. At 180k occurrences, warm point reads improved 117 → 15.6 µs and the
+selective five-family join 1.96 → 0.84 ms. Range/top-k, correlated EXISTS and
+windows regressed; first-use conversion and changed-binding planning remain
+material costs. The report includes these regressions, both SQLite comparisons,
+and separate catalog/preparation/fresh-handle timings.

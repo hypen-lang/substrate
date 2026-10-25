@@ -49,7 +49,7 @@ fn both_modes_preserve_filters_parameters_and_report_plan() {
             report
                 .plan
                 .iter()
-                .any(|p| p.detail.contains("DataSourceExec"))
+                .any(|p| p.detail.contains("LiquidScanExec"))
         );
         assert!(report.latencies.min_us <= report.latencies.p50_us);
         assert!(report.latencies.p99_us <= report.latencies.max_us);
