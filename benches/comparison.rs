@@ -204,17 +204,23 @@ fn sqlite_rows_with(statement: &mut rusqlite::Statement<'_>, params: &[S]) -> Ro
             .unwrap(),
     )
 }
-fn measure(mut f: impl FnMut()) -> J {
+fn measure(f: impl FnMut()) -> J {
+    measure_count(ITERATIONS, f)
+}
+fn measure_count(iterations: usize, mut f: impl FnMut()) -> J {
+    assert!(iterations > 0);
     f();
     let mut means = vec![];
     for _ in 0..SAMPLES {
         let t = Instant::now();
-        for _ in 0..ITERATIONS {
+        for _ in 0..iterations {
             f();
         }
-        means.push(t.elapsed().as_secs_f64() * 1e6 / ITERATIONS as f64);
+        means.push(t.elapsed().as_secs_f64() * 1e6 / iterations as f64);
     }
-    stats(means)
+    let mut result = stats(means);
+    result["iterations"] = json!(iterations);
+    result
 }
 fn stats(mut means: Vec<f64>) -> J {
     let samples = means.clone();
@@ -718,6 +724,30 @@ fn main() {
         .map(|v| v.parse::<usize>().unwrap())
         .unwrap_or(2000);
     assert!((10..=100_000).contains(&n), "choose 10..100000 people");
+    // Fixed common counts keep both revisions doing equal work. Short queries
+    // need longer samples in CI; ordinary benchmark defaults remain unchanged.
+    let query_iterations: Option<std::collections::BTreeMap<String, usize>> =
+        match std::env::var("SUBSTRATE_BENCH_QUERY_ITERATIONS") {
+            Ok(value) => Some(serde_json::from_str(&value).expect("invalid query iteration map")),
+            Err(std::env::VarError::NotPresent) => None,
+            Err(error) => panic!("invalid query iteration environment: {error}"),
+        };
+    if let Some(counts) = &query_iterations {
+        let queries = workloads(n);
+        assert_eq!(
+            counts.len(),
+            queries.len(),
+            "iteration map must cover every query"
+        );
+        for (name, _) in queries {
+            assert!(
+                counts
+                    .get(name)
+                    .is_some_and(|count| (1..=100_000).contains(count)),
+                "missing or invalid iteration count for {name}"
+            );
+        }
+    }
     let pg = std::env::var("SUBSTRATE_BENCH_PG_DSN").ok();
     let start = Instant::now();
     let db = fixture(n);
@@ -740,6 +770,9 @@ fn main() {
     });
     let mut measurements = vec![];
     for (name, query) in workloads(n) {
+        let iterations = query_iterations
+            .as_ref()
+            .map_or(ITERATIONS, |counts| counts[name]);
         let flattened = flatten(&query);
         let (mut ordinary, sqlite_prepare_ms) = timed(|| conn.prepare(&flattened).unwrap());
         let (mut liquid, admin_prepare_ms) = timed(|| sql.prepare(&query).unwrap());
@@ -765,19 +798,19 @@ fn main() {
             "{:x}",
             Sha256::digest(serde_json::to_vec(&expected).unwrap())
         );
-        let sqlite = measure(|| {
+        let sqlite = measure_count(iterations, || {
             black_box(sqlite_rows(&mut ordinary));
         });
-        let substrate_admin = measure(|| {
+        let substrate_admin = measure_count(iterations, || {
             black_box(canonical(liquid.query(&[]).unwrap().rows));
         });
-        let substrate_reader = measure(|| {
+        let substrate_reader = measure_count(iterations, || {
             black_box(canonical(restricted.query(&[]).unwrap().rows));
         });
-        let sqlite_compat_admin = measure(|| {
+        let sqlite_compat_admin = measure_count(iterations, || {
             black_box(canonical(old.query(&[]).unwrap().rows));
         });
-        let sqlite_compat_reader = measure(|| {
+        let sqlite_compat_reader = measure_count(iterations, || {
             black_box(canonical(old_reader.query(&[]).unwrap().rows));
         });
         assert_eq!(
@@ -829,5 +862,5 @@ fn main() {
     let postgres_version = pg
         .as_ref()
         .map(|dsn| psql(dsn, "SELECT version();").trim().to_owned());
-    println!("{}",serde_json::to_string_pretty(&json!({"people":n,"occurrences":n*9,"children_per_app_per_person":2,"samples":SAMPLES,"iterations":ITERATIONS,"warm_cache":true,"prepared":true,"environment":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"sqlite":rusqlite::version(),"substrate":env!("CARGO_PKG_VERSION"),"sql_engine":"DataFusion","datafusion_facade":datafusion::DATAFUSION_VERSION,"datafusion_execution":locked_version("datafusion-physical-plan"),"imbl":locked_version("imbl"),"postgres":postgres_version},"setup_ms":{"substrate":substrate_setup,"substrate_admin_sql_catalog":admin_catalog_ms,"substrate_reader_sql_catalog":reader_catalog_ms,"sqlite_compat_admin_catalog":compat_admin_catalog_ms,"sqlite_compat_reader_catalog":compat_reader_catalog_ms,"sqlite":sqlite_setup,"postgres":postgres_setup},"postgres_measured":pg.is_some(),"postgres_timing":"psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency","measurements":measurements,"parameter_rebinding":rebinding,"unseen_parameters":unseen,"execution_diagnostics":diagnostics,"sqlite_covering_index":covering,"projection":projection})).unwrap());
+    println!("{}",serde_json::to_string_pretty(&json!({"people":n,"occurrences":n*9,"children_per_app_per_person":2,"samples":SAMPLES,"iterations":ITERATIONS,"query_iterations":query_iterations,"warm_cache":true,"prepared":true,"environment":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"sqlite":rusqlite::version(),"substrate":env!("CARGO_PKG_VERSION"),"sql_engine":"DataFusion","datafusion_facade":datafusion::DATAFUSION_VERSION,"datafusion_execution":locked_version("datafusion-physical-plan"),"imbl":locked_version("imbl"),"postgres":postgres_version},"setup_ms":{"substrate":substrate_setup,"substrate_admin_sql_catalog":admin_catalog_ms,"substrate_reader_sql_catalog":reader_catalog_ms,"sqlite_compat_admin_catalog":compat_admin_catalog_ms,"sqlite_compat_reader_catalog":compat_reader_catalog_ms,"sqlite":sqlite_setup,"postgres":postgres_setup},"postgres_measured":pg.is_some(),"postgres_timing":"psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency","measurements":measurements,"parameter_rebinding":rebinding,"unseen_parameters":unseen,"execution_diagnostics":diagnostics,"sqlite_covering_index":covering,"projection":projection})).unwrap());
 }
