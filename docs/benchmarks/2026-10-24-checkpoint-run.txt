@@ -1,0 +1,10 @@
+rows=1000,updates_per_commit=100,samples=7,warm_cache=true,profile=release,automatic_checkpointing=disabled_for_baseline
+history_100_full_replay,median_ms=38.020,min_ms=37.617,max_ms=42.625,checkpoint_rows=0,replayed_commits=102,replayed_bytes=600662
+history_100_checkpoint,median_ms=10.983,min_ms=10.443,max_ms=12.259,checkpoint_rows=1000,replayed_commits=0,replayed_bytes=0
+history=100,speedup=3.46x,checkpoint_ms=5.625,checkpoint_bytes=86146,pruned_commits=102,pruned_bytes=600662,file_bytes_after_checkpoint=2174976
+history_100_checkpoint_plus_10,median_ms=15.561,min_ms=15.184,max_ms=16.322,checkpoint_rows=1000,replayed_commits=10,replayed_bytes=53050
+history_500_full_replay,median_ms=174.107,min_ms=149.289,max_ms=305.895,checkpoint_rows=0,replayed_commits=502,replayed_bytes=2722662
+history_500_checkpoint,median_ms=11.135,min_ms=10.729,max_ms=11.919,checkpoint_rows=1000,replayed_commits=0,replayed_bytes=0
+history=500,speedup=15.64x,checkpoint_ms=7.526,checkpoint_bytes=86146,pruned_commits=502,pruned_bytes=2722662,file_bytes_after_checkpoint=4304896
+history_500_checkpoint_plus_10,median_ms=16.803,min_ms=15.542,max_ms=16.968,checkpoint_rows=1000,replayed_commits=10,replayed_bytes=53050
+Measures opening and rebuilding complete current state/indexes. Excludes verification and closing. Checkpoint is synchronous; pruning permits reuse, not guaranteed file shrink. OS cache is not flushed; this is not power-loss testing.

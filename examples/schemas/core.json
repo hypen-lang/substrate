@@ -1,0 +1,6 @@
+{
+  "name": "core", "version": 1, "imports": [],
+  "relations": [
+    {"name": "core.Person", "roles": [{"name": "name", "data_type": "Text"}]}
+  ]
+}

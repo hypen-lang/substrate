@@ -1,0 +1,132 @@
+{
+  "format": 1,
+  "modules": [
+    {
+      "name": "core",
+      "version": 1,
+      "imports": [],
+      "relations": [
+        {
+          "id": "9d9adf54-56a8-466b-9b0c-c5c64d9792c0",
+          "name": "core.Person",
+          "roles": [
+            {
+              "name": "name",
+              "data_type": "Text"
+            }
+          ],
+          "unique": []
+        }
+      ]
+    },
+    {
+      "name": "crm",
+      "version": 1,
+      "imports": [
+        [
+          "core",
+          1
+        ]
+      ],
+      "relations": [
+        {
+          "id": "67e75f7f-73a7-4448-bf2f-67d8583fde6c",
+          "name": "crm.CustomerDeal",
+          "roles": [
+            {
+              "name": "customer",
+              "data_type": {
+                "Ref": "core.Person"
+              }
+            },
+            {
+              "name": "deal",
+              "data_type": {
+                "Ref": "crm.Deal"
+              }
+            }
+          ],
+          "unique": []
+        },
+        {
+          "id": "fc7caf46-485b-4ad3-a9f0-e23dda770c51",
+          "name": "crm.Deal",
+          "roles": [
+            {
+              "name": "amount",
+              "data_type": {
+                "Decimal": {
+                  "scale": 2
+                }
+              }
+            }
+          ],
+          "unique": []
+        }
+      ]
+    },
+    {
+      "name": "fitness",
+      "version": 1,
+      "imports": [
+        [
+          "core",
+          1
+        ]
+      ],
+      "relations": [
+        {
+          "id": "16c356ed-62d7-473a-8364-afcbfff1fb33",
+          "name": "fitness.Performed",
+          "roles": [
+            {
+              "name": "athlete",
+              "data_type": {
+                "Ref": "core.Person"
+              }
+            },
+            {
+              "name": "workout",
+              "data_type": {
+                "Ref": "fitness.Workout"
+              }
+            }
+          ],
+          "unique": []
+        },
+        {
+          "id": "8fc7756d-c771-474d-bd18-cfdf756e34b5",
+          "name": "fitness.TrainingGoal",
+          "roles": [
+            {
+              "name": "person",
+              "data_type": {
+                "Ref": "core.Person"
+              }
+            },
+            {
+              "name": "value",
+              "data_type": "Text"
+            }
+          ],
+          "unique": [
+            [
+              "person"
+            ]
+          ]
+        },
+        {
+          "id": "f57d3565-91c6-46f5-9a58-f12b067f43b3",
+          "name": "fitness.Workout",
+          "roles": [
+            {
+              "name": "durationMinutes",
+              "data_type": "Int"
+            }
+          ],
+          "unique": []
+        }
+      ]
+    }
+  ]
+}

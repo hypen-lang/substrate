@@ -1,0 +1,835 @@
+{
+  "people": 20000,
+  "occurrences": 180000,
+  "environment": {
+    "sqlite": "3.46.0",
+    "python": "3.13.12",
+    "duckdb": "1.4.1",
+    "pyarrow": "21.0.0",
+    "platform": "macOS-26.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "threads": 1
+  },
+  "samples": 5,
+  "iterations": 3,
+  "source_authorized_export_ms": 139.73825000000002,
+  "source_serialization_ms": 8.516292,
+  "source_fixture_ms_excluded": 1425.782417,
+  "source_sql_setup_ms": 0.20654199999999998,
+  "python_import_ms": 120.069958,
+  "bridge_read_ms": 1.5105,
+  "bridge_json_decode_ms": 16.791375,
+  "arrow_conversion_ms": 8.398834,
+  "arrow_logical_bytes": 14560000,
+  "bridge_file_bytes": 14028852,
+  "serialized_columns_bytes": 13981762,
+  "source_revocation_checked": true,
+  "modes": [
+    {
+      "name": "arrow_direct",
+      "setup_ms": 7.253041,
+      "bridge_plus_setup_ms": 182.208292,
+      "measurements": [
+        {
+          "name": "01_primary_key",
+          "rows": 1,
+          "sha256": "b21d7d487a388d2f5f27250a60f63cb90dbe38ade5cd15618e489cc972eab0f7",
+          "sqlite": {
+            "max_us": 0.514,
+            "median_us": 0.4026666666666667,
+            "min_us": 0.375,
+            "samples_us": [
+              0.514,
+              0.4026666666666667,
+              0.4026666666666667,
+              0.389,
+              0.375
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 2.0833333333333335,
+            "median_us": 1.139,
+            "min_us": 1.0973333333333333,
+            "samples_us": [
+              1.736,
+              1.139,
+              1.0973333333333333,
+              1.111,
+              2.0833333333333335
+            ]
+          },
+          "duckdb": {
+            "median_us": 163.653,
+            "min_us": 146.41666666666666,
+            "max_us": 217.389,
+            "samples_us": [
+              168.18066666666667,
+              156.36100000000002,
+              217.389,
+              163.653,
+              146.41666666666666
+            ]
+          },
+          "bridge_break_even_repetitions": null,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 182.371945
+        },
+        {
+          "name": "02_indexed_equality",
+          "rows": 334,
+          "sha256": "d273c148116e69c6546ee12f6f88e1d14ae11cf5b86eeb4a387cfee80cc7549a",
+          "sqlite": {
+            "max_us": 97.81966666666666,
+            "median_us": 79.23633333333333,
+            "min_us": 77.16666666666667,
+            "samples_us": [
+              97.81966666666666,
+              84.83333333333333,
+              79.23633333333333,
+              78.139,
+              77.16666666666667
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 123.51400000000001,
+            "median_us": 113.26400000000001,
+            "min_us": 111.05533333333334,
+            "samples_us": [
+              123.51400000000001,
+              113.55533333333334,
+              113.26400000000001,
+              111.43066666666665,
+              111.05533333333334
+            ]
+          },
+          "duckdb": {
+            "median_us": 271.72200000000004,
+            "min_us": 235.875,
+            "max_us": 294.0833333333333,
+            "samples_us": [
+              294.0833333333333,
+              271.72200000000004,
+              293.9166666666667,
+              240.889,
+              235.875
+            ]
+          },
+          "bridge_break_even_repetitions": null,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 182.480014
+        },
+        {
+          "name": "03_range_top_100",
+          "rows": 100,
+          "sha256": "e19a8ab4eef2a39c92b3bacfd51ac5c4583e20c838d19e27cf6534f283e5f424",
+          "sqlite": {
+            "max_us": 58.722,
+            "median_us": 54.416666666666664,
+            "min_us": 54.27766666666667,
+            "samples_us": [
+              58.722,
+              55.125,
+              54.416666666666664,
+              54.27766666666667,
+              54.416666666666664
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 1793.7223333333334,
+            "median_us": 1780.25,
+            "min_us": 1719.3053333333335,
+            "samples_us": [
+              1780.25,
+              1741.5696666666665,
+              1793.7223333333334,
+              1719.3053333333335,
+              1790.764
+            ]
+          },
+          "duckdb": {
+            "median_us": 346.56933333333336,
+            "min_us": 323.4166666666667,
+            "max_us": 400.94433333333336,
+            "samples_us": [
+              343.5973333333333,
+              400.94433333333336,
+              369.38899999999995,
+              346.56933333333336,
+              323.4166666666667
+            ]
+          },
+          "bridge_break_even_repetitions": 127.09126672094808,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 182.55486133333332
+        },
+        {
+          "name": "04_relationship_lookup",
+          "rows": 2,
+          "sha256": "36376da69111cdfa3c83fcc6ac7c25f16953b1656490d77f6515f434b232dcd6",
+          "sqlite": {
+            "max_us": 1.4026666666666667,
+            "median_us": 1.1529999999999998,
+            "min_us": 1.125,
+            "samples_us": [
+              1.4026666666666667,
+              1.1803333333333332,
+              1.1529999999999998,
+              1.1529999999999998,
+              1.125
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 3.388666666666667,
+            "median_us": 3.1666666666666665,
+            "min_us": 3.139,
+            "samples_us": [
+              3.388666666666667,
+              3.1943333333333332,
+              3.1666666666666665,
+              3.139,
+              3.1526666666666667
+            ]
+          },
+          "duckdb": {
+            "median_us": 1661.778,
+            "min_us": 1588.3196666666665,
+            "max_us": 1748.4306666666669,
+            "samples_us": [
+              1685.1390000000001,
+              1748.4306666666669,
+              1588.3196666666665,
+              1661.778,
+              1620.4859999999999
+            ]
+          },
+          "bridge_break_even_repetitions": null,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 183.87007
+        },
+        {
+          "name": "05_cross_app_five_way",
+          "rows": 4,
+          "sha256": "347d73f8350190e8b9dee803b748cc099e9b15089b4eaab1b793dd58a6a8129c",
+          "sqlite": {
+            "max_us": 3.4303333333333335,
+            "median_us": 3.1666666666666665,
+            "min_us": 3.138666666666666,
+            "samples_us": [
+              3.4303333333333335,
+              3.2223333333333337,
+              3.1666666666666665,
+              3.1526666666666667,
+              3.138666666666666
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 10.027666666666667,
+            "median_us": 9.097333333333333,
+            "min_us": 9.055666666666665,
+            "samples_us": [
+              10.027666666666667,
+              9.166666666666666,
+              9.055666666666665,
+              9.097333333333333,
+              9.069333333333335
+            ]
+          },
+          "duckdb": {
+            "median_us": 3218.6946666666668,
+            "min_us": 3119.2083333333335,
+            "max_us": 3460.722333333333,
+            "samples_us": [
+              3460.722333333333,
+              3292.3610000000003,
+              3119.2083333333335,
+              3121.6666666666665,
+              3218.6946666666668
+            ]
+          },
+          "bridge_break_even_repetitions": null,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 185.42698666666666
+        },
+        {
+          "name": "06_cross_app_group_top_25",
+          "rows": 25,
+          "sha256": "f5b5b9cb8af4d983848fbd263c26bb60ba6c6d5cc82ac23be5400a9b41a6f445",
+          "sqlite": {
+            "max_us": 38701.25,
+            "median_us": 37832.264,
+            "min_us": 37665.097,
+            "samples_us": [
+              37665.097,
+              38701.25,
+              38010.083333333336,
+              37832.264,
+              37773.333333333336
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 164996.80533333332,
+            "median_us": 158298.236,
+            "min_us": 157802.93033333332,
+            "samples_us": [
+              158298.236,
+              157850.81933333332,
+              157802.93033333332,
+              158316.75,
+              164996.80533333332
+            ]
+          },
+          "duckdb": {
+            "median_us": 9816.666666666666,
+            "min_us": 9450.5,
+            "max_us": 9835.694333333333,
+            "samples_us": [
+              9835.694333333333,
+              9816.666666666666,
+              9829.75,
+              9454.958333333334,
+              9450.5
+            ]
+          },
+          "bridge_break_even_repetitions": 1.22714416892343,
+          "bridge_break_even_repetitions_vs_sqlite": 6.503816064746408,
+          "first_query_ms_including_bridge_setup": 192.02495866666666
+        },
+        {
+          "name": "07_correlated_exists",
+          "rows": 100,
+          "sha256": "24acedce654066dbb4e699f2dd531ddd3cc39117158860fb03bab4823de0b4d9",
+          "sqlite": {
+            "max_us": 452.6803333333333,
+            "median_us": 436.68066666666664,
+            "min_us": 433.63866666666667,
+            "samples_us": [
+              452.6803333333333,
+              435.4583333333333,
+              436.68066666666664,
+              437.5696666666667,
+              433.63866666666667
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 46519.083333333336,
+            "median_us": 45530.986,
+            "min_us": 44848.291666666664,
+            "samples_us": [
+              46230.59733333334,
+              46519.083333333336,
+              45268.90266666666,
+              44848.291666666664,
+              45530.986
+            ]
+          },
+          "duckdb": {
+            "median_us": 2622.1946666666668,
+            "min_us": 2530.5973333333336,
+            "max_us": 2791.3053333333332,
+            "samples_us": [
+              2718.625,
+              2791.3053333333332,
+              2622.1946666666668,
+              2577.0693333333334,
+              2530.5973333333336
+            ]
+          },
+          "bridge_break_even_repetitions": 4.246409333335219,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 184.83048666666667
+        },
+        {
+          "name": "08_filtered_nested_top_1",
+          "rows": 100,
+          "sha256": "52195ac623aa4f3cddfdb92fd502f457a60e91a14dc3d6c89a5a566ef2b9678b",
+          "sqlite": {
+            "max_us": 24567.569333333333,
+            "median_us": 24509.139,
+            "min_us": 24344.597333333335,
+            "samples_us": [
+              24344.597333333335,
+              24567.569333333333,
+              24446.944333333333,
+              24520.846999999998,
+              24509.139
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 115284.16666666667,
+            "median_us": 106318.29166666667,
+            "min_us": 95308.06966666666,
+            "samples_us": [
+              115284.16666666667,
+              95308.06966666666,
+              109810.69466666668,
+              101751.52766666668,
+              106318.29166666667
+            ]
+          },
+          "duckdb": {
+            "median_us": 9037.152666666667,
+            "min_us": 8247.430666666667,
+            "max_us": 9100.930666666667,
+            "samples_us": [
+              8247.430666666667,
+              8994.0,
+              9041.485999999999,
+              9100.930666666667,
+              9037.152666666667
+            ]
+          },
+          "bridge_break_even_repetitions": 1.8730073873826658,
+          "bridge_break_even_repetitions_vs_sqlite": 11.776658024021437,
+          "first_query_ms_including_bridge_setup": 191.24544466666666
+        },
+        {
+          "name": "09_full_scan_aggregate",
+          "rows": 1,
+          "sha256": "710e14c98f045929e176ba7b441ff75c5dae3f6c7bc07dd91dcacd746bb81879",
+          "sqlite": {
+            "max_us": 1067.1666666666667,
+            "median_us": 978.764,
+            "min_us": 966.389,
+            "samples_us": [
+              978.764,
+              966.389,
+              973.861,
+              1067.1666666666667,
+              1021.3053333333332
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 6314.902666666668,
+            "median_us": 6192.583333333333,
+            "min_us": 6021.361333333334,
+            "samples_us": [
+              6021.361333333334,
+              6057.027666666668,
+              6314.902666666668,
+              6236.069333333333,
+              6192.583333333333
+            ]
+          },
+          "duckdb": {
+            "median_us": 147.54166666666666,
+            "min_us": 142.06933333333333,
+            "max_us": 176.91666666666666,
+            "samples_us": [
+              176.91666666666666,
+              147.54166666666666,
+              151.15266666666668,
+              142.06933333333333,
+              143.347
+            ]
+          },
+          "bridge_break_even_repetitions": 30.141776028563356,
+          "bridge_break_even_repetitions_vs_sqlite": 219.20524111679705,
+          "first_query_ms_including_bridge_setup": 182.35583366666665
+        }
+      ]
+    },
+    {
+      "name": "materialized_indexed",
+      "setup_ms": 80.988333,
+      "bridge_plus_setup_ms": 255.943584,
+      "measurements": [
+        {
+          "name": "01_primary_key",
+          "rows": 1,
+          "sha256": "b21d7d487a388d2f5f27250a60f63cb90dbe38ade5cd15618e489cc972eab0f7",
+          "sqlite": {
+            "max_us": 0.514,
+            "median_us": 0.4026666666666667,
+            "min_us": 0.375,
+            "samples_us": [
+              0.514,
+              0.4026666666666667,
+              0.4026666666666667,
+              0.389,
+              0.375
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 2.0833333333333335,
+            "median_us": 1.139,
+            "min_us": 1.0973333333333333,
+            "samples_us": [
+              1.736,
+              1.139,
+              1.0973333333333333,
+              1.111,
+              2.0833333333333335
+            ]
+          },
+          "duckdb": {
+            "median_us": 34.15266666666667,
+            "min_us": 33.541666666666664,
+            "max_us": 35.84733333333333,
+            "samples_us": [
+              35.84733333333333,
+              34.278,
+              33.666666666666664,
+              34.15266666666667,
+              33.541666666666664
+            ]
+          },
+          "bridge_break_even_repetitions": null,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 255.97773666666666
+        },
+        {
+          "name": "02_indexed_equality",
+          "rows": 334,
+          "sha256": "d273c148116e69c6546ee12f6f88e1d14ae11cf5b86eeb4a387cfee80cc7549a",
+          "sqlite": {
+            "max_us": 97.81966666666666,
+            "median_us": 79.23633333333333,
+            "min_us": 77.16666666666667,
+            "samples_us": [
+              97.81966666666666,
+              84.83333333333333,
+              79.23633333333333,
+              78.139,
+              77.16666666666667
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 123.51400000000001,
+            "median_us": 113.26400000000001,
+            "min_us": 111.05533333333334,
+            "samples_us": [
+              123.51400000000001,
+              113.55533333333334,
+              113.26400000000001,
+              111.43066666666665,
+              111.05533333333334
+            ]
+          },
+          "duckdb": {
+            "median_us": 219.75,
+            "min_us": 218.5136666666667,
+            "max_us": 235.5136666666667,
+            "samples_us": [
+              235.5136666666667,
+              224.70833333333334,
+              219.75,
+              219.18066666666667,
+              218.5136666666667
+            ]
+          },
+          "bridge_break_even_repetitions": null,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 256.16333399999996
+        },
+        {
+          "name": "03_range_top_100",
+          "rows": 100,
+          "sha256": "e19a8ab4eef2a39c92b3bacfd51ac5c4583e20c838d19e27cf6534f283e5f424",
+          "sqlite": {
+            "max_us": 58.722,
+            "median_us": 54.416666666666664,
+            "min_us": 54.27766666666667,
+            "samples_us": [
+              58.722,
+              55.125,
+              54.416666666666664,
+              54.27766666666667,
+              54.416666666666664
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 1793.7223333333334,
+            "median_us": 1780.25,
+            "min_us": 1719.3053333333335,
+            "samples_us": [
+              1780.25,
+              1741.5696666666665,
+              1793.7223333333334,
+              1719.3053333333335,
+              1790.764
+            ]
+          },
+          "duckdb": {
+            "median_us": 162.59733333333332,
+            "min_us": 161.56933333333333,
+            "max_us": 169.09733333333332,
+            "samples_us": [
+              169.09733333333332,
+              162.69433333333333,
+              162.22233333333332,
+              162.59733333333332,
+              161.56933333333333
+            ]
+          },
+          "bridge_break_even_repetitions": 158.21912161613596,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 256.1061813333333
+        },
+        {
+          "name": "04_relationship_lookup",
+          "rows": 2,
+          "sha256": "36376da69111cdfa3c83fcc6ac7c25f16953b1656490d77f6515f434b232dcd6",
+          "sqlite": {
+            "max_us": 1.4026666666666667,
+            "median_us": 1.1529999999999998,
+            "min_us": 1.125,
+            "samples_us": [
+              1.4026666666666667,
+              1.1803333333333332,
+              1.1529999999999998,
+              1.1529999999999998,
+              1.125
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 3.388666666666667,
+            "median_us": 3.1666666666666665,
+            "min_us": 3.139,
+            "samples_us": [
+              3.388666666666667,
+              3.1943333333333332,
+              3.1666666666666665,
+              3.139,
+              3.1526666666666667
+            ]
+          },
+          "duckdb": {
+            "median_us": 214.347,
+            "min_us": 209.18066666666667,
+            "max_us": 217.54166666666666,
+            "samples_us": [
+              217.54166666666666,
+              216.65266666666665,
+              214.347,
+              209.18066666666667,
+              211.04166666666666
+            ]
+          },
+          "bridge_break_even_repetitions": null,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 256.15793099999996
+        },
+        {
+          "name": "05_cross_app_five_way",
+          "rows": 4,
+          "sha256": "347d73f8350190e8b9dee803b748cc099e9b15089b4eaab1b793dd58a6a8129c",
+          "sqlite": {
+            "max_us": 3.4303333333333335,
+            "median_us": 3.1666666666666665,
+            "min_us": 3.138666666666666,
+            "samples_us": [
+              3.4303333333333335,
+              3.2223333333333337,
+              3.1666666666666665,
+              3.1526666666666667,
+              3.138666666666666
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 10.027666666666667,
+            "median_us": 9.097333333333333,
+            "min_us": 9.055666666666665,
+            "samples_us": [
+              10.027666666666667,
+              9.166666666666666,
+              9.055666666666665,
+              9.097333333333333,
+              9.069333333333335
+            ]
+          },
+          "duckdb": {
+            "median_us": 388.31933333333336,
+            "min_us": 379.875,
+            "max_us": 399.7776666666667,
+            "samples_us": [
+              379.875,
+              399.7776666666667,
+              397.81933333333336,
+              386.125,
+              388.31933333333336
+            ]
+          },
+          "bridge_break_even_repetitions": null,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 256.33190333333334
+        },
+        {
+          "name": "06_cross_app_group_top_25",
+          "rows": 25,
+          "sha256": "f5b5b9cb8af4d983848fbd263c26bb60ba6c6d5cc82ac23be5400a9b41a6f445",
+          "sqlite": {
+            "max_us": 38701.25,
+            "median_us": 37832.264,
+            "min_us": 37665.097,
+            "samples_us": [
+              37665.097,
+              38701.25,
+              38010.083333333336,
+              37832.264,
+              37773.333333333336
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 164996.80533333332,
+            "median_us": 158298.236,
+            "min_us": 157802.93033333332,
+            "samples_us": [
+              158298.236,
+              157850.81933333332,
+              157802.93033333332,
+              158316.75,
+              164996.80533333332
+            ]
+          },
+          "duckdb": {
+            "median_us": 7886.694666666666,
+            "min_us": 7751.680333333334,
+            "max_us": 7984.222000000001,
+            "samples_us": [
+              7984.222000000001,
+              7972.180666666667,
+              7886.694666666666,
+              7751.680333333334,
+              7820.208333333333
+            ]
+          },
+          "bridge_break_even_repetitions": 1.701621974824343,
+          "bridge_break_even_repetitions_vs_sqlite": 8.546960024403386,
+          "first_query_ms_including_bridge_setup": 263.83027866666663
+        },
+        {
+          "name": "07_correlated_exists",
+          "rows": 100,
+          "sha256": "24acedce654066dbb4e699f2dd531ddd3cc39117158860fb03bab4823de0b4d9",
+          "sqlite": {
+            "max_us": 452.6803333333333,
+            "median_us": 436.68066666666664,
+            "min_us": 433.63866666666667,
+            "samples_us": [
+              452.6803333333333,
+              435.4583333333333,
+              436.68066666666664,
+              437.5696666666667,
+              433.63866666666667
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 46519.083333333336,
+            "median_us": 45530.986,
+            "min_us": 44848.291666666664,
+            "samples_us": [
+              46230.59733333334,
+              46519.083333333336,
+              45268.90266666666,
+              44848.291666666664,
+              45530.986
+            ]
+          },
+          "duckdb": {
+            "median_us": 2031.0140000000001,
+            "min_us": 2014.6806666666669,
+            "max_us": 2063.3613333333333,
+            "samples_us": [
+              2031.0140000000001,
+              2014.6806666666669,
+              2016.5,
+              2056.986,
+              2063.3613333333333
+            ]
+          },
+          "bridge_break_even_repetitions": 5.883764338974747,
+          "bridge_break_even_repetitions_vs_sqlite": null,
+          "first_query_ms_including_bridge_setup": 257.974598
+        },
+        {
+          "name": "08_filtered_nested_top_1",
+          "rows": 100,
+          "sha256": "52195ac623aa4f3cddfdb92fd502f457a60e91a14dc3d6c89a5a566ef2b9678b",
+          "sqlite": {
+            "max_us": 24567.569333333333,
+            "median_us": 24509.139,
+            "min_us": 24344.597333333335,
+            "samples_us": [
+              24344.597333333335,
+              24567.569333333333,
+              24446.944333333333,
+              24520.846999999998,
+              24509.139
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 115284.16666666667,
+            "median_us": 106318.29166666667,
+            "min_us": 95308.06966666666,
+            "samples_us": [
+              115284.16666666667,
+              95308.06966666666,
+              109810.69466666668,
+              101751.52766666668,
+              106318.29166666667
+            ]
+          },
+          "duckdb": {
+            "median_us": 7681.75,
+            "min_us": 7528.152666666666,
+            "max_us": 8031.763666666667,
+            "samples_us": [
+              7700.138666666667,
+              7681.75,
+              7656.194666666666,
+              7528.152666666666,
+              8031.763666666667
+            ]
+          },
+          "bridge_break_even_repetitions": 2.5948150622001562,
+          "bridge_break_even_repetitions_vs_sqlite": 15.209940413215621,
+          "first_query_ms_including_bridge_setup": 263.625334
+        },
+        {
+          "name": "09_full_scan_aggregate",
+          "rows": 1,
+          "sha256": "710e14c98f045929e176ba7b441ff75c5dae3f6c7bc07dd91dcacd746bb81879",
+          "sqlite": {
+            "max_us": 1067.1666666666667,
+            "median_us": 978.764,
+            "min_us": 966.389,
+            "samples_us": [
+              978.764,
+              966.389,
+              973.861,
+              1067.1666666666667,
+              1021.3053333333332
+            ]
+          },
+          "substrate_reader": {
+            "max_us": 6314.902666666668,
+            "median_us": 6192.583333333333,
+            "min_us": 6021.361333333334,
+            "samples_us": [
+              6021.361333333334,
+              6057.027666666668,
+              6314.902666666668,
+              6236.069333333333,
+              6192.583333333333
+            ]
+          },
+          "duckdb": {
+            "median_us": 70.25,
+            "min_us": 69.88866666666667,
+            "max_us": 72.05533333333334,
+            "samples_us": [
+              72.05533333333334,
+              70.875,
+              70.25,
+              69.88866666666667,
+              70.20833333333333
+            ]
+          },
+          "bridge_break_even_repetitions": 41.804908368269174,
+          "bridge_break_even_repetitions_vs_sqlite": 281.7167198304043,
+          "first_query_ms_including_bridge_setup": 256.013834
+        }
+      ]
+    }
+  ]
+}

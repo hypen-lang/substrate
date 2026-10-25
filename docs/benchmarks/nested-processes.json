@@ -1,0 +1,42 @@
+{
+  "samples": 3,
+  "transport": "Unix socket",
+  "profile": "release",
+  "idle_accept_poll_ms": 5,
+  "measurements": [
+    {
+      "parents": 10,
+      "batched": {
+        "median_ms": 6.094792000000098,
+        "min_ms": 5.294374999999945,
+        "max_ms": 6.1184169999999085,
+        "requests": 1
+      },
+      "per_parent": {
+        "median_ms": 191.52416700000003,
+        "min_ms": 191.00499999999988,
+        "max_ms": 194.214833,
+        "requests": 31
+      },
+      "sql_statements": 3,
+      "speedup": 31.42423350952698
+    },
+    {
+      "parents": 100,
+      "batched": {
+        "median_ms": 10.48479099999986,
+        "min_ms": 8.820083000000068,
+        "max_ms": 11.044084000000112,
+        "requests": 1
+      },
+      "per_parent": {
+        "median_ms": 1856.786459,
+        "min_ms": 1850.4742500000002,
+        "max_ms": 1862.893833,
+        "requests": 301
+      },
+      "sql_statements": 3,
+      "speedup": 177.093321078124
+    }
+  ]
+}

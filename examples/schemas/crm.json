@@ -1,0 +1,10 @@
+{
+  "name": "crm", "version": 1, "imports": [["core", 1]],
+  "relations": [
+    {"name": "crm.Deal", "roles": [{"name": "amount", "data_type": {"Decimal": {"scale": 2}}}]},
+    {"name": "crm.CustomerDeal", "roles": [
+      {"name": "customer", "data_type": {"Ref": "core.Person"}},
+      {"name": "deal", "data_type": {"Ref": "crm.Deal"}}
+    ]}
+  ]
+}

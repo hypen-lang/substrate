@@ -1,0 +1,1 @@
+{"note":"warm same-host release build; 5 warmups,100 sequential requests; distinct connection per request; not production latency","query":"SELECT 1","tls_one_shot":{"median_us":6279.542,"minimum_us":4214.583,"p95_us":9939.958,"requests":100},"unix_one_shot":{"median_us":6289.584,"minimum_us":5036.875,"p95_us":6537.334,"requests":100}}

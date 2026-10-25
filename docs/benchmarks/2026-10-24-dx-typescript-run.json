@@ -1,0 +1,12 @@
+{
+  "relations": 501,
+  "modules": 11,
+  "generation_ms": 225.12541699999997,
+  "cold_ms": 528.244833,
+  "incremental_ms": 199.97816699999998,
+  "compiler_memory_kib": 127519,
+  "generated_ts_bytes": 384311,
+  "sdk_runtime_source_bytes": 5476,
+  "editor_latency": "not measured",
+  "bundle_bytes": "not measured"
+}

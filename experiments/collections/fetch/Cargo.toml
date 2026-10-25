@@ -1,0 +1,10 @@
+[package]
+name = "substrate-collections-fetch"
+version = "0.0.0"
+edition = "2024"
+
+[lib]
+path = "fetch.rs"
+
+[dependencies]
+imbl = "=7.0.2"

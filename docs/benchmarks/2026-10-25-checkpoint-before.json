@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "date": "2026-10-25",
+  "mode": "before",
+  "checkpoint_interval": 128,
+  "single_row_commits": true,
+  "durability": "Immediate",
+  "samples_per_size": 3,
+  "profile": "release",
+  "concurrent_development": true,
+  "records": [
+    {
+      "rows": 512,
+      "sample": 0,
+      "total_ms": 2131.769,
+      "checkpoint_ms": 25.066,
+      "checkpoint_row_writes": 1280,
+      "recovery_verified": true
+    },
+    {
+      "rows": 512,
+      "sample": 1,
+      "total_ms": 2097.742,
+      "checkpoint_ms": 22.838,
+      "checkpoint_row_writes": 1280,
+      "recovery_verified": true
+    },
+    {
+      "rows": 512,
+      "sample": 2,
+      "total_ms": 2112.995,
+      "checkpoint_ms": 26.285,
+      "checkpoint_row_writes": 1280,
+      "recovery_verified": true
+    },
+    {
+      "rows": 1024,
+      "sample": 0,
+      "total_ms": 4259.952,
+      "checkpoint_ms": 73.693,
+      "checkpoint_row_writes": 4608,
+      "recovery_verified": true
+    },
+    {
+      "rows": 1024,
+      "sample": 1,
+      "total_ms": 4214.115,
+      "checkpoint_ms": 68.643,
+      "checkpoint_row_writes": 4608,
+      "recovery_verified": true
+    },
+    {
+      "rows": 1024,
+      "sample": 2,
+      "total_ms": 4261.801,
+      "checkpoint_ms": 71.553,
+      "checkpoint_row_writes": 4608,
+      "recovery_verified": true
+    },
+    {
+      "rows": 2048,
+      "sample": 0,
+      "total_ms": 8627.865,
+      "checkpoint_ms": 183.357,
+      "checkpoint_row_writes": 17408,
+      "recovery_verified": true
+    },
+    {
+      "rows": 2048,
+      "sample": 1,
+      "total_ms": 8553.86,
+      "checkpoint_ms": 200.062,
+      "checkpoint_row_writes": 17408,
+      "recovery_verified": true
+    },
+    {
+      "rows": 2048,
+      "sample": 2,
+      "total_ms": 8598.125,
+      "checkpoint_ms": 207.087,
+      "checkpoint_row_writes": 17408,
+      "recovery_verified": true
+    }
+  ]
+}

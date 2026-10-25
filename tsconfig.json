@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true, "allowJs": true, "checkJs": false, "rootDir": ".", "outDir": "target/dx-ts", "skipLibCheck": false },
+  "include": ["examples/dx/**/*.ts", "sdk/typescript/**/*.ts", "sdk/typescript/**/*.mts", "sdk/typescript/**/*.mjs"]
+}

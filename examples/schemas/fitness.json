@@ -1,0 +1,14 @@
+{
+  "name": "fitness", "version": 1, "imports": [["core", 1]],
+  "relations": [
+    {"name": "fitness.Workout", "roles": [{"name": "durationMinutes", "data_type": "Int"}]},
+    {"name": "fitness.Performed", "roles": [
+      {"name": "athlete", "data_type": {"Ref": "core.Person"}},
+      {"name": "workout", "data_type": {"Ref": "fitness.Workout"}}
+    ]},
+    {"name": "fitness.TrainingGoal", "roles": [
+      {"name": "person", "data_type": {"Ref": "core.Person"}},
+      {"name": "value", "data_type": "Text"}
+    ], "unique": [["person"]]}
+  ]
+}

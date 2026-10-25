@@ -1,0 +1,494 @@
+{
+  "concurrent_pinned_readers": 1,
+  "durable": true,
+  "environment": {
+    "arch": "aarch64",
+    "os": "macos",
+    "sqlite": "3.46.0"
+  },
+  "installs_per_fixture": 8,
+  "measured_installs": 7,
+  "measurements": [
+    {
+      "existing_people": 10,
+      "sqlite": {
+        "original_rows_sha256": "7ed145c3084b878c2bba466466e0de88d692427e62dc3fa4b53d621332639dd9",
+        "original_rows_unchanged": true,
+        "reader": {
+          "max_observed_query_us": 24.833000000000002,
+          "successful_queries": 100206
+        },
+        "samples": [
+          {
+            "ddl_us": 370.334,
+            "describe_us": 21.0,
+            "first_read_us": 9.792,
+            "first_write_us": 3257.792,
+            "version": 1,
+            "warmup": true
+          },
+          {
+            "ddl_us": 127.208,
+            "describe_us": 9.458,
+            "first_read_us": 11.375,
+            "first_write_us": 165.458,
+            "version": 2,
+            "warmup": false
+          },
+          {
+            "ddl_us": 237.0,
+            "describe_us": 6.083,
+            "first_read_us": 9.333,
+            "first_write_us": 3236.291,
+            "version": 3,
+            "warmup": false
+          },
+          {
+            "ddl_us": 301.83299999999997,
+            "describe_us": 7.958000000000001,
+            "first_read_us": 8.209,
+            "first_write_us": 240.459,
+            "version": 4,
+            "warmup": false
+          },
+          {
+            "ddl_us": 142.91600000000003,
+            "describe_us": 5.417,
+            "first_read_us": 21.0,
+            "first_write_us": 3358.125,
+            "version": 5,
+            "warmup": false
+          },
+          {
+            "ddl_us": 168.791,
+            "describe_us": 14.875,
+            "first_read_us": 18.165999999999997,
+            "first_write_us": 216.5,
+            "version": 6,
+            "warmup": false
+          },
+          {
+            "ddl_us": 154.875,
+            "describe_us": 13.125,
+            "first_read_us": 12.75,
+            "first_write_us": 3579.625,
+            "version": 7,
+            "warmup": false
+          },
+          {
+            "ddl_us": 237.75,
+            "describe_us": 5.833,
+            "first_read_us": 7.458,
+            "first_write_us": 3552.958,
+            "version": 8,
+            "warmup": false
+          }
+        ],
+        "setup_us": 8080.125000000001,
+        "summary": {
+          "ddl_us": {
+            "max_us": 301.83299999999997,
+            "median_us": 168.791,
+            "min_us": 127.208
+          },
+          "describe_us": {
+            "max_us": 14.875,
+            "median_us": 7.958000000000001,
+            "min_us": 5.417
+          },
+          "first_read_us": {
+            "max_us": 21.0,
+            "median_us": 11.375,
+            "min_us": 7.458
+          },
+          "first_write_us": {
+            "max_us": 3579.625,
+            "median_us": 3236.291,
+            "min_us": 165.458
+          }
+        }
+      },
+      "substrate": {
+        "checkpoint_revision_after": 0,
+        "existing_record_rewrites_claimed": 0,
+        "log_commits_after": 34,
+        "original_rows_sha256": "7ed145c3084b878c2bba466466e0de88d692427e62dc3fa4b53d621332639dd9",
+        "original_rows_unchanged": true,
+        "reader": {
+          "max_observed_query_us": 52.166999999999994,
+          "successful_queries": 347901
+        },
+        "samples": [
+          {
+            "apply_us": 7956.625,
+            "approve_us": 11680.334,
+            "describe_us": 21.666,
+            "first_read_us": 5.3340000000000005,
+            "first_write_us": 8408.417,
+            "pipeline_us": 26867.584000000003,
+            "propose_us": 7230.625,
+            "version": 1,
+            "warmup": true
+          },
+          {
+            "apply_us": 7811.958,
+            "approve_us": 10147.833,
+            "describe_us": 12.125,
+            "first_read_us": 4.209,
+            "first_write_us": 7982.917000000001,
+            "pipeline_us": 29491.749,
+            "propose_us": 11531.958,
+            "version": 2,
+            "warmup": false
+          },
+          {
+            "apply_us": 8083.584,
+            "approve_us": 7925.0,
+            "describe_us": 10.332999999999998,
+            "first_read_us": 3.541,
+            "first_write_us": 9926.208,
+            "pipeline_us": 24070.834,
+            "propose_us": 8062.25,
+            "version": 3,
+            "warmup": false
+          },
+          {
+            "apply_us": 8889.167,
+            "approve_us": 9049.708999999999,
+            "describe_us": 6.583,
+            "first_read_us": 3.458,
+            "first_write_us": 6049.042,
+            "pipeline_us": 24977.585,
+            "propose_us": 7038.709,
+            "version": 4,
+            "warmup": false
+          },
+          {
+            "apply_us": 8024.417,
+            "approve_us": 9065.75,
+            "describe_us": 7.083,
+            "first_read_us": 3.333,
+            "first_write_us": 5983.625,
+            "pipeline_us": 26019.834000000003,
+            "propose_us": 8929.667000000001,
+            "version": 5,
+            "warmup": false
+          },
+          {
+            "apply_us": 8021.125000000001,
+            "approve_us": 7990.209,
+            "describe_us": 8.208,
+            "first_read_us": 3.584,
+            "first_write_us": 7979.875000000001,
+            "pipeline_us": 22967.375,
+            "propose_us": 6956.040999999999,
+            "version": 6,
+            "warmup": false
+          },
+          {
+            "apply_us": 5905.042,
+            "approve_us": 6075.583,
+            "describe_us": 5.9159999999999995,
+            "first_read_us": 2.7920000000000003,
+            "first_write_us": 7060.083,
+            "pipeline_us": 19879.375,
+            "propose_us": 7898.749999999999,
+            "version": 7,
+            "warmup": false
+          },
+          {
+            "apply_us": 8007.9580000000005,
+            "approve_us": 3264.541,
+            "describe_us": 6.25,
+            "first_read_us": 3.75,
+            "first_write_us": 9905.832999999999,
+            "pipeline_us": 20038.124000000003,
+            "propose_us": 8765.625,
+            "version": 8,
+            "warmup": false
+          }
+        ],
+        "setup_us": 99936.667,
+        "summary": {
+          "apply_us": {
+            "max_us": 8889.167,
+            "median_us": 8021.125000000001,
+            "min_us": 5905.042
+          },
+          "approve_us": {
+            "max_us": 10147.833,
+            "median_us": 7990.209,
+            "min_us": 3264.541
+          },
+          "describe_us": {
+            "max_us": 12.125,
+            "median_us": 7.083,
+            "min_us": 5.9159999999999995
+          },
+          "first_read_us": {
+            "max_us": 4.209,
+            "median_us": 3.541,
+            "min_us": 2.7920000000000003
+          },
+          "first_write_us": {
+            "max_us": 9926.208,
+            "median_us": 7979.875000000001,
+            "min_us": 5983.625
+          },
+          "pipeline_us": {
+            "max_us": 29491.749,
+            "median_us": 24070.834,
+            "min_us": 19879.375
+          },
+          "propose_us": {
+            "max_us": 11531.958,
+            "median_us": 8062.25,
+            "min_us": 6956.040999999999
+          }
+        }
+      }
+    },
+    {
+      "existing_people": 2000,
+      "sqlite": {
+        "original_rows_sha256": "925f5964c4bda8304e2d08dafc4e1dad0012036c70e9db0101aaa230cedfbe5e",
+        "original_rows_unchanged": true,
+        "reader": {
+          "max_observed_query_us": 15.083,
+          "successful_queries": 69895
+        },
+        "samples": [
+          {
+            "ddl_us": 2822.8340000000003,
+            "describe_us": 9.167,
+            "first_read_us": 13.959,
+            "first_write_us": 135.375,
+            "version": 1,
+            "warmup": true
+          },
+          {
+            "ddl_us": 211.125,
+            "describe_us": 6.584,
+            "first_read_us": 16.083,
+            "first_write_us": 166.916,
+            "version": 2,
+            "warmup": false
+          },
+          {
+            "ddl_us": 150.834,
+            "describe_us": 4.291,
+            "first_read_us": 13.708,
+            "first_write_us": 3420.25,
+            "version": 3,
+            "warmup": false
+          },
+          {
+            "ddl_us": 461.54200000000003,
+            "describe_us": 6.542,
+            "first_read_us": 22.5,
+            "first_write_us": 161.333,
+            "version": 4,
+            "warmup": false
+          },
+          {
+            "ddl_us": 160.958,
+            "describe_us": 8.625,
+            "first_read_us": 24.167,
+            "first_write_us": 5007.375,
+            "version": 5,
+            "warmup": false
+          },
+          {
+            "ddl_us": 283.208,
+            "describe_us": 8.208,
+            "first_read_us": 13.291,
+            "first_write_us": 134.417,
+            "version": 6,
+            "warmup": false
+          },
+          {
+            "ddl_us": 3577.125,
+            "describe_us": 5.208,
+            "first_read_us": 7.333,
+            "first_write_us": 130.375,
+            "version": 7,
+            "warmup": false
+          },
+          {
+            "ddl_us": 424.916,
+            "describe_us": 6.875,
+            "first_read_us": 7.707999999999999,
+            "first_write_us": 160.958,
+            "version": 8,
+            "warmup": false
+          }
+        ],
+        "setup_us": 8451.292,
+        "summary": {
+          "ddl_us": {
+            "max_us": 3577.125,
+            "median_us": 283.208,
+            "min_us": 150.834
+          },
+          "describe_us": {
+            "max_us": 8.625,
+            "median_us": 6.584,
+            "min_us": 4.291
+          },
+          "first_read_us": {
+            "max_us": 24.167,
+            "median_us": 13.708,
+            "min_us": 7.333
+          },
+          "first_write_us": {
+            "max_us": 5007.375,
+            "median_us": 161.333,
+            "min_us": 130.375
+          }
+        }
+      },
+      "substrate": {
+        "checkpoint_revision_after": 0,
+        "existing_record_rewrites_claimed": 0,
+        "log_commits_after": 34,
+        "original_rows_sha256": "925f5964c4bda8304e2d08dafc4e1dad0012036c70e9db0101aaa230cedfbe5e",
+        "original_rows_unchanged": true,
+        "reader": {
+          "max_observed_query_us": 47.416000000000004,
+          "successful_queries": 337872
+        },
+        "samples": [
+          {
+            "apply_us": 7952.374999999999,
+            "approve_us": 7985.834000000001,
+            "describe_us": 7.584,
+            "first_read_us": 2.7089999999999996,
+            "first_write_us": 9013.875,
+            "pipeline_us": 25162.667,
+            "propose_us": 9224.457999999999,
+            "version": 1,
+            "warmup": true
+          },
+          {
+            "apply_us": 6067.25,
+            "approve_us": 7971.916000000001,
+            "describe_us": 6.625,
+            "first_read_us": 2.7920000000000003,
+            "first_write_us": 8971.292000000001,
+            "pipeline_us": 22052.0,
+            "propose_us": 8012.834,
+            "version": 2,
+            "warmup": false
+          },
+          {
+            "apply_us": 7939.6669999999995,
+            "approve_us": 7037.125,
+            "describe_us": 9.833,
+            "first_read_us": 2.2910000000000004,
+            "first_write_us": 6981.083,
+            "pipeline_us": 24897.084000000003,
+            "propose_us": 9920.292000000001,
+            "version": 3,
+            "warmup": false
+          },
+          {
+            "apply_us": 8997.082999999999,
+            "approve_us": 6951.834,
+            "describe_us": 4.375,
+            "first_read_us": 2.209,
+            "first_write_us": 6951.916,
+            "pipeline_us": 24046.625999999997,
+            "propose_us": 8097.709,
+            "version": 4,
+            "warmup": false
+          },
+          {
+            "apply_us": 7000.1669999999995,
+            "approve_us": 10006.042,
+            "describe_us": 4.082999999999999,
+            "first_read_us": 2.791,
+            "first_write_us": 6981.625,
+            "pipeline_us": 20002.875,
+            "propose_us": 2996.6659999999997,
+            "version": 5,
+            "warmup": false
+          },
+          {
+            "apply_us": 8066.5830000000005,
+            "approve_us": 5958.25,
+            "describe_us": 8.208,
+            "first_read_us": 2.292,
+            "first_write_us": 9888.582999999999,
+            "pipeline_us": 20155.5,
+            "propose_us": 6130.667,
+            "version": 6,
+            "warmup": false
+          },
+          {
+            "apply_us": 6015.166,
+            "approve_us": 5968.417,
+            "describe_us": 6.417,
+            "first_read_us": 1.833,
+            "first_write_us": 7117.791,
+            "pipeline_us": 19945.458000000002,
+            "propose_us": 7961.875,
+            "version": 7,
+            "warmup": false
+          },
+          {
+            "apply_us": 8999.375,
+            "approve_us": 7023.166,
+            "describe_us": 6.583,
+            "first_read_us": 2.417,
+            "first_write_us": 7895.792,
+            "pipeline_us": 19939.916,
+            "propose_us": 3917.375,
+            "version": 8,
+            "warmup": false
+          }
+        ],
+        "setup_us": 85636.916,
+        "summary": {
+          "apply_us": {
+            "max_us": 8999.375,
+            "median_us": 7939.6669999999995,
+            "min_us": 6015.166
+          },
+          "approve_us": {
+            "max_us": 10006.042,
+            "median_us": 7023.166,
+            "min_us": 5958.25
+          },
+          "describe_us": {
+            "max_us": 9.833,
+            "median_us": 6.583,
+            "min_us": 4.082999999999999
+          },
+          "first_read_us": {
+            "max_us": 2.7920000000000003,
+            "median_us": 2.292,
+            "min_us": 1.833
+          },
+          "first_write_us": {
+            "max_us": 9888.582999999999,
+            "median_us": 7117.791,
+            "min_us": 6951.916
+          },
+          "pipeline_us": {
+            "max_us": 24897.084000000003,
+            "median_us": 20155.5,
+            "min_us": 19939.916
+          },
+          "propose_us": {
+            "max_us": 9920.292000000001,
+            "median_us": 7961.875,
+            "min_us": 2996.6659999999997
+          }
+        }
+      }
+    }
+  ],
+  "note": "Substrate full authorization workflow (three commits) vs raw SQLite WAL DDL (one commit); not equivalent security operations or storage implementations",
+  "postgres_measured": false,
+  "warmup_installs": 1
+}

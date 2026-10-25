@@ -1,0 +1,121 @@
+{
+  "format": 1,
+  "modules": [
+    {
+      "name": "core",
+      "version": 1,
+      "imports": [],
+      "relations": [
+        {
+          "name": "core.Person",
+          "roles": [
+            {
+              "name": "name",
+              "data_type": "Text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fitness",
+      "version": 1,
+      "imports": [
+        [
+          "core",
+          1
+        ]
+      ],
+      "relations": [
+        {
+          "name": "fitness.Workout",
+          "roles": [
+            {
+              "name": "durationMinutes",
+              "data_type": "Int"
+            }
+          ]
+        },
+        {
+          "name": "fitness.Performed",
+          "roles": [
+            {
+              "name": "athlete",
+              "data_type": {
+                "Ref": "core.Person"
+              }
+            },
+            {
+              "name": "workout",
+              "data_type": {
+                "Ref": "fitness.Workout"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fitness.TrainingGoal",
+          "roles": [
+            {
+              "name": "person",
+              "data_type": {
+                "Ref": "core.Person"
+              }
+            },
+            {
+              "name": "value",
+              "data_type": "Text"
+            }
+          ],
+          "unique": [
+            [
+              "person"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "crm",
+      "version": 1,
+      "imports": [
+        [
+          "core",
+          1
+        ]
+      ],
+      "relations": [
+        {
+          "name": "crm.Deal",
+          "roles": [
+            {
+              "name": "amount",
+              "data_type": {
+                "Decimal": {
+                  "scale": 2
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "crm.CustomerDeal",
+          "roles": [
+            {
+              "name": "customer",
+              "data_type": {
+                "Ref": "core.Person"
+              }
+            },
+            {
+              "name": "deal",
+              "data_type": {
+                "Ref": "crm.Deal"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "date": "2026-10-25",
+  "mode": "after-contended",
+  "checkpoint_interval": 128,
+  "single_row_commits": true,
+  "durability": "Immediate",
+  "samples_per_size": 3,
+  "profile": "release",
+  "concurrent_development": true,
+  "records": [
+    {
+      "rows": 512,
+      "sample": 0,
+      "total_ms": 2113.776,
+      "checkpoint_ms": 27.157,
+      "checkpoint_row_writes": 512,
+      "recovery_verified": true
+    },
+    {
+      "rows": 512,
+      "sample": 1,
+      "total_ms": 2109.703,
+      "checkpoint_ms": 26.514,
+      "checkpoint_row_writes": 512,
+      "recovery_verified": true
+    },
+    {
+      "rows": 512,
+      "sample": 2,
+      "total_ms": 2112.818,
+      "checkpoint_ms": 24.523,
+      "checkpoint_row_writes": 512,
+      "recovery_verified": true
+    },
+    {
+      "rows": 1024,
+      "sample": 0,
+      "total_ms": 4221.497,
+      "checkpoint_ms": 47.631,
+      "checkpoint_row_writes": 1024,
+      "recovery_verified": true
+    },
+    {
+      "rows": 1024,
+      "sample": 1,
+      "total_ms": 6224.731,
+      "checkpoint_ms": 69.048,
+      "checkpoint_row_writes": 1024,
+      "recovery_verified": true
+    },
+    {
+      "rows": 1024,
+      "sample": 2,
+      "total_ms": 9103.583,
+      "checkpoint_ms": 138.675,
+      "checkpoint_row_writes": 1024,
+      "recovery_verified": true
+    },
+    {
+      "rows": 2048,
+      "sample": 0,
+      "total_ms": 18328.699,
+      "checkpoint_ms": 212.576,
+      "checkpoint_row_writes": 2048,
+      "recovery_verified": true
+    },
+    {
+      "rows": 2048,
+      "sample": 1,
+      "total_ms": 14297.473,
+      "checkpoint_ms": 163.402,
+      "checkpoint_row_writes": 2048,
+      "recovery_verified": true
+    },
+    {
+      "rows": 2048,
+      "sample": 2,
+      "total_ms": 8587.92,
+      "checkpoint_ms": 86.59,
+      "checkpoint_row_writes": 2048,
+      "recovery_verified": true
+    }
+  ]
+}
