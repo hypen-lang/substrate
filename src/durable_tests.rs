@@ -16,7 +16,8 @@ fn manual() -> DatabaseOptions {
 fn fixture(path: &Path, checkpoint: bool) {
     let db = Database::open_with_options(path, manual()).unwrap();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), Visibility::Private)
+        .unwrap();
     tx.commit().unwrap();
     let mut tx = db.admin().transaction();
     for _ in 0..50 {
@@ -645,7 +646,8 @@ fn incremental_checkpoint_only_writes_changed_rows_and_metadata_after_reopen() {
     let ids = {
         let db = Database::open_with_options(&path, manual()).unwrap();
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
+        tx.install_with_visibility(demo::core(), Visibility::Private)
+            .unwrap();
         let ids = (0..100)
             .map(|i| {
                 tx.insert("core.Person", vec![Value::Text(format!("p{i}"))])
@@ -656,8 +658,10 @@ fn incremental_checkpoint_only_writes_changed_rows_and_metadata_after_reopen() {
             .unwrap();
         tx.commit().unwrap();
         let cp = db.checkpoint().unwrap();
-        assert_eq!(cp.written_rows, 100);
-        assert_eq!(cp.written_metadata, 102);
+        // One visibility ledger row, its identity, and its internal module are
+        // part of the atomic schema install and must be checkpointed too.
+        assert_eq!(cp.written_rows, 101);
+        assert_eq!(cp.written_metadata, 104);
         ids
     };
     let (_, before, _) = raw_checkpoint(&path);
@@ -678,7 +682,7 @@ fn incremental_checkpoint_only_writes_changed_rows_and_metadata_after_reopen() {
         assert_eq!(cp.deleted_rows, 1);
         assert_eq!(cp.written_metadata, 1);
         assert_eq!(cp.deleted_metadata, 1);
-        assert_eq!(cp.rows, 100);
+        assert_eq!(cp.rows, 101);
     }
     let (_, after, _) = raw_checkpoint(&path);
     for id in &ids[2..] {
@@ -695,7 +699,8 @@ fn repeated_row_updates_coalesce_and_deleted_new_identity_remains_allocated() {
     let path = dir.path().join("db");
     let db = Database::open_with_options(&path, manual()).unwrap();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), Visibility::Private)
+        .unwrap();
     let id = tx.insert("core.Person", vec!["old".into()]).unwrap();
     tx.commit().unwrap();
     db.checkpoint().unwrap();

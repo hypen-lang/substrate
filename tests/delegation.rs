@@ -1,7 +1,8 @@
 use substrate_liquid::{capability::*, schema_control::*, *};
 fn fixture(db: &Database) -> (Id, Id, Id) {
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let ada = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     let bob = tx.insert("core.Person", vec!["Bob".into()]).unwrap();
     tx.grant("owner", "core.Person", Grant::read_write())
@@ -365,7 +366,8 @@ fn reference_closure_never_falls_back_to_authority_or_ambient_grants() {
     let (tid, ada, _) = fixture(&db);
     namespace(&db);
     let mut tx = db.admin().transaction();
-    tx.install(extension(1)).unwrap();
+    tx.install_with_visibility(extension(1), substrate_liquid::Visibility::Private)
+        .unwrap();
     tx.insert("app.Note1", vec![ada.into(), "secret".into()])
         .unwrap();
     tx.grant("owner", "app.Note1", Grant::read_write()).unwrap();
@@ -663,15 +665,18 @@ fn delegated_proposal_redacts_reference_hashes_and_host_can_review_opaque_requir
     fixture(&db);
     namespace(&db);
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "linked",
-        1,
-        vec![("core".into(), 1)],
-        vec![Relation::new(
-            "linked.Link",
-            vec![Role::new("person", DataType::Ref("core.Person".into()))],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "linked",
+            1,
+            vec![("core".into(), 1)],
+            vec![Relation::new(
+                "linked.Link",
+                vec![Role::new("person", DataType::Ref("core.Person".into()))],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.grant("owner", "linked.Link", Grant::reference_only())
         .unwrap();

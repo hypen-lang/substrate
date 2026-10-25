@@ -6,7 +6,7 @@
     "profile:query": "node tools/profile-query.mjs",
     "test:profile": "cargo test --offline --lib profiling::tests && cargo test --offline --test query_profiling && node --test tools/profile-query.test.mjs",
     "build:ts": "tsc -p tsconfig.json && node tools/copy-sdk.mjs",
-    "test:ts": "npm run build:ts && node --test tools/typescript.test.mjs tools/schema-roundtrip.test.mjs tools/query.test.mjs tools/catalog.test.mjs tools/runtime.test.mjs tools/capability.test.mjs tools/effect.test.mjs tools/query-selected.test.mjs tools/persistent-client.test.mjs tools/constraints.test.mjs",
+    "test:ts": "npm run build:ts && node --test tools/typescript.test.mjs tools/schema-roundtrip.test.mjs tools/query.test.mjs tools/catalog.test.mjs tools/runtime.test.mjs tools/capability.test.mjs tools/effect.test.mjs tools/query-selected.test.mjs tools/persistent-client.test.mjs tools/constraints.test.mjs tools/schema-visibility.test.mjs",
     "demo:processes": "npm run build:ts && node tools/multiprocess-demo.mjs",
     "bench:nested": "cargo bench --bench nested",
     "bench:nested:processes": "npm run build:ts && node tools/bench-nested-processes.mjs",

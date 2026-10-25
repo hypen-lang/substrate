@@ -168,6 +168,16 @@ pub enum Command {
         #[serde(deserialize_with = "crate::schema_control::explicit_module")]
         module: Module,
     },
+    SchemaProposeWithVisibility {
+        id: Id,
+        #[serde(deserialize_with = "crate::schema_control::explicit_module")]
+        module: Module,
+        visibility: BTreeMap<String, Visibility>,
+    },
+    SchemaVisibility {
+        relation: String,
+        visibility: Visibility,
+    },
     SchemaProposal {
         id: Id,
     },
@@ -340,6 +350,9 @@ impl Gateway {
         Ok(Self { db, config })
     }
     pub fn handle(&self, request: Request) -> Response {
+        if request.token.is_empty() {
+            return self.handle_anonymous(request);
+        }
         let mut principal = None;
         for client in &self.config.clients {
             if token_eq(&client.token, &request.token) {
@@ -369,6 +382,10 @@ impl Gateway {
     }
     /// Transport audit distinguishes credential failure from a scoped operation denial.
     pub(crate) fn handle_authenticated_status(&self, request: Request) -> (Response, bool) {
+        if request.token.is_empty() {
+            // Explicitly anonymous, never a fallback for an invalid credential.
+            return (self.handle_anonymous(request), true);
+        }
         let session = match self.db.authenticate(&request.token) {
             Ok(session) => session,
             Err(_) => return (Response::error("denied", "access denied"), false),
@@ -386,6 +403,33 @@ impl Gateway {
             })()),
             true,
         )
+    }
+    fn handle_anonymous(&self, request: Request) -> Response {
+        fn readable(command: &Command) -> bool {
+            match command {
+                Command::Catalog { .. }
+                | Command::Read { .. }
+                | Command::Capabilities
+                | Command::Query { .. }
+                | Command::Page { .. } => true,
+                Command::Checked { command, .. } => matches!(
+                    command.as_ref(),
+                    Command::Catalog { .. }
+                        | Command::Read { .. }
+                        | Command::Capabilities
+                        | Command::Query { .. }
+                        | Command::Page { .. }
+                ),
+                _ => false,
+            }
+        }
+        if request.version != 1 {
+            return Response::error("protocol", "unsupported protocol version");
+        }
+        if !readable(&request.command) {
+            return Response::error("denied", "access denied");
+        }
+        Response::result(self.dispatch(self.db.anonymous(), request.command))
     }
     fn dispatch(&self, session: Session, command: Command) -> Result<Output> {
         match command {
@@ -433,6 +477,20 @@ impl Gateway {
             Command::SchemaPropose { id, module } => Ok(Output::SchemaProposal {
                 proposal: Box::new(session.propose_schema(id, module)?),
             }),
+            Command::SchemaProposeWithVisibility {
+                id,
+                module,
+                visibility,
+            } => Ok(Output::SchemaProposal {
+                proposal: Box::new(session.propose_schema_with_visibility(id, module, visibility)?),
+            }),
+            Command::SchemaVisibility {
+                relation,
+                visibility,
+            } => {
+                session.set_schema_visibility(&relation, visibility)?;
+                Ok(Output::SchemaChanged)
+            }
             Command::SchemaProposal { id } => Ok(Output::SchemaProposal {
                 proposal: Box::new(session.schema_proposal(id)?),
             }),
@@ -473,11 +531,15 @@ impl Gateway {
                         .relation(&contract.relation)
                         .map_err(|_| Error::Denied)?;
                     let principal = snapshot.principal.as_deref().expect("restricted");
-                    if !snapshot
-                        .state
-                        .grant(principal, schema.id)
-                        .is_some_and(|g| g.read || g.write || g.reference)
+                    if !snapshot.state.can_discover(Some(principal), schema.id)
+                        || schema.roles.iter().any(|role| {
+                            matches!(&role.data_type, DataType::Ref(name)
+                                if !snapshot.can_discover(snapshot.state.names[name]))
+                        })
                     {
+                        // A full contract fingerprint includes reference domains.
+                        // Never expose a match/mismatch oracle for domains that
+                        // catalog discovery deliberately makes opaque.
                         return Err(Error::Denied);
                     }
                     if schema.id != contract.schema_id
@@ -508,13 +570,14 @@ impl Gateway {
                     .filter(|def| snapshot.can_discover(def.id) && def.roles.iter().all(|r| {
                         !matches!(&r.data_type, DataType::Ref(name) if !snapshot.can_discover(snapshot.state.names[name]))
                     }))
-                    .filter_map(|def| {
-                        snapshot.state.grant(p, def.id).map(|g| Capability {
+                    .map(|def| {
+                        let grant = snapshot.state.grant(p, def.id);
+                        Capability {
                             relation: def.declaration.clone(),
-                            read: g.read,
-                            write: g.write,
-                            reference: g.reference,
-                        })
+                            read: snapshot.state.can_read(Some(p), def.id),
+                            write: p != crate::visibility::ANONYMOUS && grant.is_some_and(|g| g.write),
+                            reference: p != crate::visibility::ANONYMOUS && grant.is_some_and(|g| g.reference),
+                        }
                     })
                     .collect();
                 snapshot.check_live()?;

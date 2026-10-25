@@ -5,7 +5,8 @@ use substrate_liquid::{profiling::*, *};
 fn fixture() -> Database {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     for name in ["Ada", "Bob"] {
         tx.insert("core.Person", vec![name.into()]).unwrap();
     }

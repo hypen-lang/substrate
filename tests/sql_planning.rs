@@ -6,18 +6,21 @@ fn fixture() -> (Database, Connection) {
     let sqlite = Connection::open_in_memory().unwrap();
     sqlite.execute_batch("CREATE TABLE Item(id TEXT PRIMARY KEY,n INTEGER NOT NULL, visible INTEGER NOT NULL);CREATE INDEX by_n ON Item(n);").unwrap();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "bench",
-        1,
-        vec![],
-        vec![Relation::new(
-            "bench.Item",
-            vec![
-                Role::new("n", DataType::Int),
-                Role::new("visible", DataType::Bool),
-            ],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "bench",
+            1,
+            vec![],
+            vec![Relation::new(
+                "bench.Item",
+                vec![
+                    Role::new("n", DataType::Int),
+                    Role::new("visible", DataType::Bool),
+                ],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     for i in 0..405 {
         let n = match i {
@@ -186,12 +189,15 @@ fn mutable_range_scans_keep_phantom_dependencies() {
 fn explicit_sql_selection_does_not_register_or_expose_other_families() {
     let (db, _) = fixture();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "other",
-        1,
-        vec![],
-        vec![Relation::new("other.Secret", vec![])],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "other",
+            1,
+            vec![],
+            vec![Relation::new("other.Secret", vec![])],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.commit().unwrap();
     let snapshot = db.session("reader").snapshot();

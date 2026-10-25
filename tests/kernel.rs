@@ -7,13 +7,15 @@ fn additive_install_preserves_rows_schema_indexes_and_snapshot() {
     let db = Database::memory();
     let admin = db.admin();
     let mut tx = admin.transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let p = tx.insert("core.Person", vec!["Alice".into()]).unwrap();
     tx.commit().unwrap();
     let before = admin.snapshot();
     let schema = before.schema("core.Person").unwrap();
     let mut tx = admin.transaction();
-    tx.install(demo::fitness()).unwrap();
+    tx.install_with_visibility(demo::fitness(), substrate_liquid::Visibility::Private)
+        .unwrap();
     tx.commit().unwrap();
     let after = admin.snapshot();
     assert_eq!(
@@ -26,8 +28,17 @@ fn additive_install_preserves_rows_schema_indexes_and_snapshot() {
         after.get("core.Person", p).unwrap()
     );
     assert_eq!(
-        before.stats().unwrap().role_index_entries,
-        after.stats().unwrap().role_index_entries
+        before
+            .lookup("core.Person", "name", &"Alice".into())
+            .unwrap(),
+        after
+            .lookup("core.Person", "name", &"Alice".into())
+            .unwrap()
+    );
+    // Three new family policies, each with three indexed metadata roles.
+    assert_eq!(
+        after.stats().unwrap().role_index_entries,
+        before.stats().unwrap().role_index_entries + 9
     );
     assert!(before.schema("fitness.Workout").is_err());
     after.verify_indexes().unwrap();
@@ -83,12 +94,15 @@ fn rejected_mutation_aborts_whole_transaction_and_schema() {
     let (db, _) = fixture();
     let before = db.admin().snapshot();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "extra",
-        1,
-        vec![],
-        vec![Relation::new("extra.Empty", vec![])],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "extra",
+            1,
+            vec![],
+            vec![Relation::new("extra.Empty", vec![])],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.insert("core.Person", vec!["Bob".into()]).unwrap();
     assert!(
@@ -135,29 +149,33 @@ fn imports_versions_redefinitions_and_case_collisions_are_rejected() {
         ),
     ] {
         let mut tx = db.admin().transaction();
-        assert!(tx.install(module).is_err());
+        assert!(
+            tx.install_with_visibility(module, substrate_liquid::Visibility::Private)
+                .is_err()
+        );
         assert!(tx.commit().is_err());
     }
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "core",
-        2,
-        vec![],
-        vec![Relation::new("core.New", vec![])],
-    ))
+    tx.install_with_visibility(
+        Module::new("core", 2, vec![], vec![Relation::new("core.New", vec![])]),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.commit().unwrap();
     let mut tx = db.admin().transaction();
     assert!(
-        tx.install(Module::new(
-            "other",
-            1,
-            vec![("core".into(), 1)],
-            vec![Relation::new(
-                "other.Ref",
-                vec![Role::new("p", DataType::Ref("core.New".into()))]
-            )]
-        ))
+        tx.install_with_visibility(
+            Module::new(
+                "other",
+                1,
+                vec![("core".into(), 1)],
+                vec![Relation::new(
+                    "other.Ref",
+                    vec![Role::new("p", DataType::Ref("core.New".into()))]
+                )]
+            ),
+            substrate_liquid::Visibility::Private
+        )
         .is_err()
     );
 }
@@ -165,29 +183,32 @@ fn imports_versions_redefinitions_and_case_collisions_are_rejected() {
 fn typed_nary_occurrences_can_themselves_be_referenced() {
     let (db, p) = fixture();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "org",
-        1,
-        vec![("core".into(), 1)],
-        vec![
-            Relation::new(
-                "org.Employment",
-                vec![
-                    Role::new("employee", DataType::Ref("core.Person".into())),
-                    Role::new("employer", DataType::Ref("core.Person".into())),
-                    Role::new("title", DataType::Text),
-                    Role::new("started", DataType::Timestamp),
-                ],
-            ),
-            Relation::new(
-                "org.Audit",
-                vec![
-                    Role::new("event", DataType::Ref("org.Employment".into())),
-                    Role::new("data", DataType::Bytes),
-                ],
-            ),
-        ],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "org",
+            1,
+            vec![("core".into(), 1)],
+            vec![
+                Relation::new(
+                    "org.Employment",
+                    vec![
+                        Role::new("employee", DataType::Ref("core.Person".into())),
+                        Role::new("employer", DataType::Ref("core.Person".into())),
+                        Role::new("title", DataType::Text),
+                        Role::new("started", DataType::Timestamp),
+                    ],
+                ),
+                Relation::new(
+                    "org.Audit",
+                    vec![
+                        Role::new("event", DataType::Ref("org.Employment".into())),
+                        Role::new("data", DataType::Bytes),
+                    ],
+                ),
+            ],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     let event = tx
         .insert(
@@ -218,12 +239,15 @@ fn typed_nary_occurrences_can_themselves_be_referenced() {
 fn identity_has_explicit_multiple_memberships() {
     let (db, p) = fixture();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "contacts",
-        1,
-        vec![],
-        vec![Relation::new("contacts.Contact", vec![])],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "contacts",
+            1,
+            vec![],
+            vec![Relation::new("contacts.Contact", vec![])],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.add_membership("core.Person", p, "contacts.Contact", vec![])
         .unwrap();

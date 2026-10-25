@@ -25,7 +25,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let (ca, cert, key) = tls::certificates(dir.path());
     let db = Database::open(dir.path().join("remote.redb"))?;
     let mut tx = db.admin().transaction();
-    tx.install(demo::core())?;
+    tx.install_with_visibility(demo::core(), Visibility::Private)?;
     tx.insert("core.Person", vec!["Ada".into()])?;
     tx.insert("core.Person", vec!["Bob".into()])?;
     tx.grant("owner", "core.Person", Grant::read_write())?;

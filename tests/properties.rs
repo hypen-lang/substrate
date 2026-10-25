@@ -33,7 +33,7 @@ proptest! {
                 4 => {
                     extension+=1; let mut tx=db.admin().transaction();
                     // New optional facts live in a new relation family, never a new Person column.
-                    tx.install(Module::new("extensions",extension,vec![("core".into(),1)],vec![Relation::new(&format!("extensions.F{extension}"),vec![Role::new("person",DataType::Ref("core.Person".into())),Role::new("value",DataType::Int)])])).unwrap();
+                    tx.install_with_visibility(Module::new("extensions",extension,vec![("core".into(),1)],vec![Relation::new(&format!("extensions.F{extension}"),vec![Role::new("person",DataType::Ref("core.Person".into())),Role::new("value",DataType::Int)])]), substrate_liquid::Visibility::Private).unwrap();
                     tx.commit().unwrap();
                     prop_assert_eq!(db.admin().snapshot().scan("core.Person").unwrap(),original.clone());
                 }

@@ -269,7 +269,15 @@ impl Snapshot {
             } else {
                 1
             },
-            modules: self.state.modules.values().map(|m| (**m).clone()).collect(),
+            // Mutable visibility policy is engine metadata, not part of the
+            // immutable application schema contract or generated clients.
+            modules: self
+                .state
+                .modules
+                .values()
+                .filter(|m| m.name != "liquid_visibility")
+                .map(|m| (**m).clone())
+                .collect(),
         }
         .canonical()
     }

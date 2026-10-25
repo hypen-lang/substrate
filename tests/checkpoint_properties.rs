@@ -16,7 +16,7 @@ proptest! {
         let mut tx=db.admin().transaction();
         let def=Relation::new("core.Entry",vec![Role::new("value",DataType::Int)]);
         let role_id=def.role_id("value").unwrap();
-        tx.install(Module::new("core",1,vec![],vec![def])).unwrap();tx.commit().unwrap();
+        tx.install_with_visibility(Module::new("core",1,vec![],vec![def]), substrate_liquid::Visibility::Private).unwrap();tx.commit().unwrap();
         let mut expected=BTreeMap::<Id,i64>::new();let mut permitted=None;let mut extensions=0;
         for (op,choice,value) in ops {
             let old=db.admin().snapshot(); let old_rows=old.scan("core.Entry").unwrap();
@@ -34,7 +34,7 @@ proptest! {
                 _ => {
                     extensions+=1;let mut tx=db.admin().transaction();
                     let name=format!("extra.Tag{extensions}");
-                    tx.install(Module::new("extra",extensions,vec![],vec![Relation::new(&name,vec![])])).unwrap();tx.commit().unwrap();
+                    tx.install_with_visibility(Module::new("extra",extensions,vec![],vec![Relation::new(&name,vec![])]), substrate_liquid::Visibility::Private).unwrap();tx.commit().unwrap();
                 }
             }
             let snapshot=db.admin().snapshot();snapshot.verify_indexes().unwrap();

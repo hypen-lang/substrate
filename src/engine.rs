@@ -6,7 +6,7 @@ use crate::{
     *,
 };
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     path::Path,
     sync::{Arc, Mutex, Weak},
 };
@@ -155,6 +155,10 @@ impl Database {
             credential: None,
         }
     }
+    /// An unauthenticated, non-admin session. It can only read public families.
+    pub fn anonymous(&self) -> Session {
+        self.session(crate::visibility::ANONYMOUS)
+    }
     pub fn session(&self, principal: &str) -> Session {
         Session {
             db: self.clone(),
@@ -229,9 +233,14 @@ pub struct Session {
 }
 impl Session {
     pub fn snapshot(&self) -> Snapshot {
-        let head = self.db.head.lock().expect("database lock poisoned");
-        let state = head.state.clone();
-        let (state, guard) = self.authorize_state(state, head.failed);
+        let (state, failed) = {
+            let head = self.db.head.lock().expect("database lock poisoned");
+            (head.state.clone(), head.failed)
+        };
+        // Resolve capability ancestry and construct scoped policy state against
+        // the captured immutable revision, outside the publication lock. The
+        // resulting guard still checks live dependencies before every operation.
+        let (state, guard) = self.authorize_state(state, failed);
         Snapshot {
             state,
             principal: self.principal.clone(),
@@ -277,6 +286,7 @@ impl Session {
                     let mut effective = (*state).clone();
                     effective.grants.clear();
                     effective.schema_grants.clear();
+                    effective.visibility_disabled = true;
                     for (id, grant) in &cap.grants {
                         effective
                             .grants
@@ -292,6 +302,9 @@ impl Session {
         } else {
             let key = Key::Revocation(principal.clone());
             guard.dependencies.push((key.clone(), state.version(&key)));
+            guard
+                .dependencies
+                .push((Key::Visibility, state.version(&Key::Visibility)));
             (state, guard)
         }
     }
@@ -300,6 +313,7 @@ impl Session {
         let mut reads = BTreeSet::new();
         if let Some(p) = &self.principal {
             reads.insert(Key::Policy(p.clone()));
+            reads.insert(Key::Visibility);
         }
         Transaction {
             db: self.db.clone(),
@@ -402,10 +416,21 @@ impl Snapshot {
         &self,
         name: &str,
         predicate: Option<(&str, &Value)>,
-        mut reads: Option<&mut BTreeSet<Key>>,
+        reads: Option<&mut BTreeSet<Key>>,
     ) -> Result<Vec<Row>> {
+        self.map_rows(name, predicate, reads, Row::clone)
+    }
+    /// Internal projection boundary: authorization traverses the full row and
+    /// reference closure before the mapper sees it, regardless of selected cells.
+    pub(crate) fn map_rows<T>(
+        &self,
+        name: &str,
+        predicate: Option<(&str, &Value)>,
+        mut reads: Option<&mut BTreeSet<Key>>,
+        mut map: impl FnMut(&Row) -> T,
+    ) -> Result<Vec<T>> {
         let def = self.resolve_read(name)?;
-        let candidates: Vec<Id> = if let Some((role, value)) = predicate {
+        let (bucket, family) = if let Some((role, value)) = predicate {
             let i = def.role(role)?;
             if !def.roles[i].data_type.accepts(value) {
                 return Err(Error::Query("predicate type mismatch".into()));
@@ -414,19 +439,19 @@ impl Snapshot {
             if let Some(reads) = &mut reads {
                 reads.insert(Key::Bucket(key.clone()));
             }
-            self.state
-                .index
-                .get(&key)
-                .map(|ids| ids.iter().copied().collect())
-                .unwrap_or_default()
+            (self.state.index.get(&key), None)
         } else {
             if let Some(reads) = &mut reads {
                 reads.insert(Key::Family(def.id));
             }
-            self.state.families[&def.id].keys().copied().collect()
+            (None, Some(&self.state.families[&def.id]))
         };
-        let rows = candidates
+        // Borrow candidates directly: no intermediate vector of all identities.
+        let candidates = bucket
             .into_iter()
+            .flat_map(|ids| ids.iter().copied())
+            .chain(family.into_iter().flat_map(|rows| rows.keys().copied()));
+        let rows = candidates
             .filter(|id| {
                 if let Some(reads) = &mut reads {
                     // Transactional reads deliberately retain full dependency
@@ -442,7 +467,7 @@ impl Snapshot {
                     self.visible_for_cursor(def.id, *id)
                 }
             })
-            .map(|id| (**self.state.row(def.id, id).expect("visible row")).clone())
+            .map(|id| map(self.state.row(def.id, id).expect("visible row")))
             .collect();
         self.check_live()?;
         Ok(rows)
@@ -590,7 +615,11 @@ impl Transaction {
         namespace: Option<&str>,
     ) -> Result<String> {
         self.admin()?;
-        let actor = session.principal.as_deref().ok_or(Error::Denied)?;
+        let actor = session
+            .principal
+            .as_deref()
+            .filter(|p| *p != crate::visibility::ANONYMOUS)
+            .ok_or(Error::Denied)?;
         let (_, guard) = session.authorize_state(self.base.clone(), false);
         guard.check()?;
         self.live = guard;
@@ -637,6 +666,7 @@ impl Transaction {
         if let Some(cap) = &self.control_capability {
             let mut effective = (*snapshot.state).clone();
             effective.grants.clear();
+            effective.visibility_disabled = true;
             for (id, grant) in &cap.grants {
                 effective
                     .grants
@@ -700,6 +730,9 @@ impl Transaction {
         })
     }
     fn may_write(&self, def: &Relation, row: &Row) -> Result<()> {
+        if self.principal.as_deref() == Some(crate::visibility::ANONYMOUS) {
+            return Err(Error::Denied);
+        }
         if let Some(p) = &self.principal
             && !self
                 .work
@@ -711,6 +744,9 @@ impl Transaction {
         Ok(())
     }
     fn reference(&mut self, tid: Id, id: Id) -> Result<()> {
+        if self.principal.as_deref() == Some(crate::visibility::ANONYMOUS) {
+            return Err(Error::Denied);
+        }
         self.reads.insert(Key::Row(tid, id));
         let row = self.work.row(tid, id);
         if let Some(p) = &self.principal
@@ -737,6 +773,9 @@ impl Transaction {
         }
         self.may_write(def, row)?;
         def.check_values(&row.values)?;
+        if def.id == crate::visibility::TYPE_ID {
+            crate::visibility::compile(&self.work, row)?;
+        }
         for (role, value) in def.roles.iter().zip(row.values.iter()) {
             if let (DataType::Ref(target), Value::Ref(id)) = (&role.data_type, value) {
                 self.reference(self.work.names[target], *id)?;
@@ -788,8 +827,16 @@ impl Transaction {
             Ok(())
         })
     }
-    /// Idempotent host bootstrap. Existing definitions must match byte-for-byte semantic fields.
+    /// Idempotent host bootstrap. Existing definitions and policies are preserved.
     pub fn install_manifest(&mut self, manifest: &SchemaManifest) -> Result<SchemaPlan> {
+        self.install_manifest_with_visibility(manifest, Visibility::Authenticated)
+    }
+    /// Initial visibility applies only to newly installed modules, never existing families.
+    pub fn install_manifest_with_visibility(
+        &mut self,
+        manifest: &SchemaManifest,
+        visibility: Visibility,
+    ) -> Result<SchemaPlan> {
         self.mutation(|tx| {
             tx.admin()?;
             tx.reads.insert(Key::Catalog);
@@ -800,16 +847,147 @@ impl Transaction {
                     .modules
                     .contains_key(&(module.name.clone(), module.version))
                 {
-                    tx.install(module)?;
+                    tx.install_with_visibility(module, visibility)?;
                 }
             }
             Ok(plan)
         })
     }
+    /// Install an additive module. New app families default to authenticated visibility.
     pub fn install(&mut self, module: Module) -> Result<()> {
-        self.mutation(|tx| tx.install_inner(module))
+        self.install_with_visibilities(module, BTreeMap::new())
+    }
+    pub fn install_with_visibility(
+        &mut self,
+        module: Module,
+        visibility: Visibility,
+    ) -> Result<()> {
+        let modes = module
+            .relations
+            .iter()
+            .map(|r| (r.name.clone(), visibility))
+            .collect();
+        self.install_with_visibilities(module, modes)
+    }
+    /// Overrides name only newly installed relations; unspecified families use Authenticated.
+    pub fn install_with_visibilities(
+        &mut self,
+        module: Module,
+        visibility: BTreeMap<String, Visibility>,
+    ) -> Result<()> {
+        self.mutation(|tx| {
+            let modes = crate::visibility::normalize(&module, visibility)?;
+            tx.install_inner(module.clone())?;
+            if !crate::visibility::protected(&module.name) {
+                let owner = match &tx.principal {
+                    Some(principal) => principal.clone(),
+                    None => tx
+                        .visibility_namespace_owner(&module.name)?
+                        .unwrap_or_else(|| crate::visibility::HOST.into()),
+                };
+                for relation in &module.relations {
+                    tx.store_visibility(&relation.name, &owner, modes[&relation.name])?;
+                }
+            }
+            Ok(())
+        })
+    }
+    /// Host-only mutation. Namespace owners use Session::set_schema_visibility.
+    pub fn set_schema_visibility(&mut self, relation: &str, visibility: Visibility) -> Result<()> {
+        self.mutation(|tx| {
+            tx.admin()?;
+            let def = tx.def(relation)?;
+            let owner = match tx.work.schema_visibility.get(&def.id) {
+                Some(policy) => policy.owner.clone(),
+                None => tx
+                    .visibility_namespace_owner(def.name.split_once('.').ok_or(Error::Denied)?.0)?
+                    .unwrap_or_else(|| crate::visibility::HOST.into()),
+            };
+            tx.store_visibility(relation, &owner, visibility)
+        })
+    }
+    /// Called after namespace ownership has been checked, or during a validated install.
+    pub(crate) fn store_visibility(
+        &mut self,
+        relation: &str,
+        owner: &str,
+        visibility: Visibility,
+    ) -> Result<()> {
+        let def = self.def(relation)?;
+        let namespace = relation.split_once('.').ok_or(Error::Denied)?.0;
+        if crate::visibility::protected(namespace)
+            || owner.is_empty()
+            || owner.len() > 128
+            || owner == crate::visibility::ANONYMOUS
+        {
+            return Err(Error::Denied);
+        }
+        self.reads.insert(Key::Visibility);
+        self.reads.insert(Key::Catalog);
+        if self
+            .work
+            .schema_visibility
+            .get(&def.id)
+            .is_some_and(|p| p.owner == owner && p.visibility == visibility)
+        {
+            return Ok(());
+        }
+        let module = crate::visibility::module();
+        match self
+            .work
+            .modules
+            .get(&(module.name.clone(), module.version))
+        {
+            Some(existing) if existing.as_ref() != module => return Err(Error::Denied),
+            Some(_) => {}
+            None => self.stage(Op::Install(module.clone())),
+        }
+        let id = self
+            .work
+            .schema_visibility
+            .get(&def.id)
+            .map(|p| p.row_id)
+            .unwrap_or_default();
+        self.reads.insert(Key::Row(crate::visibility::TYPE_ID, id));
+        if !self.work.identities.contains(&id) {
+            self.reads.insert(Key::Allocated(id));
+            self.stage(Op::Identity(id));
+        }
+        let row = Row {
+            id,
+            values: vec![
+                Value::Text(def.id.to_string()),
+                Value::Text(owner.into()),
+                Value::Text(visibility.name().into()),
+            ]
+            .into_boxed_slice(),
+        };
+        crate::visibility::compile(&self.work, &row)?;
+        self.stage(Op::Put(crate::visibility::TYPE_ID, row));
+        Ok(())
+    }
+    pub(crate) fn bind_namespace_visibility_owner(
+        &mut self,
+        namespace: &str,
+        owner: &str,
+    ) -> Result<()> {
+        self.admin()?;
+        let policies: Vec<_> = self
+            .work
+            .schema_visibility
+            .values()
+            .filter(|p| self.work.origins[&p.relation].0 == namespace)
+            .map(|p| (self.work.relations[&p.relation].name.clone(), p.visibility))
+            .collect();
+        for (relation, mode) in policies {
+            self.store_visibility(&relation, owner, mode)?;
+        }
+        Ok(())
     }
     fn install_inner(&mut self, module: Module) -> Result<()> {
+        if self.principal.as_deref() == Some(crate::visibility::ANONYMOUS) {
+            return Err(Error::Denied);
+        }
         if self.principal.is_some() {
             self.reads.insert(Key::Catalog);
             if let Some(key) = self.snapshot().schema_namespace_dependency(&module.name)? {
@@ -821,7 +999,8 @@ impl Transaction {
                 || module.name.eq_ignore_ascii_case("liquid_security")
                 || module.name.eq_ignore_ascii_case("liquid_auth")
                 || module.name.eq_ignore_ascii_case("liquid_views")
-                || module.name.eq_ignore_ascii_case("liquid_view_catalog"))
+                || module.name.eq_ignore_ascii_case("liquid_view_catalog")
+                || module.name.eq_ignore_ascii_case("liquid_visibility"))
                 || self.snapshot().schema_namespace_managed(&module.name)?)
         {
             // A legacy broad namespace grant must not bypass managed approvals,
@@ -1158,7 +1337,7 @@ impl Transaction {
         if self.failed {
             return Err(Error::Aborted);
         }
-        let bytes = crate::codec::encode(0, &self.ops, &self.work)?.len();
+        let bytes = crate::codec::encoded_len(&self.ops, &self.work)?;
         let request = commit::Request::new(self.base, self.reads, self.ops, self.live, bytes);
         self.db.coordinator.submit(&self.db.head, request)
     }
@@ -1261,6 +1440,121 @@ impl Database {
     pub(crate) fn replication_fail(&self) {
         if let Ok(mut head) = self.head.lock() {
             head.failed = true;
+        }
+    }
+}
+
+#[cfg(test)]
+mod legacy_visibility_tests {
+    use super::*;
+    #[test]
+    fn explicit_visibility_change_adopts_legacy_namespace_owner_only_when_requested() {
+        let db = Database::memory();
+        db.configure_namespace(crate::schema_control::NamespacePolicy {
+            namespace: "legacy".into(),
+            owner: "owner".into(),
+            auto_approve: false,
+            enabled: true,
+            quotas: crate::schema_control::SchemaQuotas::default(),
+        })
+        .unwrap();
+        let mut tx = db.admin().transaction();
+        tx.install_inner(Module::new(
+            "legacy",
+            1,
+            vec![],
+            vec![Relation::new("legacy.Row", vec![])],
+        ))
+        .unwrap();
+        tx.insert("legacy.Row", vec![]).unwrap();
+        tx.commit().unwrap();
+        assert!(db.session("owner").snapshot().scan("legacy.Row").is_err());
+        let mut tx = db.admin().transaction();
+        tx.set_schema_visibility("legacy.Row", Visibility::Private)
+            .unwrap();
+        tx.commit().unwrap();
+        assert_eq!(
+            db.session("owner")
+                .snapshot()
+                .scan("legacy.Row")
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(db.session("other").snapshot().scan("legacy.Row").is_err());
+        assert!(
+            db.session("owner")
+                .transaction()
+                .insert("legacy.Row", vec![])
+                .is_err()
+        );
+    }
+    #[test]
+    fn pre_visibility_redo_and_checkpoint_preserve_grant_only_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.redb");
+        let schema = Module::new(
+            "legacy",
+            1,
+            vec![],
+            vec![Relation::new(
+                "legacy.Row",
+                vec![Role::new("value", DataType::Int)],
+            )],
+        );
+        {
+            let db = Database::open(&path).unwrap();
+            let mut tx = db.admin().transaction();
+            // Emit the exact legacy Install operation, without the new separate policy rows.
+            tx.install_inner(schema.clone()).unwrap();
+            tx.insert("legacy.Row", vec![1.into()]).unwrap();
+            tx.insert("legacy.Row", vec![2.into()]).unwrap();
+            tx.grant(
+                "reader",
+                "legacy.Row",
+                Grant {
+                    filter: RowFilter::Equals {
+                        role: "value".into(),
+                        value: 1.into(),
+                    },
+                    ..Grant::read_only()
+                },
+            )
+            .unwrap();
+            tx.commit().unwrap();
+        }
+        for checkpoint in [false, true] {
+            let db = Database::open(&path).unwrap();
+            assert!(
+                db.session("stranger")
+                    .snapshot()
+                    .scan("legacy.Row")
+                    .is_err()
+            );
+            assert!(db.anonymous().snapshot().scan("legacy.Row").is_err());
+            assert_eq!(
+                db.session("reader")
+                    .snapshot()
+                    .scan("legacy.Row")
+                    .unwrap()
+                    .len(),
+                1
+            );
+            assert_eq!(
+                db.admin().snapshot().schema("legacy.Row").unwrap(),
+                schema.relations[0]
+            );
+            let mut tx = db.admin().transaction();
+            let manifest = SchemaManifest {
+                format: 1,
+                modules: vec![schema.clone()],
+            };
+            tx.install_manifest(&manifest).unwrap();
+            tx.commit().unwrap();
+            assert!(db.admin().snapshot().state.schema_visibility.is_empty());
+            if !checkpoint {
+                db.checkpoint().unwrap();
+            }
         }
     }
 }

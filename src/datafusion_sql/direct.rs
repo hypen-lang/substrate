@@ -516,12 +516,12 @@ fn tighter(candidate: &Bound<Value>, current: &Bound<Value>, lower: bool) -> boo
     }
 }
 
-enum Key {
+pub(super) enum Key {
     Empty,
     Unsupported,
     Value(Value),
 }
-fn key(value: &SqlValue, kind: Option<&DataType>) -> Key {
+pub(super) fn key(value: &SqlValue, kind: Option<&DataType>) -> Key {
     if matches!(value, SqlValue::Null) {
         return Key::Empty;
     }
@@ -548,7 +548,7 @@ fn key(value: &SqlValue, kind: Option<&DataType>) -> Key {
     };
     Key::Value(value)
 }
-fn source_size(row: &crate::Row, relation: &Relation, column: usize) -> Result<usize> {
+pub(super) fn source_size(row: &crate::Row, relation: &Relation, column: usize) -> Result<usize> {
     if column == 0 {
         return Ok(40);
     }
@@ -574,7 +574,7 @@ fn source_size(row: &crate::Row, relation: &Relation, column: usize) -> Result<u
         _ => 8,
     })
 }
-fn output_size(row: &crate::Row, column: usize) -> usize {
+pub(super) fn output_size(row: &crate::Row, column: usize) -> usize {
     if column == 0 {
         return 36;
     }
@@ -585,7 +585,7 @@ fn output_size(row: &crate::Row, column: usize) -> usize {
         _ => 8,
     }
 }
-fn output_value(row: &crate::Row, column: usize) -> SqlValue {
+pub(super) fn output_value(row: &crate::Row, column: usize) -> SqlValue {
     if column == 0 {
         return SqlValue::Text(row.id.to_string());
     }
@@ -607,20 +607,23 @@ mod tests {
     fn fixture() -> Database {
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(Module::new(
-            "direct",
-            1,
-            vec![],
-            vec![Relation::new(
-                "direct.Item",
-                vec![
-                    Role::new("n", DataType::Int),
-                    Role::new("tag", DataType::Text),
-                    Role::new("enabled", DataType::Bool),
-                    Role::new("payload", DataType::Bytes),
-                ],
-            )],
-        ))
+        tx.install_with_visibility(
+            Module::new(
+                "direct",
+                1,
+                vec![],
+                vec![Relation::new(
+                    "direct.Item",
+                    vec![
+                        Role::new("n", DataType::Int),
+                        Role::new("tag", DataType::Text),
+                        Role::new("enabled", DataType::Bool),
+                        Role::new("payload", DataType::Bytes),
+                    ],
+                )],
+            ),
+            crate::Visibility::Private,
+        )
         .unwrap();
         for n in 0..30 {
             tx.insert_with_id(
@@ -915,20 +918,23 @@ mod tests {
     fn compiled_numeric_ranges_page_ties_and_preserve_reference_visibility() {
         let db = fixture();
         let mut tx = db.admin().transaction();
-        tx.install(Module::new(
-            "ranges",
-            1,
-            vec![("direct".into(), 1)],
-            vec![Relation::new(
-                "ranges.Link",
-                vec![
-                    Role::new("n", DataType::Int),
-                    Role::new("amount", DataType::Decimal { scale: 2 }),
-                    Role::new("instant", DataType::Timestamp),
-                    Role::new("target", DataType::Ref("direct.Item".into())),
-                ],
-            )],
-        ))
+        tx.install_with_visibility(
+            Module::new(
+                "ranges",
+                1,
+                vec![("direct".into(), 1)],
+                vec![Relation::new(
+                    "ranges.Link",
+                    vec![
+                        Role::new("n", DataType::Int),
+                        Role::new("amount", DataType::Decimal { scale: 2 }),
+                        Role::new("instant", DataType::Timestamp),
+                        Role::new("target", DataType::Ref("direct.Item".into())),
+                    ],
+                )],
+            ),
+            crate::Visibility::Private,
+        )
         .unwrap();
         for n in 0..2406u128 {
             let value = (n % 7) as i64 - 3;

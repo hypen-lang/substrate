@@ -154,19 +154,22 @@ fn datafusion_output_budgets_fail_without_partial_results_or_poisoning() {
 fn datafusion_exact_types_nulls_and_overflow_are_explicit() {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "typed",
-        1,
-        vec![],
-        vec![Relation::new(
-            "typed.All",
-            vec![
-                Role::new("n", DataType::Int),
-                Role::new("blob", DataType::Bytes),
-                Role::new("text", DataType::Text),
-            ],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "typed",
+            1,
+            vec![],
+            vec![Relation::new(
+                "typed.All",
+                vec![
+                    Role::new("n", DataType::Int),
+                    Role::new("blob", DataType::Bytes),
+                    Role::new("text", DataType::Text),
+                ],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     for n in [i64::MIN, i64::MAX] {
         tx.insert(

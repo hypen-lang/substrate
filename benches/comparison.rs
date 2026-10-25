@@ -24,9 +24,12 @@ fn occurrence(family: u128, i: usize, child: usize) -> Id {
 fn fixture(n: usize) -> Database {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
-    tx.install(demo::fitness()).unwrap();
-    tx.install(demo::crm()).unwrap();
+    tx.install_with_visibility(demo::core(), Visibility::Private)
+        .unwrap();
+    tx.install_with_visibility(demo::fitness(), Visibility::Private)
+        .unwrap();
+    tx.install_with_visibility(demo::crm(), Visibility::Private)
+        .unwrap();
     for i in 0..n {
         let p = person(i);
         tx.insert_with_id(
@@ -430,6 +433,30 @@ fn unseen_parameter_workloads(
                 .map(|i| vec![S::Integer(i as i64), S::Integer(i as i64 + 3)])
                 .collect(),
         ),
+        (
+            "unseen_relationship_joins",
+            r#"SELECT f.id,w.id,w."durationMinutes" FROM fitness."Performed" f JOIN fitness."Workout" w ON w.id=f.workout WHERE f.athlete=?1 ORDER BY f.id"#,
+            vec![S::Text(person(n + count + 1).to_string())],
+            (0..count)
+                .map(|i| {
+                    vec![S::Text(
+                        person(if i % 5 == 0 || i >= n { n + i } else { i }).to_string(),
+                    )]
+                })
+                .collect(),
+        ),
+        (
+            "unseen_five_way_joins",
+            r#"SELECT p.id,f.id,w."durationMinutes",c.id,d.amount FROM core."Person" p JOIN fitness."Performed" f ON f.athlete=p.id JOIN fitness."Workout" w ON w.id=f.workout JOIN crm."CustomerDeal" c ON c.customer=p.id JOIN crm."Deal" d ON d.id=c.deal WHERE p.id=?1 ORDER BY f.id,c.id"#,
+            vec![S::Text(person(n + count + 1).to_string())],
+            (0..count)
+                .map(|i| {
+                    vec![S::Text(
+                        person(if i % 5 == 0 || i >= n { n + i } else { i }).to_string(),
+                    )]
+                })
+                .collect(),
+        ),
     ];
     cases.into_iter().map(|(name, sql, warmup, parameters)| {
         let (mut sqlite, sqlite_prepare_ms) = timed(|| conn.prepare(&flatten(sql)).unwrap());
@@ -456,19 +483,22 @@ fn projection_workload() -> J {
     const PAYLOAD_BYTES: usize = 16 * 1024;
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "bench",
-        1,
-        vec![],
-        vec![Relation::new(
-            "bench.Payload",
-            vec![
-                Role::new("n", DataType::Int),
-                Role::new("payload", DataType::Text),
-                Role::new("visible", DataType::Bool),
-            ],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "bench",
+            1,
+            vec![],
+            vec![Relation::new(
+                "bench.Payload",
+                vec![
+                    Role::new("n", DataType::Int),
+                    Role::new("payload", DataType::Text),
+                    Role::new("visible", DataType::Bool),
+                ],
+            )],
+        ),
+        Visibility::Private,
+    )
     .unwrap();
     let mut conn = Connection::open_in_memory().unwrap();
     conn.execute_batch("CREATE TABLE Payload(id TEXT PRIMARY KEY,n INTEGER NOT NULL,payload TEXT NOT NULL,visible INTEGER NOT NULL);CREATE INDEX payload_n ON Payload(n);CREATE INDEX payload_visible ON Payload(visible,n);").unwrap();

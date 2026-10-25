@@ -424,18 +424,21 @@ mod tests {
         };
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(Module::new(
-            "reuse",
-            1,
-            vec![],
-            vec![Relation::new(
-                "reuse.Rows",
-                vec![
-                    Role::new("bucket", DataType::Int),
-                    Role::new("n", DataType::Int),
-                ],
-            )],
-        ))
+        tx.install_with_visibility(
+            Module::new(
+                "reuse",
+                1,
+                vec![],
+                vec![Relation::new(
+                    "reuse.Rows",
+                    vec![
+                        Role::new("bucket", DataType::Int),
+                        Role::new("n", DataType::Int),
+                    ],
+                )],
+            ),
+            crate::Visibility::Private,
+        )
         .unwrap();
         for n in 0..512 {
             tx.insert("reuse.Rows", vec![Value::Int(n % 4), Value::Int(n)])

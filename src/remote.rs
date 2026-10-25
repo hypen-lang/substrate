@@ -282,9 +282,11 @@ impl RemoteServer {
                                         break;
                                     }
                                     stream.sock.arm(admission.io_timeout(), None);
+                                    let mut anonymous = false;
                                     let (response, valid) =
                                         match serde_json::from_slice::<Request>(&bytes) {
                                             Ok(request) => {
+                                                anonymous = request.token.is_empty();
                                                 gateway.handle_authenticated_status(request)
                                             }
                                             Err(_) => (
@@ -294,7 +296,14 @@ impl RemoteServer {
                                         };
                                     authenticated = valid;
                                     if valid {
-                                        admission.emit(peer, AuditKind::Authenticated);
+                                        admission.emit(
+                                            peer,
+                                            if anonymous {
+                                                AuditKind::AnonymousRequest
+                                            } else {
+                                                AuditKind::Authenticated
+                                            },
+                                        );
                                     } else {
                                         admission.failure(peer, Instant::now());
                                         failure_recorded = true;
@@ -370,6 +379,10 @@ pub struct RemoteClient {
     token: String,
 }
 impl RemoteClient {
+    /// Read public schemas without a credential; TLS verification remains mandatory.
+    pub fn anonymous(address: SocketAddr, server_name: &str, ca_pem: &[u8]) -> Result<Self> {
+        Self::new(address, server_name, ca_pem, "")
+    }
     pub fn new(
         address: SocketAddr,
         server_name: &str,

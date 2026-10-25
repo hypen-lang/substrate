@@ -21,7 +21,8 @@ impl Host {
         std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
+        tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+            .unwrap();
         tx.grant("app", "core.Person", Grant::read_write()).unwrap();
         tx.commit().unwrap();
         let server = LocalServer::bind(db.clone(), dir.path().join("socket"), config()).unwrap();

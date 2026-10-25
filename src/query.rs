@@ -9,15 +9,58 @@ pub struct Table {
 }
 impl Snapshot {
     pub fn table(&self, relation: &str, alias: &str) -> Result<Table> {
+        self.table_columns(relation, alias, None)
+    }
+    /// Project during authorized row traversal, avoiding copies of unselected
+    /// payloads. Names use the same qualified form as `Table::project`, e.g.
+    /// `snapshot.projected_table("core.Person", "p", &["p.id", "p.name"])`.
+    /// The complete source row and every reference still require read access.
+    pub fn projected_table(&self, relation: &str, alias: &str, columns: &[&str]) -> Result<Table> {
+        self.table_columns(relation, alias, Some(columns))
+    }
+    fn table_columns(
+        &self,
+        relation: &str,
+        alias: &str,
+        selected: Option<&[&str]>,
+    ) -> Result<Table> {
         let def = self.schema(relation)?;
-        let columns = std::iter::once(format!("{alias}.id"))
+        let all_columns: Vec<String> = std::iter::once(format!("{alias}.id"))
             .chain(def.roles.iter().map(|r| format!("{alias}.{}", r.name)))
             .collect();
-        let rows = self
-            .scan(relation)?
-            .into_iter()
-            .map(|r| std::iter::once(Value::Ref(r.id)).chain(r.values).collect())
-            .collect();
+        let (columns, indexes) = if let Some(selected) = selected {
+            if selected.iter().collect::<BTreeSet<_>>().len() != selected.len() {
+                return Err(Error::Query("duplicate projection name".into()));
+            }
+            let indexes = selected
+                .iter()
+                .map(|name| {
+                    all_columns
+                        .iter()
+                        .position(|c| c == name)
+                        .ok_or_else(|| Error::Query(format!("unknown column {name}")))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                selected.iter().map(|name| (*name).into()).collect(),
+                indexes,
+            )
+        } else {
+            let indexes = (0..all_columns.len()).collect();
+            (all_columns, indexes)
+        };
+        let rows = self.map_rows(relation, None, None, |row| {
+            indexes
+                .iter()
+                .map(|index| {
+                    if *index == 0 {
+                        Value::Ref(row.id)
+                    } else {
+                        row.values[index - 1].clone()
+                    }
+                })
+                .collect()
+        })?;
         Ok(Table { columns, rows })
     }
 }

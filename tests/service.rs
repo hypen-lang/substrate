@@ -5,7 +5,8 @@ fn fixture() -> (Database, Gateway, SchemaManifest, Id) {
     let db = Database::memory();
     let manifest = SchemaManifest::from_json(include_str!("../examples/dx/manifest.json")).unwrap();
     let mut tx = db.admin().transaction();
-    tx.install_manifest(&manifest).unwrap();
+    tx.install_manifest_with_visibility(&manifest, Visibility::Private)
+        .unwrap();
     let person = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     tx.grant(
         "fitness",

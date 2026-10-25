@@ -29,7 +29,8 @@ impl Host {
         let (ca, cert, key) = tls::certificates(dir.path());
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
+        tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+            .unwrap();
         tx.insert("core.Person", vec!["Ada".into()]).unwrap();
         tx.insert("core.Person", vec!["Bob".into()]).unwrap();
         tx.grant("owner", "core.Person", Grant::read_write())

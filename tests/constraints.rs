@@ -16,8 +16,11 @@ fn record() -> Relation {
 }
 fn install(db: &Database) {
     let mut tx = db.admin().transaction();
-    tx.install(Module::new("app", 1, vec![], vec![record()]))
-        .unwrap();
+    tx.install_with_visibility(
+        Module::new("app", 1, vec![], vec![record()]),
+        substrate_liquid::Visibility::Private,
+    )
+    .unwrap();
     tx.commit().unwrap();
 }
 fn values(age: i64, name: &str, bytes: usize) -> Vec<Value> {
@@ -86,7 +89,10 @@ fn invalid_declarations_fail_before_install_and_poison_transaction() {
         let db = Database::memory();
         let mut tx = db.admin().transaction();
         assert!(matches!(
-            tx.install(Module::new("app", 1, vec![], vec![record().check(check)])),
+            tx.install_with_visibility(
+                Module::new("app", 1, vec![], vec![record().check(check)]),
+                substrate_liquid::Visibility::Private
+            ),
             Err(Error::Schema(_))
         ));
         assert!(matches!(tx.commit(), Err(Error::Aborted)));
@@ -129,7 +135,8 @@ fn durable_redo_and_incremental_checkpoint_preserve_compiled_checks() {
 fn manifest_v2_is_conservative_and_old_contracts_remain_stable() {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let person = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     tx.commit().unwrap();
     let old = db.admin().snapshot().manifest().unwrap();
@@ -171,7 +178,8 @@ fn manifest_v2_is_conservative_and_old_contracts_remain_stable() {
         .is_err()
     );
     let mut tx = db.admin().transaction();
-    tx.install_manifest(&next).unwrap();
+    tx.install_manifest_with_visibility(&next, Visibility::Private)
+        .unwrap();
     tx.commit().unwrap();
     assert_eq!(
         db.admin().snapshot().get("core.Person", person).unwrap(),
@@ -224,21 +232,24 @@ fn constraints_do_not_bypass_authorization_or_referential_integrity() {
         Err(Error::Denied)
     ));
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "extension",
-        1,
-        vec![("app".into(), 1)],
-        vec![
-            Relation::new(
-                "extension.Score",
-                vec![
-                    Role::new("owner", DataType::Ref("app.Profile".into())),
-                    Role::new("score", DataType::Int),
-                ],
-            )
-            .check(Check::int_range("score", 0, 10)),
-        ],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "extension",
+            1,
+            vec![("app".into(), 1)],
+            vec![
+                Relation::new(
+                    "extension.Score",
+                    vec![
+                        Role::new("owner", DataType::Ref("app.Profile".into())),
+                        Role::new("score", DataType::Int),
+                    ],
+                )
+                .check(Check::int_range("score", 0, 10)),
+            ],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.commit().unwrap();
     let mut tx = db.admin().transaction();

@@ -4,15 +4,18 @@ use substrate_liquid::*;
 fn fixture() -> Database {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "ranges",
-        1,
-        vec![],
-        vec![Relation::new(
-            "ranges.Item",
-            vec![Role::new("n", DataType::Int), Role::new("m", DataType::Int)],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "ranges",
+            1,
+            vec![],
+            vec![Relation::new(
+                "ranges.Item",
+                vec![Role::new("n", DataType::Int), Role::new("m", DataType::Int)],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     // Large equal-value runs cross page boundaries; the cursor needs both value and ID.
     for i in 0..2500 {

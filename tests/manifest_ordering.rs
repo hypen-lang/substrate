@@ -119,34 +119,40 @@ fn fixture_manifest_fingerprint_is_byte_compatible() {
 fn local_reference_validation_keeps_case_sensitive_targets_and_forward_cycles() {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "cycle",
-        1,
-        vec![],
-        vec![
-            Relation::new(
-                "cycle.A",
-                vec![Role::new("b", DataType::Ref("cycle.B".into()))],
-            ),
-            Relation::new(
-                "cycle.B",
-                vec![Role::new("a", DataType::Ref("cycle.A".into()))],
-            ),
-        ],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "cycle",
+            1,
+            vec![],
+            vec![
+                Relation::new(
+                    "cycle.A",
+                    vec![Role::new("b", DataType::Ref("cycle.B".into()))],
+                ),
+                Relation::new(
+                    "cycle.B",
+                    vec![Role::new("a", DataType::Ref("cycle.A".into()))],
+                ),
+            ],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.commit().unwrap();
     let mut tx = db.admin().transaction();
     assert!(
-        tx.install(Module::new(
-            "bad",
-            1,
-            vec![],
-            vec![
-                Relation::new("bad.A", vec![Role::new("b", DataType::Ref("bad.b".into()))]),
-                Relation::new("bad.B", vec![])
-            ]
-        ))
+        tx.install_with_visibility(
+            Module::new(
+                "bad",
+                1,
+                vec![],
+                vec![
+                    Relation::new("bad.A", vec![Role::new("b", DataType::Ref("bad.b".into()))]),
+                    Relation::new("bad.B", vec![])
+                ]
+            ),
+            substrate_liquid::Visibility::Private
+        )
         .is_err()
     );
 }

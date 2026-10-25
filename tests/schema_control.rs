@@ -10,7 +10,8 @@ fn policy(auto: bool) -> NamespacePolicy {
 }
 fn setup(db: &Database, auto: bool) -> Id {
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let person = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     tx.grant(
         "alice",
@@ -44,7 +45,13 @@ fn module(version: u64, name: &str) -> Module {
 }
 fn install(db: &Database, version: u64, name: &str) -> SchemaProposal {
     let s = db.session("alice");
-    let p = s.propose_schema(Id::new(), module(version, name)).unwrap();
+    let p = s
+        .propose_schema_with_visibility(
+            Id::new(),
+            module(version, name),
+            [(format!("agent.{name}"), Visibility::Private)].into(),
+        )
+        .unwrap();
     if p.status == ProposalStatus::Pending {
         db.decide_schema_proposal(p.id, &p.plan.digest, true)
             .unwrap();
@@ -112,12 +119,15 @@ fn unknown_private_reference_and_import_guesses_do_not_disclose_catalog() {
     let db = Database::memory();
     setup(&db, true);
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "vault",
-        1,
-        vec![],
-        vec![Relation::new("vault.Secret", vec![])],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "vault",
+            1,
+            vec![],
+            vec![Relation::new("vault.Secret", vec![])],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.commit().unwrap();
     let s = db.session("alice");
@@ -291,11 +301,13 @@ fn dynamic_rust_records_need_no_generation_and_keep_contracts_and_auth() {
     assert!(s.snapshot().get_dynamic(&d, id).unwrap().is_none());
     let other = Database::memory();
     let mut tx = other.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let mut m = module(1, "Score");
     m.relations[0].id = d.relation().id;
     m.relations[0].roles[1].data_type = DataType::Text;
-    tx.install(m).unwrap();
+    tx.install_with_visibility(m, substrate_liquid::Visibility::Private)
+        .unwrap();
     tx.commit().unwrap();
     let mut tx = other.admin().transaction();
     assert!(tx.insert_dynamic(&d, Fields::new()).is_err());
@@ -517,7 +529,8 @@ fn schema_control_crash_child() {
     {
         "uncommitted" => {
             let mut tx = db.admin().transaction();
-            tx.install(p.plan.module).unwrap();
+            tx.install_with_visibility(p.plan.module, substrate_liquid::Visibility::Private)
+                .unwrap();
             std::process::exit(0);
         }
         "approve" => {
@@ -593,18 +606,21 @@ fn wire_proposals_require_explicit_ids_and_hidden_target_hashes_are_redacted() {
     let db = Database::memory();
     setup(&db, true);
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "vault",
-        1,
-        vec![],
-        vec![
-            Relation::new("vault.Hidden", vec![]),
-            Relation::new(
-                "vault.PublicLink",
-                vec![Role::new("hidden", DataType::Ref("vault.Hidden".into()))],
-            ),
-        ],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "vault",
+            1,
+            vec![],
+            vec![
+                Relation::new("vault.Hidden", vec![]),
+                Relation::new(
+                    "vault.PublicLink",
+                    vec![Role::new("hidden", DataType::Ref("vault.Hidden".into()))],
+                ),
+            ],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.grant("alice", "vault.PublicLink", Grant::reference_only())
         .unwrap();
@@ -649,13 +665,16 @@ fn managed_namespaces_cannot_bypass_approval_with_legacy_native_install_grants()
     tx.commit().unwrap();
     let mut tx = db.session("alice").transaction();
     assert!(matches!(
-        tx.install(module(1, "Bypass")),
+        tx.install_with_visibility(module(1, "Bypass"), substrate_liquid::Visibility::Private),
         Err(Error::Denied)
     ));
     assert!(matches!(tx.commit(), Err(Error::Aborted)));
     let mut tx = db.session("alice").transaction();
     assert!(matches!(
-        tx.install(Module::new("liquid_control", 2, vec![], vec![])),
+        tx.install_with_visibility(
+            Module::new("liquid_control", 2, vec![], vec![]),
+            substrate_liquid::Visibility::Private
+        ),
         Err(Error::Denied)
     ));
     assert_eq!(
@@ -676,12 +695,15 @@ fn enrolling_namespace_races_legacy_install_with_a_transaction_conflict() {
     tx.commit().unwrap();
     let mut legacy = db.session("legacy").transaction();
     legacy
-        .install(Module::new(
-            "newapp",
-            1,
-            vec![],
-            vec![Relation::new("newapp.Bypass", vec![])],
-        ))
+        .install_with_visibility(
+            Module::new(
+                "newapp",
+                1,
+                vec![],
+                vec![Relation::new("newapp.Bypass", vec![])],
+            ),
+            substrate_liquid::Visibility::Private,
+        )
         .unwrap();
     let mut managed = policy(false);
     managed.namespace = "newapp".into();

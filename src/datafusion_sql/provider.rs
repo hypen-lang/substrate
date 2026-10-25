@@ -1205,22 +1205,29 @@ mod tests {
     fn cached_page_reads_recharge_budgets_and_isolate_projection_order() {
         let db = crate::Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(crate::Module::new(
-            "cache",
-            1,
-            vec![],
-            vec![Relation::new(
-                "cache.Row",
-                vec![crate::Role::new("n", DataType::Int)],
-            )],
-        ))
+        tx.install_with_visibility(
+            crate::Module::new(
+                "cache",
+                1,
+                vec![],
+                vec![Relation::new(
+                    "cache.Row",
+                    vec![crate::Role::new("n", DataType::Int)],
+                )],
+            ),
+            crate::Visibility::Private,
+        )
         .unwrap();
         tx.insert("cache.Row", vec![Value::Int(7)]).unwrap();
         tx.commit().unwrap();
         let snapshot = db.admin().snapshot();
         let table = LiquidTable::new(
             snapshot.clone(),
-            snapshot.relations()[0].clone(),
+            snapshot
+                .relations()
+                .into_iter()
+                .find(|r| r.name == "cache.Row")
+                .unwrap(),
             Arc::new(BatchCache::default()),
         )
         .unwrap();
@@ -1299,15 +1306,18 @@ mod tests {
     fn authorized_fixture() -> crate::Database {
         let db = crate::Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(crate::Module::new(
-            "cache",
-            1,
-            vec![],
-            vec![Relation::new(
-                "cache.Row",
-                vec![crate::Role::new("n", DataType::Int)],
-            )],
-        ))
+        tx.install_with_visibility(
+            crate::Module::new(
+                "cache",
+                1,
+                vec![],
+                vec![Relation::new(
+                    "cache.Row",
+                    vec![crate::Role::new("n", DataType::Int)],
+                )],
+            ),
+            crate::Visibility::Private,
+        )
         .unwrap();
         for n in 0..1001 {
             tx.insert("cache.Row", vec![Value::Int(n)]).unwrap();
@@ -1320,7 +1330,11 @@ mod tests {
     fn warm_table(snapshot: Snapshot) -> LiquidTable {
         let table = LiquidTable::new(
             snapshot.clone(),
-            snapshot.relations()[0].clone(),
+            snapshot
+                .relations()
+                .into_iter()
+                .find(|r| r.name == "cache.Row")
+                .unwrap(),
             Arc::new(BatchCache::default()),
         )
         .unwrap();
@@ -1405,18 +1419,21 @@ mod tests {
     fn range_cache_preserves_candidate_charges_and_empty_page_continuations() {
         let db = crate::Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(crate::Module::new(
-            "cache",
-            1,
-            vec![],
-            vec![Relation::new(
-                "cache.Row",
-                vec![
-                    crate::Role::new("n", DataType::Int),
-                    crate::Role::new("m", DataType::Int),
-                ],
-            )],
-        ))
+        tx.install_with_visibility(
+            crate::Module::new(
+                "cache",
+                1,
+                vec![],
+                vec![Relation::new(
+                    "cache.Row",
+                    vec![
+                        crate::Role::new("n", DataType::Int),
+                        crate::Role::new("m", DataType::Int),
+                    ],
+                )],
+            ),
+            crate::Visibility::Private,
+        )
         .unwrap();
         for n in 0..1001 {
             tx.insert(
@@ -1429,7 +1446,11 @@ mod tests {
         let snapshot = db.admin().snapshot();
         let table = LiquidTable::new(
             snapshot.clone(),
-            snapshot.relations()[0].clone(),
+            snapshot
+                .relations()
+                .into_iter()
+                .find(|r| r.name == "cache.Row")
+                .unwrap(),
             Arc::new(BatchCache::default()),
         )
         .unwrap();
@@ -1511,7 +1532,11 @@ mod tests {
             };
             let table = LiquidTable::new(
                 snapshot.clone(),
-                snapshot.relations()[0].clone(),
+                snapshot
+                    .relations()
+                    .into_iter()
+                    .find(|r| r.name == "cache.Row")
+                    .unwrap(),
                 Arc::new(BatchCache::default()),
             )
             .unwrap();

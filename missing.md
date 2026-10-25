@@ -5,9 +5,9 @@ milestones in the README. Package publication and Bend verification are explicit
 excluded from this implementation run. This is a status ledger, not a claim that
 queued features already work.
 
-Latest change: DataFusion now also reuses bounded numeric-range pages and
-recursively validates deterministic subqueries for logical-plan caching.
-Native query/storage paths and imbl remain unchanged.
+Latest change: compiled tiny joins, native write/snapshot/projection optimizations,
+and mutable schema visibility are implemented. Verification and paired performance
+results are recorded in the final follow-up section; earlier sections are history.
 See the final adoption section for current limits; earlier sections retain the
 chronological benchmark and implementation history.
 
@@ -385,3 +385,45 @@ See [the execution benchmark](docs/benchmarks/DATAFUSION-EXECUTION.md) and
 redo encoding, unnecessary index updates, authorization work under the publication
 lock, native projection/copy costs and transport queueing. Those are investigated
 opportunities, not changes to native semantics in this SQL milestone.
+
+
+## Tiny joins, native overheads and schema visibility — 2026-10-25
+
+Compiled bounded inner joins now avoid Arrow and executor setup for supported
+exact equality bindings, including changing parameters. Unsupported expressions,
+coercions and large fanouts retain DataFusion execution. The fallback retains
+spent source budgets and remaining time; materialized tuples are bounded, while
+native authorization traversal remains cooperatively interruptible only between
+calls.
+
+Native changes remove disposable packed redo encoding during admission, skip
+unchanged index mutations while preserving OCC version invalidations, construct
+scoped snapshot permissions outside the publication lock, and project native
+results before copying unselected values. Owned native APIs retain their result
+semantics. See [native details](docs/NATIVE-OVERHEADS.md).
+
+New relation families support public, authenticated (default), and private
+visibility. Typed policies are separate from immutable manifests and old packed
+rows. Namespace owners can propose initial policy and change it live; credential
+scopes still cap permission. Explicit anonymous clients can read public data but
+cannot write/reference. Old databases remain grant-only. See
+[visibility semantics and examples](docs/SCHEMA-VISIBILITY.md).
+
+Remaining work includes broad analytical parameter templates and batch sources,
+strict CPU cancellation inside denied-row/reference traversal, shared payloads in
+index dependency keys, bounded native result streaming, transport queueing and
+backpressure, and narrower visibility revocation generations. Current ambient
+visibility changes conservatively invalidate all unscoped retained readers.
+
+
+Final verification: **430 Rust tests including the doctest**, **53 TypeScript
+tests**, strict all-target Clippy, formatting, and working local/TLS examples.
+Two independent reviews completed and all concrete findings were fixed. Final
+paired reports: [tiny joins](docs/benchmarks/TINY-JOINS.md) and
+[native overheads](docs/benchmarks/NATIVE-OVERHEADS.md), with raw data from both
+iterations. At 180,000 occurrences the two tiny admin joins improved about 36×.
+32-field partial updates improved about 3.8× and selected native projection
+about 34×. Restricted non-join reads still show new visibility overhead; full
+owned scans and contention medians did not improve. Durable sequential writes
+remain synchronization-bound. These remain explicit performance work, alongside
+broader query planning and memory/transport limits above.

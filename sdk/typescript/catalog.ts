@@ -1,5 +1,6 @@
 import { uuidPattern, type RoleCheck } from "./validation.js";
 import type { QueryClient } from "./query.js";
+import type { Visibility } from "./schema-control.js";
 
 export interface CatalogOptions { after?: string; expectedRevision?: string; relation?: string; limit?: number }
 export interface RoleId { relation: string; slot: number }
@@ -11,6 +12,8 @@ export interface CatalogRelation {
   checks?:readonly RoleCheck[];
   operations:{read:boolean;insert:boolean;update:boolean;delete:boolean;reference:boolean};
   row_restricted:boolean;
+  /** null/omitted denotes a legacy schema with explicit grants only. */
+  visibility?:Visibility|null;
   lifecycle:"active"|"deprecated"|"retired"; aliases:string[];
 }
 export interface CatalogPage { format:1; revision:string; relations:CatalogRelation[]; next:string|null }
@@ -24,6 +27,7 @@ function uint(value:unknown,max:number):number{return typeof value==="number"&&N
 function revision(value:unknown):string {const s=string(value);return /^(0|[1-9][0-9]*)$/.test(s)&&s.length<=20&&BigInt(s)<=18446744073709551615n?s:fail();}
 function roleId(value:unknown):RoleId {const v=object(value);return {relation:id(v.relation),slot:uint(v.slot,4294967295)};}
 function lifecycle(value:unknown):"active"|"deprecated"|"retired" {if(value===undefined)return "active";return value==="active"||value==="deprecated"||value==="retired"?value:fail();}
+function visibility(value:unknown):Visibility|null {return value===undefined||value===null?null:value==="public"||value==="authenticated"||value==="private"?value:fail();}
 function dataType(value:unknown):CatalogType {
   const v=object(value);
   switch(v.kind) {
@@ -69,6 +73,7 @@ export async function introspect(client:QueryClient,options:CatalogOptions={}):P
     const result:CatalogRelation={id:id(r.id),name:string(r.name),fingerprint:r.fingerprint===null?null:string(r.fingerprint),module:{name:string(m.name),version:revision(m.version)},
       roles:list(r.roles).map(value=>{const v=object(value);return {id:roleId(v.id),name:string(v.name),data_type:dataType(v.data_type),required:bool(v.required),equality_index:bool(v.equality_index)};}),
       ...(r.checks === undefined ? {} : {checks:schemaChecks(r.checks)}),
+      ...(r.visibility === undefined ? {} : {visibility:visibility(r.visibility)}),
       unique:list(r.unique).map(key=>list(key).map(roleId)),operations:{read:bool(ops.read),insert:bool(ops.insert),update:bool(ops.update),delete:bool(ops.delete),reference:bool(ops.reference)},row_restricted:bool(r.row_restricted),lifecycle:lifecycle(r.lifecycle),aliases:list(r.aliases??[]).map(string)};
     if((result.fingerprint!==null&&!/^[0-9a-f]{64}$/.test(result.fingerprint))||result.module.version==="0")fail();
     const opaque=result.roles.some(role=>role.data_type.kind==="ref"&&role.data_type.target===null);

@@ -52,6 +52,14 @@ typed errors, generated records, nested reads and atomic batches. It accepts bot
 local and remote clients. SDKs are currently repository packages, not published
 npm/crates.io releases.
 
+New relation families default to **authenticated** discovery and reads. Use
+**private** for owner/grant-only data, or **public** for anonymous reads. Visibility
+never grants writes or permission to reference rows, and credential scopes remain
+hard limits. Existing databases retain their prior grants. See the
+[visibility guide](docs/SCHEMA-VISIBILITY.md) and run
+`cargo run --example schema_visibility` for `GamerProfile` and private
+`GamingMessages`, including live visibility changes.
+
 ## TypeScript API
 
 ```ts
@@ -271,28 +279,36 @@ or failover, and follower permissions remain eventual until revocations arrive.
 ## Performance and next priorities
 
 Performance depends on query shape, authorization, result size and durability.
-The [latest SQL comparison](docs/benchmarks/DATAFUSION-EXECUTION.md) measures both
-prior DataFusion adapters, explicit SQLite compatibility and direct indexed SQLite
-at 2,000 and 20,000 people. It separates preparation, warm queries, fresh handles
-and previously unseen parameters; PostgreSQL was not rerun. These are local
-embedded read measurements, excluding transport and writes.
+The [latest tiny-join comparison](docs/benchmarks/TINY-JOINS.md) measures the
+preceding DataFusion adapter, SQLite compatibility and direct indexed SQLite at
+2,000 and 20,000 people. These are local embedded reads, excluding transport and
+writes, with three alternating process pairs and exact result checks.
 
 At 20,000 people / 180,000 occurrences, warm prepared admin reads measured these
-medians in microseconds across three processes:
+medians in microseconds:
 
 | Query | Current | Previous adapter | Direct SQLite |
 | --- | ---: | ---: | ---: |
-| Identity lookup | 0.45 | 44.76 | 0.38 |
-| Relationship lookup | 54.50 | 1,060.28 | 1.15 |
-| Five-family selective join | 134.25 | 2,303.85 | 3.26 |
-| Grouped join / top 25 | 12,304.91 | 19,167.78 | 40,094.38 |
-| Nested window / top 1 | 7,158.01 | 9,173.90 | 24,354.14 |
+| Identity lookup | 0.450 | 0.438 | 0.429 |
+| Relationship lookup | 1.475 | 54.221 | 1.317 |
+| Five-family selective join | 4.221 | 151.421 | 3.188 |
+| Grouped join / top 25 | 14,155.658 | 15,095.567 | 42,021.725 |
+| Nested window / top 1 | 9,079.604 | 9,702.987 | 26,475.746 |
 
-All nine established admin query shapes improved over both previous DataFusion adapters
-in this final run. The shared machine still produces timing variation; these are
-workload results, not universal speedups. SQLite does not perform Substrate's
-authority/reference checks. Tiny joins remain substantially faster in SQLite;
-the report also includes an equivalent covering-index control for numeric reads.
+The tiny joins improved roughly 36×. Restricted-reader joins also improved,
+while some restricted non-join reads slowed with the new visibility checks.
+SQLite does not perform Substrate's authorization or reference-closure checks.
+Fresh handles, unseen bindings, all query shapes and regressions are included in
+the report; the [preceding execution report](docs/benchmarks/DATAFUSION-EXECUTION.md)
+retains the earlier adapters' evidence.
+
+[Native measurements](docs/benchmarks/NATIVE-OVERHEADS.md) show a 32-field partial
+update improving from 34.167 to 9.000 µs and projection of 256 payload-heavy rows
+from 570.917 to 16.875 µs. Projection allocation traffic fell from 16.87 MB to
+29 KB. Full owned scans were slower in this run, and durable sequential updates
+remained near 4 ms. Under four-reader contention, average and p99 commit latency
+improved but median latency worsened. These are workload results, not universal
+speedups.
 
 Separate native and durability measurements remain useful context:
 
@@ -323,8 +339,11 @@ retains native visibility checks, live revocation and per-query budgets. Both
 General analytical queries still use DataFusion and its bounded source-page cache.
 Complex queries retain a one-binding plan cache; audited joins, aggregates, sorts
 and `ROW_NUMBER` windows reuse templates with fresh execution state. Larger joins
-use ordinary DataFusion execution. Fresh full scans still pay conversion costs. Native indexed
-APIs and storage retain their existing behavior. See the
+use ordinary DataFusion execution. Fresh full scans still pay conversion costs.
+Native writes now avoid duplicate packed encoding and unchanged index mutations;
+scoped snapshot construction holds the publication lock briefly, and
+`projected_table` copies only selected result fields. Transaction and authorization
+semantics are preserved; see [native overheads](docs/NATIVE-OVERHEADS.md). See the
 [SQL guide](docs/DATAFUSION-SQL.md) for precise eligibility and cancellation limits,
 and the [beyond-SQL investigation](docs/PERFORMANCE-BEYOND-SQL.md) for the next
 write, native-read and transport opportunities.

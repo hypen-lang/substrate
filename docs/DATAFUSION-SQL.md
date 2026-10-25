@@ -44,6 +44,20 @@ the ordinary DataFusion executor; SQL text is never matched to select this path.
 Compiled numeric ranges require a finite literal LIMIT. Unbounded ranges retain
 the general provider and its warm Arrow-page cache.
 
+Selective inner equijoins can also compile into a parameter-reusable native
+lookup program, without Arrow conversion, runtime dispatch or hash-join setup.
+The supported shape contains at most eight families, plain column projections,
+exact typed equality predicates, column ordering and literal LIMIT/OFFSET. Every
+family must be reachable through an equality lookup from a bound literal or
+parameter. Each intermediate result and equality fanout is limited to 128 rows;
+larger results, unsupported expressions and coercions use ordinary DataFusion.
+The bounded attempt and fallback share one source budget and the remaining
+deadline. Duplicate matches and order/offset semantics remain SQL semantics.
+Native reads enforce visibility and reference closure, and every source's live
+guard is checked before execution and final release. No rows or authority
+decisions are cached in the descriptor. Only fields needed for output, join
+keys, predicates or ordering are charged/copied; unrelated payloads stay shared.
+
 Other prepared queries cache one exact typed parameter binding. Deterministic
 queries reuse an optimized logical plan. A conservative whitelist of audited
 physical operators can additionally reuse an unexecuted template, rebuilding fresh
@@ -125,7 +139,7 @@ catalogs are unavailable through this API. Unbounded expansion functions and
 collection/string aggregation are outside this initial SQL surface. Invoker views use the same catalog and
 guard. Use `EXPLAIN SELECT ...` for the DataFusion plan. Profiling reports include
 these plans, which can contain literal and bound values. EXPLAIN describes the
-DataFusion execution path; eligible compiled simple reads bypass that path in
+DataFusion execution path; eligible compiled simple reads and tiny joins bypass that path in
 normal execution. Consequently, EXPLAIN ANALYZE source counters demonstrate
 provider behavior, not the latency of the compiled simple-read executor.
 

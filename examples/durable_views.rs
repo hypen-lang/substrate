@@ -6,7 +6,7 @@ fn main() -> Result<()> {
     let path = directory.path().join("views.redb");
     let db = Database::open(&path)?;
     let mut tx = db.admin().transaction();
-    tx.install(demo::core())?;
+    tx.install_with_visibility(demo::core(), Visibility::Private)?;
     tx.insert("core.Person", vec!["Ada".into()])?;
     tx.insert("core.Person", vec!["Bob".into()])?;
     tx.grant(

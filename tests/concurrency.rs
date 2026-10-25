@@ -121,19 +121,15 @@ fn concurrent_module_installs_retry_without_partial_catalog() {
     let db = Database::memory();
     let mut a = db.admin().transaction();
     let mut b = db.admin().transaction();
-    a.install(Module::new(
-        "a",
-        1,
-        vec![],
-        vec![Relation::new("a.R", vec![])],
-    ))
+    a.install_with_visibility(
+        Module::new("a", 1, vec![], vec![Relation::new("a.R", vec![])]),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
-    b.install(Module::new(
-        "b",
-        1,
-        vec![],
-        vec![Relation::new("b.R", vec![])],
-    ))
+    b.install_with_visibility(
+        Module::new("b", 1, vec![], vec![Relation::new("b.R", vec![])]),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     a.commit().unwrap();
     assert!(matches!(b.commit(), Err(Error::Conflict)));
@@ -148,7 +144,10 @@ fn allocated_ids_cannot_collide_with_concurrent_schema_ids() {
     let mut def = Relation::new("extra.R", vec![]);
     def.id = id;
     schema
-        .install(Module::new("extra", 1, vec![], vec![def]))
+        .install_with_visibility(
+            Module::new("extra", 1, vec![], vec![def]),
+            substrate_liquid::Visibility::Private,
+        )
         .unwrap();
     data.commit().unwrap();
     assert!(matches!(schema.commit(), Err(Error::Conflict)));
@@ -160,12 +159,10 @@ fn missing_schema_reads_are_predicates_too() {
     assert!(a.scan("new.R").is_err());
     let mut b = db.admin().transaction();
     b.get("core.Person", p).unwrap();
-    b.install(Module::new(
-        "new",
-        1,
-        vec![],
-        vec![Relation::new("new.R", vec![])],
-    ))
+    b.install_with_visibility(
+        Module::new("new", 1, vec![], vec![Relation::new("new.R", vec![])]),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     b.commit().unwrap();
     a.update("core.Person", p, vec!["changed".into()]).unwrap();

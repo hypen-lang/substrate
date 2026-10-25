@@ -20,7 +20,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     };
     let manifest = SchemaManifest::from_json(&source)?;
     let mut tx = db.admin().transaction();
-    tx.install_manifest(&manifest)?;
+    tx.install_manifest_with_visibility(&manifest, Visibility::Private)?;
     let benchmark_people = std::env::args()
         .nth(3)
         .map(|s| s.parse::<usize>())

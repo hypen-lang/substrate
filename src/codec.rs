@@ -19,10 +19,80 @@ fn len(out: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
     out.extend(bytes);
     Ok(())
 }
+/// Exact admission size without constructing/copying the packed row payload.
+/// Rare metadata is serialized to a counting sink so JSON escaping/versioning
+/// obey the same wire contract; no encoded metadata buffer is retained.
+pub(crate) fn encoded_len(ops: &[Op], schema: &State) -> Result<usize> {
+    u32::try_from(ops.len()).map_err(|_| invalid())?;
+    let v2 = uses_v2(ops);
+    let mut total = 16usize;
+    let mut add = |n: usize| -> Result<()> {
+        total = total.checked_add(n).ok_or_else(invalid)?;
+        Ok(())
+    };
+    for op in ops {
+        match op {
+            Op::Put(tid, row) => {
+                add(33)?;
+                let def = schema.relations.get(tid).ok_or_else(invalid)?;
+                if row.values.len() != def.roles.len() {
+                    return Err(invalid());
+                }
+                for (role, value) in def.roles.iter().zip(row.values.iter()) {
+                    if !role.data_type.accepts(value) {
+                        return Err(invalid());
+                    }
+                    let size = match value {
+                        Value::Bool(_) => 1,
+                        Value::Int(_) | Value::Decimal(_) | Value::Timestamp(_) => 8,
+                        Value::Ref(_) => 16,
+                        Value::Text(value) => variable_len(value.len())?,
+                        Value::Bytes(value) => variable_len(value.len())?,
+                    };
+                    add(size)?;
+                }
+            }
+            Op::Identity(_) => add(17)?,
+            Op::Delete(_, _) => add(33)?,
+            _ => {
+                let mut counter = JsonSize(0);
+                if v2 {
+                    serde_json::to_writer(&mut counter, &crate::wire::EventV2::from_op(op)?)
+                } else {
+                    serde_json::to_writer(&mut counter, &crate::wire::EventV1::from_op(op)?)
+                }
+                .map_err(|_| invalid())?;
+                add(1)?;
+                add(variable_len(counter.0)?)?;
+            }
+        }
+    }
+    Ok(total)
+}
+fn variable_len(length: usize) -> Result<usize> {
+    u32::try_from(length).map_err(|_| invalid())?;
+    length.checked_add(4).ok_or_else(invalid)
+}
+struct JsonSize(usize);
+impl std::io::Write for JsonSize {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 = self
+            .0
+            .checked_add(bytes.len())
+            .filter(|size| u32::try_from(*size).is_ok())
+            .ok_or_else(|| std::io::Error::other("metadata length overflow"))?;
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+fn uses_v2(ops: &[Op]) -> bool {
+    ops.iter()
+        .any(|op| matches!(op, Op::Install(m) if m.relations.iter().any(|r| !r.checks.is_empty())))
+}
 pub(crate) fn encode(revision: u64, ops: &[Op], schema: &State) -> Result<Vec<u8>> {
-    let v2 = ops
-        .iter()
-        .any(|op| matches!(op, Op::Install(m) if m.relations.iter().any(|r| !r.checks.is_empty())));
+    let v2 = uses_v2(ops);
     let mut out = if v2 { MAGIC_V2 } else { MAGIC }.to_vec();
     out.extend(revision.to_le_bytes());
     out.extend(
@@ -459,6 +529,90 @@ mod compatibility_tests {
             let _=replay(&data,1,&mut State::default());
             let mut valid=metadata(LEGACY);let i=offset%valid.len();valid[i]=byte;
             let _=replay(&valid,1,&mut State::default());
+        }
+    }
+}
+
+#[cfg(test)]
+mod sizing_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn fixture() -> (State, Id, Module) {
+        let relation = Relation::new(
+            "sizing.Row",
+            vec![
+                Role::new("text", DataType::Text),
+                Role::new("bytes", DataType::Bytes),
+                Role::new("flag", DataType::Bool),
+                Role::new("count", DataType::Int),
+                Role::new("money", DataType::Decimal { scale: 2 }),
+                Role::new("time", DataType::Timestamp),
+                Role::new("target", DataType::Ref("sizing.Row".into())),
+            ],
+        );
+        let tid = relation.id;
+        let module = Module::new("sizing", 1, vec![], vec![relation]);
+        let mut state = State::default();
+        state.apply(&Op::Install(module.clone()), 1);
+        (state, tid, module)
+    }
+    proptest! {
+        #[test]
+        fn admission_length_matches_every_wire_variant(
+            text in ".{0,512}", payload in prop::collection::vec(any::<u8>(),0..2048),
+            count in any::<i64>(), constrained in any::<bool>(),
+        ) {
+            let (mut state, tid, mut module) = fixture();
+            if constrained {
+                module.relations[0].checks.push(Check::int_range("count",i64::MIN,i64::MAX));
+                state = State::default(); state.apply(&Op::Install(module.clone()),1);
+            }
+            let id = Id::new();
+            let ops = vec![Op::Install(module), Op::Identity(id), Op::Put(tid,Row {
+                id, values: vec![Value::Text(text.clone()), Value::Bytes(payload), Value::Bool(true),
+                    Value::Int(count), Value::Decimal(count), Value::Timestamp(count), Value::Ref(id)].into_boxed_slice(),
+            }), Op::Grant(text.clone(),tid,Some(Grant::read_only())),
+                Op::Grant(text,tid,None), Op::SchemaGrant("owner\n\\\"".into(),"sizing".into()), Op::Delete(tid,id)];
+            let length = encoded_len(&ops,&state).unwrap();
+            prop_assert_eq!(length,encode(0,&ops,&state).unwrap().len());
+            prop_assert_eq!(length,encode(u64::MAX,&ops,&state).unwrap().len());
+        }
+    }
+    #[test]
+    fn sizing_rejects_invalid_rows_and_overflow_like_encoding() {
+        let (state, tid, _) = fixture();
+        for op in [
+            Op::Put(
+                tid,
+                Row {
+                    id: Id::new(),
+                    values: vec![Value::Int(1)].into_boxed_slice(),
+                },
+            ),
+            Op::Put(
+                tid,
+                Row {
+                    id: Id::new(),
+                    values: vec![Value::Int(1); 7].into_boxed_slice(),
+                },
+            ),
+            Op::Put(
+                Id::new(),
+                Row {
+                    id: Id::new(),
+                    values: Box::new([]),
+                },
+            ),
+        ] {
+            assert!(encoded_len(std::slice::from_ref(&op), &state).is_err());
+            assert!(encode(0, &[op], &state).is_err());
+        }
+        assert_eq!(encoded_len(&[], &state).unwrap(), 16);
+        if let Some(too_large) = (u32::MAX as usize).checked_add(1) {
+            assert!(variable_len(too_large).is_err());
+            let mut sink = JsonSize(u32::MAX as usize);
+            assert!(std::io::Write::write(&mut sink, &[0]).is_err());
         }
     }
 }

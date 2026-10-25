@@ -5,21 +5,24 @@ fn map() -> RoutingMap {
 }
 fn provision(db: &Database) {
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "app",
-        1,
-        vec![],
-        vec![
-            Relation::new("app.Person", vec![Role::new("name", DataType::Text)]),
-            Relation::new(
-                "app.Friend",
-                vec![
-                    Role::new("left", DataType::Ref("app.Person".into())),
-                    Role::new("right", DataType::Ref("app.Person".into())),
-                ],
-            ),
-        ],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "app",
+            1,
+            vec![],
+            vec![
+                Relation::new("app.Person", vec![Role::new("name", DataType::Text)]),
+                Relation::new(
+                    "app.Friend",
+                    vec![
+                        Role::new("left", DataType::Ref("app.Person".into())),
+                        Role::new("right", DataType::Ref("app.Person".into())),
+                    ],
+                ),
+            ],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     for name in ["app.Person", "app.Friend"] {
         tx.grant("writer", name, Grant::read_write()).unwrap();

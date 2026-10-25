@@ -2,25 +2,28 @@ use substrate_liquid::{disk_snapshot::*, *};
 fn fixture() -> (Database, Vec<Id>) {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "data",
-        1,
-        vec![],
-        vec![
-            Relation::new(
-                "data.Record",
-                vec![
-                    Role::new("group", DataType::Int),
-                    Role::new("text", DataType::Text),
-                    Role::new("blob", DataType::Bytes),
-                    Role::new("flag", DataType::Bool),
-                    Role::new("amount", DataType::Decimal { scale: 2 }),
-                    Role::new("at", DataType::Timestamp),
-                ],
-            )
-            .check(Check::int_range("group", 0, 3)),
-        ],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "data",
+            1,
+            vec![],
+            vec![
+                Relation::new(
+                    "data.Record",
+                    vec![
+                        Role::new("group", DataType::Int),
+                        Role::new("text", DataType::Text),
+                        Role::new("blob", DataType::Bytes),
+                        Role::new("flag", DataType::Bool),
+                        Role::new("amount", DataType::Decimal { scale: 2 }),
+                        Role::new("at", DataType::Timestamp),
+                    ],
+                )
+                .check(Check::int_range("group", 0, 3)),
+            ],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     let ids = (0..25)
         .map(|n| {
@@ -140,7 +143,8 @@ fn source_drop_invalidates_admin_lease_and_reopen_does_not_restore_authority() {
     let path = dir.path().join("source");
     let db = Database::open(&path).unwrap();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let id = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     tx.commit().unwrap();
     let disk = db
@@ -274,16 +278,20 @@ fn output_bounds_options_and_cleanup_are_enforced_without_overwriting_files() {
 fn reference_closure_filters_rows_and_hidden_reference_metadata_is_not_spilled() {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
-    tx.install(Module::new(
-        "links",
-        1,
-        vec![("core".into(), 1)],
-        vec![Relation::new(
-            "links.Link",
-            vec![Role::new("person", DataType::Ref("core.Person".into()))],
-        )],
-    ))
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
+    tx.install_with_visibility(
+        Module::new(
+            "links",
+            1,
+            vec![("core".into(), 1)],
+            vec![Relation::new(
+                "links.Link",
+                vec![Role::new("person", DataType::Ref("core.Person".into()))],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     let ada = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     let bob = tx.insert("core.Person", vec!["Bob".into()]).unwrap();

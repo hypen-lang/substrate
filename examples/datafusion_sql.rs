@@ -4,8 +4,8 @@ use substrate_liquid::*;
 fn main() -> Result<()> {
     let database = Database::memory();
     let mut transaction = database.admin().transaction();
-    transaction.install(demo::core())?;
-    transaction.install(demo::fitness())?;
+    transaction.install_with_visibility(demo::core(), Visibility::Private)?;
+    transaction.install_with_visibility(demo::fitness(), Visibility::Private)?;
     let person = transaction.insert("core.Person", vec!["Ada".into()])?;
     for minutes in [20, 45, 60] {
         let workout = transaction.insert("fitness.Workout", vec![minutes.into()])?;

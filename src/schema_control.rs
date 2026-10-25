@@ -88,6 +88,9 @@ pub struct ProposalPlan {
     pub policy_generation: String,
     #[serde(deserialize_with = "explicit_module")]
     pub module: Module,
+    /// Format 1 proposals predate visibility and retain grant-only/private semantics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<BTreeMap<String, Visibility>>,
     pub usage_after: SchemaUsage,
     pub costs: Vec<FamilyCost>,
     pub references: Vec<ReferenceRequirement>,
@@ -330,7 +333,8 @@ fn canonical(mut module: Module) -> Result<Module> {
             || module.name.eq_ignore_ascii_case("liquid_security")
             || module.name.eq_ignore_ascii_case("liquid_auth")
             || module.name.eq_ignore_ascii_case("liquid_views")
-            || module.name.eq_ignore_ascii_case("liquid_view_catalog"))
+            || module.name.eq_ignore_ascii_case("liquid_view_catalog")
+            || module.name.eq_ignore_ascii_case("liquid_visibility"))
         || !crate::model::identifier(&module.name)
         || module.version == 0
         || module.version > i64::MAX as u64
@@ -365,6 +369,7 @@ fn build_plan(
     principal: &str,
     module: Module,
     policy: &NamespaceInfo,
+    visibility: Option<BTreeMap<String, Visibility>>,
 ) -> Result<ProposalPlan> {
     if !policy.policy.enabled {
         return Err(Error::Denied);
@@ -477,17 +482,26 @@ fn build_plan(
         .collect();
     let grants_to_owner = module.relations.iter().map(|r| r.name.clone()).collect();
     let mut hash = Sha256::new();
-    hash.update(b"LiquidSchemaProposal/1\0");
+    hash.update(if visibility.is_some() {
+        b"LiquidSchemaProposal/2\0"
+    } else {
+        b"LiquidSchemaProposal/1\0"
+    });
     hash.update(principal.as_bytes());
     hash.update([0]);
     hash.update(policy.generation.as_bytes());
     hash.update([0]);
     hash.update(json(&module)?.as_bytes());
+    if let Some(modes) = &visibility {
+        hash.update([0]);
+        hash.update(json(modes)?.as_bytes());
+    }
     Ok(ProposalPlan {
-        format: 1,
+        format: if visibility.is_some() { 2 } else { 1 },
         digest: format!("{:x}", hash.finalize()),
         policy_generation: policy.generation.clone(),
         module,
+        visibility,
         usage_after: after,
         costs,
         references: references.into_values().collect(),
@@ -498,7 +512,15 @@ fn build_plan(
 fn proposal_from(row: &Row) -> Result<SchemaProposal> {
     let plan: ProposalPlan = serde_json::from_str(text(row, 2))
         .map_err(|_| Error::Storage("invalid stored schema proposal".into()))?;
-    if plan.format != 1 || plan.module.name != text(row, 0) {
+    if !matches!((plan.format, &plan.visibility), (1, None) | (2, Some(_)))
+        || plan.module.name != text(row, 0)
+        || plan.visibility.as_ref().is_some_and(|v| {
+            crate::visibility::normalize(&plan.module, v.clone())
+                .ok()
+                .as_ref()
+                != Some(v)
+        })
+    {
         return Err(Error::Storage("unsupported stored schema proposal".into()));
     }
     let status = serde_json::from_str(text(row, 3))
@@ -559,7 +581,13 @@ fn matching_plan(tx: &mut Transaction, proposal: &SchemaProposal) -> Result<Name
     if latest.checked_add(1) != Some(proposal.plan.module.version) {
         return Err(Error::Conflict);
     }
-    let current = build_plan(tx, &proposal.owner, proposal.plan.module.clone(), &p)?;
+    let current = build_plan(
+        tx,
+        &proposal.owner,
+        proposal.plan.module.clone(),
+        &p,
+        proposal.plan.visibility.clone(),
+    )?;
     let references_match = current.references.len() == proposal.plan.references.len()
         && current
             .references
@@ -588,8 +616,10 @@ impl Database {
                 || policy.namespace.eq_ignore_ascii_case("liquid_security")
                 || policy.namespace.eq_ignore_ascii_case("liquid_auth")
                 || policy.namespace.eq_ignore_ascii_case("liquid_views")
-                || policy.namespace.eq_ignore_ascii_case("liquid_view_catalog"))
+                || policy.namespace.eq_ignore_ascii_case("liquid_view_catalog")
+                || policy.namespace.eq_ignore_ascii_case("liquid_visibility"))
             || policy.owner.is_empty()
+            || policy.owner == crate::visibility::ANONYMOUS
             || policy.owner.len() > 128
         {
             return Err(invalid("invalid namespace policy"));
@@ -648,6 +678,7 @@ impl Database {
             } else {
                 tx.insert(POLICY, values)?
             };
+            tx.bind_namespace_visibility_owner(&policy.namespace, &policy.owner)?;
             let mut info = policy_from(&tx.get(POLICY, id)?.expect("staged"))?;
             let (usage, version) = usage(tx, &policy.namespace)?;
             info.usage = usage;
@@ -724,6 +755,15 @@ impl Session {
         })
     }
     pub fn propose_schema(&self, id: Id, module: Module) -> Result<SchemaProposal> {
+        self.propose_schema_with_visibility(id, module, BTreeMap::new())
+    }
+    pub fn propose_schema_with_visibility(
+        &self,
+        id: Id,
+        module: Module,
+        visibility: BTreeMap<String, Visibility>,
+    ) -> Result<SchemaProposal> {
+        let modes = crate::visibility::normalize(&module, visibility.clone())?;
         self.db.admin().transact(RetryPolicy::default(), |tx| {
             let principal = tx.bind_schema_session(self, Some(&module.name))?;
             let (_, policy) = owned_policy(tx, &principal, &module.name)?;
@@ -733,12 +773,17 @@ impl Session {
                 if proposal.owner != principal {
                     return Err(Error::Denied);
                 }
-                if proposal.plan.module != canonical {
+                if proposal.plan.module != canonical
+                    || match &proposal.plan.visibility {
+                        Some(previous) => previous != &modes,
+                        None => !visibility.is_empty(),
+                    }
+                {
                     return Err(Error::Conflict);
                 }
                 return scoped_receipt(tx, proposal);
             }
-            let mut plan = build_plan(tx, &principal, canonical, &policy)?;
+            let mut plan = build_plan(tx, &principal, canonical, &policy, Some(modes.clone()))?;
             plan.usage_after.proposals += 1;
             if !within(&plan.usage_after, &policy.policy.quotas) {
                 return Err(invalid("namespace proposal quota exceeded"));
@@ -815,12 +860,34 @@ impl Session {
                 return Err(Error::Denied);
             }
             matching_plan(tx, &proposal)?;
-            tx.install(proposal.plan.module.clone())?;
+            let modes = proposal.plan.visibility.clone().unwrap_or_else(|| {
+                proposal
+                    .plan
+                    .module
+                    .relations
+                    .iter()
+                    .map(|r| (r.name.clone(), Visibility::Private))
+                    .collect()
+            });
+            tx.install_with_visibilities(proposal.plan.module.clone(), modes.clone())?;
             for def in &proposal.plan.module.relations {
+                tx.store_visibility(&def.name, &principal, modes[&def.name])?;
                 tx.grant(&principal, &def.name, Grant::read_write())?;
             }
             let result = set_status(tx, &row, ProposalStatus::Installed)?;
             scoped_receipt(tx, result)
+        })
+    }
+    /// Namespace authority may change read visibility, but not write/reference grants.
+    pub fn set_schema_visibility(&self, relation: &str, visibility: Visibility) -> Result<()> {
+        self.db.admin().transact(RetryPolicy::default(), |tx| {
+            let namespace = relation.split_once('.').ok_or(Error::Denied)?.0;
+            let principal = tx.bind_schema_session(self, Some(namespace))?;
+            let (_, policy) = owned_policy(tx, &principal, namespace)?;
+            if !policy.policy.enabled {
+                return Err(Error::Denied);
+            }
+            tx.store_visibility(relation, &principal, visibility)
         })
     }
     /// Advisory lifecycle. Existing schemas, records, grants and queries remain
@@ -1115,5 +1182,80 @@ mod tests {
                 .apply_schema_proposal(p.id, &p.plan.digest)
                 .is_err()
         );
+    }
+}
+
+impl Transaction {
+    pub(crate) fn visibility_namespace_owner(&mut self, namespace: &str) -> Result<Option<String>> {
+        if !initialized(&self.snapshot())? {
+            return Ok(None);
+        }
+        self.lookup(POLICY, "namespace", &namespace.into())?
+            .into_iter()
+            .next()
+            .map(|row| policy_from(&row).map(|p| p.policy.owner))
+            .transpose()
+    }
+}
+
+#[cfg(test)]
+mod legacy_visibility_proposals {
+    use super::*;
+    #[test]
+    fn format_one_pending_proposal_keeps_old_digest_and_private_install() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("old-proposal.redb");
+        let id = Id::new();
+        let module = Module::new(
+            "legacy",
+            1,
+            vec![],
+            vec![Relation::new(
+                "legacy.Row",
+                vec![Role::new("value", DataType::Int)],
+            )],
+        );
+        let digest;
+        {
+            let db = Database::open(&path).unwrap();
+            db.configure_namespace(NamespacePolicy {
+                namespace: "legacy".into(),
+                owner: "owner".into(),
+                auto_approve: false,
+                enabled: true,
+                quotas: SchemaQuotas::default(),
+            })
+            .unwrap();
+            let mut tx = db.admin().transaction();
+            let (_, policy) = owned_policy(&mut tx, "owner", "legacy").unwrap();
+            let plan = build_plan(&mut tx, "owner", module.clone(), &policy, None).unwrap();
+            assert_eq!(plan.format, 1);
+            assert!(!json(&plan).unwrap().contains("visibility"));
+            digest = plan.digest.clone();
+            tx.insert_with_id(
+                PROPOSAL,
+                id,
+                vec![
+                    "legacy".into(),
+                    "owner".into(),
+                    json(&plan).unwrap().as_str().into(),
+                    json(&ProposalStatus::Pending).unwrap().as_str().into(),
+                ],
+            )
+            .unwrap();
+            tx.commit().unwrap();
+            db.checkpoint().unwrap();
+        }
+        let db = Database::open(path).unwrap();
+        let owner = db.session("owner");
+        assert_eq!(
+            owner.propose_schema(id, module).unwrap().plan.digest,
+            digest
+        );
+        db.decide_schema_proposal(id, &digest, true).unwrap();
+        let applied = owner.apply_schema_proposal(id, &digest).unwrap();
+        assert_eq!(applied.plan.format, 1);
+        assert!(db.session("other").snapshot().schema("legacy.Row").is_err());
+        assert!(owner.snapshot().schema("legacy.Row").is_ok());
     }
 }

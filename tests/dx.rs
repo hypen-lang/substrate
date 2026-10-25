@@ -13,7 +13,7 @@ fn fixture() -> Database {
     let db = Database::memory();
     db.admin()
         .transact(RetryPolicy::default(), |tx| {
-            tx.install_manifest(&manifest())
+            tx.install_manifest_with_visibility(&manifest(), Visibility::Private)
         })
         .unwrap();
     db
@@ -66,7 +66,9 @@ fn additive_versions_preserve_generated_ids_and_existing_results() {
     let plan = db.admin().snapshot().plan_manifest(&next).unwrap();
     assert_eq!(plan.additions, vec!["fitness@2"]);
     db.admin()
-        .transact(RetryPolicy::default(), |tx| tx.install_manifest(&next))
+        .transact(RetryPolicy::default(), |tx| {
+            tx.install_manifest_with_visibility(&next, Visibility::Private)
+        })
         .unwrap();
     assert_eq!(db.admin().snapshot().get_record(id).unwrap(), before);
 }
@@ -76,7 +78,7 @@ fn install_manifest_is_idempotent_and_detects_identity_drift() {
     let revision = db.admin().snapshot().revision();
     db.admin()
         .transact(RetryPolicy::default(), |tx| {
-            tx.install_manifest(&manifest())
+            tx.install_manifest_with_visibility(&manifest(), Visibility::Private)
         })
         .unwrap();
     assert_eq!(db.admin().snapshot().revision(), revision);
@@ -84,7 +86,7 @@ fn install_manifest_is_idempotent_and_detects_identity_drift() {
     assert!(db.admin().snapshot().plan_manifest(&other).is_err());
     let mut tx = db.session("app").transaction();
     assert!(matches!(
-        tx.install_manifest(&manifest()),
+        tx.install_manifest_with_visibility(&manifest(), Visibility::Private),
         Err(Error::Denied)
     ));
 }
@@ -134,7 +136,8 @@ fn generated_records_roundtrip_through_named_writes_and_sql() {
     );
     let other = Database::memory();
     let mut tx = other.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     tx.commit().unwrap();
     let mut tx = other.admin().transaction();
     assert!(
@@ -335,7 +338,9 @@ fn rust_builders_install_export_and_regenerate_the_same_contract() {
     assert_eq!(rust.fingerprint().unwrap(), expected.fingerprint().unwrap());
     let db = Database::memory();
     db.admin()
-        .transact(RetryPolicy::default(), |tx| tx.install_manifest(&rust))
+        .transact(RetryPolicy::default(), |tx| {
+            tx.install_manifest_with_visibility(&rust, Visibility::Private)
+        })
         .unwrap();
     let catalog = db.admin().snapshot().manifest().unwrap();
     assert_eq!(catalog.to_json().unwrap(), expected.to_json().unwrap());
@@ -367,7 +372,9 @@ fn generated_contract_detects_same_id_with_different_layout() {
     contract.modules[0].relations[0].roles[0].name = "renamed".into();
     let db = Database::memory();
     db.admin()
-        .transact(RetryPolicy::default(), |tx| tx.install_manifest(&contract))
+        .transact(RetryPolicy::default(), |tx| {
+            tx.install_manifest_with_visibility(&contract, Visibility::Private)
+        })
         .unwrap();
     assert!(
         db.admin()

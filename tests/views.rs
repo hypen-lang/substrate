@@ -3,7 +3,8 @@ use substrate_liquid::{capability::*, *};
 const LEDGER: &str = "liquid_view_catalog.Definition";
 fn fixture(db: &Database) -> (Id, Id) {
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     tx.insert("core.Person", vec!["Bob".into()]).unwrap();
     tx.grant(
@@ -259,12 +260,15 @@ fn immutable_ids_names_and_protected_namespaces() {
     for name in ["liquid_views", "liquid_view_catalog"] {
         let mut tx = db.session("app").transaction();
         assert!(
-            tx.install(Module::new(
-                name,
-                2,
-                vec![],
-                vec![Relation::new(&format!("{name}.Spoof"), vec![])]
-            ))
+            tx.install_with_visibility(
+                Module::new(
+                    name,
+                    2,
+                    vec![],
+                    vec![Relation::new(&format!("{name}.Spoof"), vec![])]
+                ),
+                substrate_liquid::Visibility::Private
+            )
             .is_err()
         );
     }
@@ -310,18 +314,21 @@ fn constant_views_are_explicitly_supported_without_data_authority() {
 fn source_reference_metadata_must_be_visible_to_inspect_a_definition() {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "vault",
-        1,
-        vec![],
-        vec![
-            Relation::new("vault.Secret", vec![]),
-            Relation::new(
-                "vault.Link",
-                vec![Role::new("target", DataType::Ref("vault.Secret".into()))],
-            ),
-        ],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "vault",
+            1,
+            vec![],
+            vec![
+                Relation::new("vault.Secret", vec![]),
+                Relation::new(
+                    "vault.Link",
+                    vec![Role::new("target", DataType::Ref("vault.Secret".into()))],
+                ),
+            ],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.grant("reader", "vault.Link", Grant::read_only())
         .unwrap();

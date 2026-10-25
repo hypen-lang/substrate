@@ -65,10 +65,7 @@ impl VisibilityMemo {
                 denied.insert(key);
                 continue;
             };
-            if !state
-                .grant(principal, tid)
-                .is_some_and(|g| g.read && g.allows(row))
-            {
+            if !state.row_read_allowed(principal, tid, row) {
                 denied.insert(key);
                 continue;
             }
@@ -101,6 +98,7 @@ impl VisibilityMemo {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Key {
     Catalog,
+    Visibility,
     Allocated(Id),
     Policy(String),
     Revocation(String),
@@ -123,6 +121,9 @@ pub(crate) struct State {
     pub unique: OrdMap<UniqueKey, Id>,
     pub incoming: OrdMap<RowKey, OrdSet<(Id, Id, usize)>>,
     pub grants: OrdMap<(String, Id), CompiledGrant>,
+    pub schema_visibility: OrdMap<Id, Arc<crate::visibility::Policy>>,
+    /// Capability overlays must never gain ambient authority. Not persisted.
+    pub visibility_disabled: bool,
     pub credentials: OrdMap<Id, Arc<crate::auth::Credential>>,
     pub views: OrdMap<Id, Arc<crate::views::ViewDefinition>>,
     pub capabilities: OrdMap<Id, Arc<crate::capability::CompiledCapability>>,
@@ -156,8 +157,46 @@ impl State {
     pub fn grant(&self, principal: &str, tid: Id) -> Option<&CompiledGrant> {
         self.grants.get(&(principal.into(), tid))
     }
+    pub fn ambient_read(&self, principal: &str, tid: Id) -> bool {
+        if self.visibility_disabled {
+            return false;
+        }
+        self.schema_visibility
+            .get(&tid)
+            .is_some_and(|policy| match policy.visibility {
+                Visibility::Public => true,
+                Visibility::Authenticated => {
+                    principal != crate::visibility::ANONYMOUS && !principal.is_empty()
+                }
+                Visibility::Private => {
+                    principal != crate::visibility::ANONYMOUS
+                        && policy.owner != crate::visibility::HOST
+                        && policy.owner == principal
+                }
+            })
+    }
     pub fn can_read(&self, principal: Option<&str>, tid: Id) -> bool {
-        principal.is_none_or(|p| self.grant(p, tid).is_some_and(|g| g.read))
+        principal.is_none_or(|p| {
+            (p != crate::visibility::ANONYMOUS && self.grant(p, tid).is_some_and(|g| g.read))
+                || self.ambient_read(p, tid)
+        })
+    }
+    pub fn can_discover(&self, principal: Option<&str>, tid: Id) -> bool {
+        self.can_read(principal, tid)
+            || principal.is_some_and(|p| {
+                p != crate::visibility::ANONYMOUS
+                    && self.grant(p, tid).is_some_and(|g| g.write || g.reference)
+            })
+    }
+    pub fn row_read_allowed(&self, principal: &str, tid: Id, row: &Row) -> bool {
+        // Explicit grants are the common path for scoped and private readers.
+        // A missing/filtered grant still falls through to ambient visibility:
+        // narrow grants never reduce a public or authenticated baseline.
+        (principal != crate::visibility::ANONYMOUS
+            && self
+                .grant(principal, tid)
+                .is_some_and(|g| g.read && g.allows(row)))
+            || self.ambient_read(principal, tid)
     }
     /// Greatest reference-closed subset of rows satisfying the principal's policy.
     /// Every reachable participant is checked; cycles terminate via the visited set.
@@ -186,7 +225,7 @@ impl State {
                 return true;
             };
             let def = &self.relations[&tid];
-            if !self.grant(p, tid).is_some_and(|g| g.read && g.allows(row)) {
+            if !self.row_read_allowed(p, tid, row) {
                 return false;
             }
             for (role, value) in def.roles.iter().zip(row.values.iter()) {
@@ -201,7 +240,13 @@ impl State {
     fn touch(&mut self, key: Key, rev: u64) {
         self.versions.insert(key, rev);
     }
-    fn remove_row(&mut self, tid: Id, id: Id, rev: u64) {
+    fn remove_compiled_row(&mut self, tid: Id, id: Id) {
+        if tid == crate::visibility::TYPE_ID
+            && let Some(row) = self.row(tid, id)
+            && let Ok(policy) = crate::visibility::compile(self, row)
+        {
+            self.schema_visibility.remove(&policy.relation);
+        }
         if tid == crate::views::TYPE_ID {
             self.views.remove(&id);
         }
@@ -219,6 +264,9 @@ impl State {
                 }
             }
         }
+    }
+    fn remove_row(&mut self, tid: Id, id: Id, rev: u64) {
+        self.remove_compiled_row(tid, id);
         let Some(row) = self.families.get_mut(&tid).and_then(|f| f.remove(&id)) else {
             return;
         };
@@ -278,32 +326,83 @@ impl State {
                 self.touch(Key::Allocated(*id), rev);
             }
             Op::Put(tid, row) => {
-                self.remove_row(*tid, row.id, rev);
+                let previous = self.row(*tid, row.id).cloned();
+                self.remove_compiled_row(*tid, row.id);
                 let def = self.relations[tid].clone();
                 self.families
                     .get_mut(tid)
                     .expect("installed relation")
                     .insert(row.id, Arc::new(row.clone()));
                 for (i, value) in row.values.iter().enumerate() {
+                    let old_value = previous.as_ref().map(|old| &old.values[i]);
+                    let changed = old_value != Some(value);
+                    if changed && let Some(old_value) = old_value {
+                        let old_key = (*tid, i, old_value.clone());
+                        if let Some(set) = self.index.get_mut(&old_key) {
+                            set.remove(&row.id);
+                            if set.is_empty() {
+                                self.index.remove(&old_key);
+                            }
+                        }
+                        self.touch(Key::Bucket(old_key), rev);
+                        if let (DataType::Ref(target), Value::Ref(target_id)) =
+                            (&def.roles[i].data_type, old_value)
+                        {
+                            let key = (self.names[target], *target_id);
+                            if let Some(set) = self.incoming.get_mut(&key) {
+                                set.remove(&(*tid, row.id, i));
+                                if set.is_empty() {
+                                    self.incoming.remove(&key);
+                                }
+                            }
+                            self.touch(Key::Incoming(key), rev);
+                        }
+                    }
                     let key = (*tid, i, value.clone());
-                    let mut set = self.index.get(&key).cloned().unwrap_or_default();
-                    set.insert(row.id);
-                    self.index.insert(key.clone(), set);
+                    if changed {
+                        let mut set = self.index.get(&key).cloned().unwrap_or_default();
+                        set.insert(row.id);
+                        self.index.insert(key.clone(), set);
+                    }
+                    // Keep the original OCC invalidation, even for unchanged
+                    // buckets. Only physical index mutations are skipped.
                     self.touch(Key::Bucket(key), rev);
                     if let (DataType::Ref(target), Value::Ref(target_id)) =
                         (&def.roles[i].data_type, value)
                     {
                         let key = (self.names[target], *target_id);
-                        let mut set = self.incoming.get(&key).cloned().unwrap_or_default();
-                        set.insert((*tid, row.id, i));
-                        self.incoming.insert(key, set);
+                        if changed {
+                            let mut set = self.incoming.get(&key).cloned().unwrap_or_default();
+                            set.insert((*tid, row.id, i));
+                            self.incoming.insert(key, set);
+                        }
                         self.touch(Key::Incoming(key), rev);
                     }
                 }
                 for i in 0..def.unique.len() {
                     let key = (*tid, i, def.unique_values(row, i));
-                    self.unique.insert(key.clone(), row.id);
+                    let old_key = previous
+                        .as_ref()
+                        .map(|old| (*tid, i, def.unique_values(old, i)));
+                    if old_key.as_ref() != Some(&key) {
+                        if let Some(old_key) = old_key {
+                            self.unique.remove(&old_key);
+                            self.touch(Key::Unique(old_key), rev);
+                        }
+                        self.unique.insert(key.clone(), row.id);
+                    }
                     self.touch(Key::Unique(key), rev);
+                }
+                if *tid == crate::visibility::TYPE_ID
+                    && let Ok(policy) = crate::visibility::compile(self, row)
+                {
+                    // Initial metadata for an additive schema cannot affect old readers.
+                    // Changing existing schema visibility invalidates retained ambient handles.
+                    if self.version(&Key::Allocated(policy.relation)) != rev {
+                        self.touch(Key::Visibility, rev);
+                    }
+                    self.schema_visibility
+                        .insert(policy.relation, Arc::new(policy));
                 }
                 if *tid == crate::auth::TYPE_ID
                     && let Ok(c) = crate::auth::compile(self, row)
@@ -332,7 +431,12 @@ impl State {
                 self.touch(Key::Row(*tid, row.id), rev);
                 self.touch(Key::Family(*tid), rev);
             }
-            Op::Delete(tid, id) => self.remove_row(*tid, *id, rev),
+            Op::Delete(tid, id) => {
+                if *tid == crate::visibility::TYPE_ID {
+                    self.touch(Key::Visibility, rev);
+                }
+                self.remove_row(*tid, *id, rev)
+            }
             Op::Grant(p, tid, grant) => {
                 let key = (p.clone(), *tid);
                 if grant.is_none() || self.grants.contains_key(&key) {
@@ -529,6 +633,11 @@ impl State {
         {
             crate::views::compile(self, row).map_err(|_| invalid())?;
         }
+        if let Op::Put(tid, row) = op
+            && *tid == crate::visibility::TYPE_ID
+        {
+            crate::visibility::compile(self, row).map_err(|_| invalid())?;
+        }
         self.apply(op, rev);
         Ok(())
     }
@@ -579,5 +688,207 @@ impl State {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod ambient_read_tests {
+    use super::*;
+
+    #[test]
+    fn grant_fast_path_preserves_ambient_union_and_scope_limits() {
+        for mode in [
+            Visibility::Public,
+            Visibility::Authenticated,
+            Visibility::Private,
+        ] {
+            for read in [false, true] {
+                let db = Database::memory();
+                let mut tx = db.admin().transaction();
+                tx.install_with_visibility(
+                    Module::new(
+                        "access",
+                        1,
+                        vec![],
+                        vec![Relation::new(
+                            "access.Row",
+                            vec![Role::new("value", DataType::Int)],
+                        )],
+                    ),
+                    mode,
+                )
+                .unwrap();
+                let matched = tx.insert("access.Row", vec![1.into()]).unwrap();
+                let outside = tx.insert("access.Row", vec![2.into()]).unwrap();
+                for principal in ["reader", crate::visibility::ANONYMOUS] {
+                    tx.grant(
+                        principal,
+                        "access.Row",
+                        Grant {
+                            read,
+                            write: false,
+                            reference: false,
+                            filter: RowFilter::Equals {
+                                role: "value".into(),
+                                value: 1.into(),
+                            },
+                        },
+                    )
+                    .unwrap();
+                }
+                tx.commit().unwrap();
+                let snapshot = db.admin().snapshot();
+                let state = &snapshot.state;
+                let tid = state.names["access.Row"];
+                let ambient = mode != Visibility::Private;
+                assert_eq!(state.can_read(Some("reader"), tid), read || ambient);
+                assert_eq!(
+                    state.row_read_allowed("reader", tid, state.row(tid, matched).unwrap()),
+                    read || ambient
+                );
+                assert_eq!(
+                    state.row_read_allowed("reader", tid, state.row(tid, outside).unwrap()),
+                    ambient
+                );
+                // Anonymous callers cannot activate an explicit grant, even one
+                // mistakenly installed for the reserved identity by the host.
+                for id in [matched, outside] {
+                    assert_eq!(
+                        state.row_read_allowed(
+                            crate::visibility::ANONYMOUS,
+                            tid,
+                            state.row(tid, id).unwrap()
+                        ),
+                        mode == Visibility::Public
+                    );
+                }
+                let mut scoped = (**state).clone();
+                scoped.visibility_disabled = true;
+                assert_eq!(
+                    scoped.row_read_allowed("reader", tid, state.row(tid, matched).unwrap()),
+                    read
+                );
+                assert!(!scoped.row_read_allowed("reader", tid, state.row(tid, outside).unwrap()));
+                assert!(!scoped.row_read_allowed(
+                    crate::visibility::ANONYMOUS,
+                    tid,
+                    state.row(tid, matched).unwrap()
+                ));
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod update_index_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn fixture() -> (State, Id, Id, Id, Id) {
+        let target = Relation::new("mutation.Target", vec![Role::new("n", DataType::Int)]);
+        let tid = target.id;
+        let item = Relation::new(
+            "mutation.Item",
+            vec![
+                Role::new("key", DataType::Int),
+                Role::new("value", DataType::Int),
+                Role::new("target", DataType::Ref("mutation.Target".into())),
+            ],
+        )
+        .unique(&["key"]);
+        let item_tid = item.id;
+        let mut state = State::default();
+        state.apply(
+            &Op::Install(Module::new("mutation", 1, vec![], vec![target, item])),
+            1,
+        );
+        let (a, b, id) = (Id::new(), Id::new(), Id::new());
+        for target in [a, b] {
+            state.apply(&Op::Identity(target), 1);
+            state.apply(
+                &Op::Put(
+                    tid,
+                    Row {
+                        id: target,
+                        values: vec![1.into()].into_boxed_slice(),
+                    },
+                ),
+                1,
+            );
+        }
+        state.apply(&Op::Identity(id), 1);
+        state.apply(
+            &Op::Put(
+                item_tid,
+                Row {
+                    id,
+                    values: vec![1.into(), 2.into(), a.into()].into_boxed_slice(),
+                },
+            ),
+            1,
+        );
+        (state, item_tid, id, a, b)
+    }
+    #[test]
+    fn unchanged_indexes_share_storage_but_keep_occ_invalidation() {
+        let (mut state, tid, id, a, _) = fixture();
+        let before = state.clone();
+        let target_tid = state.names["mutation.Target"];
+        state.apply(
+            &Op::Put(
+                tid,
+                Row {
+                    id,
+                    values: vec![1.into(), 3.into(), a.into()].into_boxed_slice(),
+                },
+            ),
+            2,
+        );
+        assert!(before.index[&(tid, 0, 1.into())].ptr_eq(&state.index[&(tid, 0, 1.into())]));
+        assert!(before.index[&(tid, 2, a.into())].ptr_eq(&state.index[&(tid, 2, a.into())]));
+        assert!(before.incoming.ptr_eq(&state.incoming));
+        assert!(before.unique.ptr_eq(&state.unique));
+        for key in [
+            Key::Bucket((tid, 0, 1.into())),
+            Key::Bucket((tid, 2, a.into())),
+            Key::Incoming((target_tid, a)),
+            Key::Unique((tid, 0, vec![1.into()])),
+            Key::Row(tid, id),
+            Key::Family(tid),
+        ] {
+            assert_eq!(state.version(&key), 2);
+        }
+        assert_eq!(before.row(tid, id).unwrap().values[1], Value::Int(2));
+        let unchanged = state.clone();
+        state.apply(&Op::Put(tid, (**state.row(tid, id).unwrap()).clone()), 3);
+        assert!(unchanged.index.ptr_eq(&state.index));
+        assert!(unchanged.incoming.ptr_eq(&state.incoming));
+        assert!(unchanged.unique.ptr_eq(&state.unique));
+        assert_eq!(state.version(&Key::Family(tid)), 3);
+    }
+    proptest! {
+        #[test]
+        fn differential_updates_match_remove_and_reinsert_including_versions(
+            changes in prop::collection::vec((-20i64..20,-20i64..20,any::<bool>()),1..80)
+        ) {
+            let (mut actual,tid,id,a,b)=fixture(); let mut reference=actual.clone();
+            for (index,(key,value,right)) in changes.into_iter().enumerate() {
+                let revision=index as u64+2;
+                let op=Op::Put(tid,Row{id,values:vec![key.into(),value.into(),if right {b.into()} else {a.into()}].into_boxed_slice()});
+                actual.apply(&op,revision);
+                // Original implementation always removed every index entry first.
+                reference.remove_row(tid,id,revision); reference.apply(&op,revision);
+                prop_assert_eq!(&actual.index,&reference.index);
+                prop_assert_eq!(&actual.incoming,&reference.incoming);
+                prop_assert_eq!(&actual.unique,&reference.unique);
+                prop_assert_eq!(&actual.versions,&reference.versions);
+                prop_assert_eq!(&actual.families,&reference.families);
+            }
+            actual.apply(&Op::Delete(tid,id),100);reference.apply(&Op::Delete(tid,id),100);
+            prop_assert_eq!(&actual.index,&reference.index);
+            prop_assert_eq!(&actual.incoming,&reference.incoming);
+            prop_assert_eq!(&actual.unique,&reference.unique);
+            prop_assert_eq!(&actual.versions,&reference.versions);
+        }
     }
 }

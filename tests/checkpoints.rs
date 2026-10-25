@@ -177,12 +177,15 @@ fn checkpoint_preserves_retired_ids_memberships_and_revocations() {
         let mut tx = db.admin().transaction();
         let retired = tx.insert("core.Person", vec!["retired".into()]).unwrap();
         tx.delete("core.Person", retired).unwrap();
-        tx.install(Module::new(
-            "member",
-            1,
-            vec![],
-            vec![Relation::new("member.Contact", vec![])],
-        ))
+        tx.install_with_visibility(
+            Module::new(
+                "member",
+                1,
+                vec![],
+                vec![Relation::new("member.Contact", vec![])],
+            ),
+            substrate_liquid::Visibility::Private,
+        )
         .unwrap();
         tx.add_membership("core.Person", p, "member.Contact", vec![])
             .unwrap();
@@ -206,8 +209,11 @@ fn checkpoint_preserves_retired_ids_memberships_and_revocations() {
     def.id = retired;
     let mut tx = db.admin().transaction();
     assert!(
-        tx.install(Module::new("reuse", 1, vec![], vec![def]))
-            .is_err()
+        tx.install_with_visibility(
+            Module::new("reuse", 1, vec![], vec![def]),
+            substrate_liquid::Visibility::Private
+        )
+        .is_err()
     );
 }
 #[test]
@@ -287,14 +293,21 @@ fn checkpoint_key_order_can_precede_import_and_reference_targets() {
         let mut tx = db.admin().transaction();
         let mut def = Relation::new("z.Base", vec![Role::new("n", DataType::Int)]);
         def.id = Id(uuid::Uuid::from_u128(u128::MAX));
-        tx.install(Module::new("z", 1, vec![], vec![def])).unwrap();
+        tx.install_with_visibility(
+            Module::new("z", 1, vec![], vec![def]),
+            substrate_liquid::Visibility::Private,
+        )
+        .unwrap();
         let mut def = Relation::new(
             "a.Edge",
             vec![Role::new("base", DataType::Ref("z.Base".into()))],
         );
         def.id = Id(uuid::Uuid::from_u128(1));
-        tx.install(Module::new("a", 1, vec![("z".into(), 1)], vec![def]))
-            .unwrap();
+        tx.install_with_visibility(
+            Module::new("a", 1, vec![("z".into(), 1)], vec![def]),
+            substrate_liquid::Visibility::Private,
+        )
+        .unwrap();
         let base = tx.insert("z.Base", vec![42.into()]).unwrap();
         let edge = tx.insert("a.Edge", vec![base.into()]).unwrap();
         tx.commit().unwrap();

@@ -6,6 +6,7 @@ mod direct;
 mod joins;
 mod planning;
 mod provider;
+mod tiny_join;
 use datafusion::{
     arrow::{
         array::{
@@ -106,6 +107,7 @@ pub(crate) struct DfQuery {
     cache: planning::PlanCache,
     cacheable: bool,
     direct: Option<direct::DirectRead>,
+    tiny_join: Option<tiny_join::TinyJoin>,
     live: crate::engine::LiveGuard,
 }
 impl DfSnapshot {
@@ -198,6 +200,7 @@ impl DfSnapshot {
             context: self.context.clone(),
             cacheable: planning::cacheable(&plan),
             direct: direct::DirectRead::compile(&plan),
+            tiny_join: tiny_join::TinyJoin::compile(&plan),
             plan,
             parameter_count,
             cache: planning::PlanCache::default(),
@@ -274,6 +277,37 @@ impl DfQuery {
                 }
             }
         }
+        let mut limits = limits;
+        // The bounded tiny attempt and any generic fallback share the same
+        // source budget; fallback cannot reset already charged work.
+        let source_budget = Arc::new(provider::SourceBudget::default());
+        if let Some(join) = &self.tiny_join {
+            let start = std::time::Instant::now();
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                join.query(params, limits, &source_budget)
+            }));
+            match result {
+                Ok(Ok(Some(table))) => return Ok(table),
+                Ok(Ok(None)) => {
+                    // Bound the entire call, including a bounded fanout attempt
+                    // that needs the ordinary executor for a larger result.
+                    let elapsed = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
+                    limits.timeout_ms = limits.timeout_ms.saturating_sub(elapsed);
+                    if limits.timeout_ms == 0 {
+                        self.cache.clear();
+                        return Err(Error::Query("SQL deadline exceeded".into()));
+                    }
+                }
+                Ok(Err(error)) => {
+                    self.cache.clear();
+                    return Err(error);
+                }
+                Err(_) => {
+                    self.cache.clear();
+                    return Err(Error::Query("SQL tiny join execution failed".into()));
+                }
+            }
+        }
         let context = self.context.clone();
         let plan = self.plan.clone();
         let live = self.live.clone();
@@ -342,10 +376,7 @@ impl DfQuery {
                     .map(|field| field.name().clone())
                     .collect::<Vec<_>>();
                 let task = TaskContext::from(&context);
-                let config = task
-                    .session_config()
-                    .clone()
-                    .with_extension(Arc::new(provider::SourceBudget::default()));
+                let config = task.session_config().clone().with_extension(source_budget);
                 let task = Arc::new(task.with_session_config(config));
                 let mut bytes = columns.iter().map(|s| s.len()).sum::<usize>();
                 if bytes > limits.max_bytes {
@@ -595,7 +626,8 @@ mod tests {
         let db = Database::memory();
         db.clock.set(1000);
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
+        tx.install_with_visibility(demo::core(), crate::Visibility::Private)
+            .unwrap();
         tx.insert("core.Person", vec!["Ada".into()]).unwrap();
         tx.grant("owner", "core.Person", Grant::read_only())
             .unwrap();
@@ -646,8 +678,10 @@ mod tests {
     fn indexed_join_templates_rebuild_state_and_preserve_binding_budget_and_authority() {
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
-        tx.install(demo::fitness()).unwrap();
+        tx.install_with_visibility(demo::core(), crate::Visibility::Private)
+            .unwrap();
+        tx.install_with_visibility(demo::fitness(), crate::Visibility::Private)
+            .unwrap();
         let mut people = Vec::new();
         for name in ["Ada", "Grace"] {
             let person = tx.insert("core.Person", vec![name.into()]).unwrap();
@@ -667,6 +701,8 @@ mod tests {
         let sql = DfSnapshot::new(snapshot, None).unwrap();
         let text = "SELECT f.id,w.id,w.durationMinutes FROM fitness.Performed f JOIN fitness.Workout w ON w.id=f.workout WHERE f.athlete=?1 ORDER BY f.id";
         let mut query = sql.prepare(text).unwrap();
+        query.tiny_join = None; // Exercise generic physical templates independently.
+
         fn distinct_nodes(
             a: &Arc<dyn datafusion::physical_plan::ExecutionPlan>,
             b: &Arc<dyn datafusion::physical_plan::ExecutionPlan>,
@@ -722,7 +758,8 @@ mod tests {
     fn planning_cache_is_binding_local_and_discards_failed_execution() {
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
+        tx.install_with_visibility(demo::core(), crate::Visibility::Private)
+            .unwrap();
         let ada = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
         let grace = tx.insert("core.Person", vec!["Grace".into()]).unwrap();
         tx.commit().unwrap();
@@ -802,7 +839,8 @@ mod tests {
     fn deterministic_subquery_cache_preserves_bindings_and_live_authority() {
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
+        tx.install_with_visibility(demo::core(), crate::Visibility::Private)
+            .unwrap();
         tx.insert("core.Person", vec!["Ada".into()]).unwrap();
         tx.insert("core.Person", vec!["Grace".into()]).unwrap();
         tx.grant("reader", "core.Person", Grant::read_only())
@@ -894,7 +932,8 @@ mod tests {
         use std::time::Instant;
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
+        tx.install_with_visibility(demo::core(), crate::Visibility::Private)
+            .unwrap();
         let id = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
         tx.commit().unwrap();
         let snapshot = db.admin().snapshot();

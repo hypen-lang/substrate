@@ -39,6 +39,8 @@ pub struct CatalogRelation {
     pub operations: CatalogOperations,
     pub row_restricted: bool,
     pub lifecycle: crate::schema_control::Lifecycle,
+    /// None denotes an existing grant-only schema with no visibility policy.
+    pub visibility: Option<Visibility>,
     pub aliases: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -87,12 +89,7 @@ pub struct CatalogTarget {
 
 impl Snapshot {
     pub(crate) fn can_discover(&self, id: Id) -> bool {
-        self.check_live().is_ok()
-            && self.principal.as_deref().is_none_or(|p| {
-                self.state
-                    .grant(p, id)
-                    .is_some_and(|g| g.read || g.write || g.reference)
-            })
+        self.check_live().is_ok() && self.state.can_discover(self.principal.as_deref(), id)
     }
 
     /// Discovery confers no authority: every subsequent data operation checks its
@@ -140,8 +137,14 @@ impl Snapshot {
                 .principal
                 .as_deref()
                 .and_then(|p| self.state.grant(p, id));
-            let (read, write, reference) =
-                grant.map_or((true, true, true), |g| (g.read, g.write, g.reference));
+            let read = self.state.can_read(self.principal.as_deref(), id);
+            let (write, reference) = if self.principal.is_none() {
+                (true, true)
+            } else if self.principal.as_deref() == Some(crate::visibility::ANONYMOUS) {
+                (false, false)
+            } else {
+                grant.map_or((false, false), |g| (g.write, g.reference))
+            };
             let (module, version) = &self.state.origins[&id];
             let roles: Vec<CatalogRole> = def
                 .roles
@@ -204,7 +207,12 @@ impl Snapshot {
                     delete: write,
                     reference,
                 },
-                row_restricted: grant.is_some_and(|g| !matches!(g.filter, RowFilter::All)),
+                row_restricted: !self
+                    .principal
+                    .as_deref()
+                    .is_some_and(|p| self.state.ambient_read(p, id))
+                    && grant.is_some_and(|g| !matches!(g.filter, RowFilter::All)),
+                visibility: self.state.schema_visibility.get(&id).map(|p| p.visibility),
                 lifecycle: self.schema_lifecycle(&def.name)?,
                 aliases: self.schema_aliases(&def.name)?,
             };

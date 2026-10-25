@@ -5,6 +5,7 @@ export class SubstrateError extends Error { readonly code: string; constructor(c
 export function link<R extends string>(alias: string): EntityId<R>;
 export function insertOp<T, R extends string>(descriptor: Descriptor<T,R>, value: NoInfer<T>, alias?: string): Mutation;
 export class LocalClient {
+  static anonymous(socket: string): LocalClient;
   constructor(socket: string, token: string);
   withCapability(id: string): LocalClient;
   persistent(): LocalClient;
@@ -22,5 +23,7 @@ export class LocalClient {
 }
 
 export class RemoteClient extends LocalClient {
+  static anonymous(socket: string): LocalClient;
+  static anonymous(options: { host: string; port: number; servername: string; ca: string | Buffer }): RemoteClient;
   constructor(options: { host: string; port: number; servername: string; ca: string | Buffer }, token: string);
 }

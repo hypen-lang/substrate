@@ -85,6 +85,7 @@ pub enum AuditKind {
     Rejected(AdmissionRejection),
     AuthenticationFailed,
     Authenticated,
+    AnonymousRequest,
     RequestCompleted,
     RequestRejected,
     TransportFailed,

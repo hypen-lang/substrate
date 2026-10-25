@@ -97,7 +97,13 @@ fn default_deny_app_isolation_and_read_only_are_enforced() {
     let mut tx = db.session("reader").transaction();
     assert!(tx.grant("reader", "crm.Deal", Grant::read_write()).is_err());
     let mut tx = db.session("fitness").transaction();
-    assert!(tx.install(Module::new("crm", 2, vec![], vec![])).is_err());
+    assert!(
+        tx.install_with_visibility(
+            Module::new("crm", 2, vec![], vec![]),
+            substrate_liquid::Visibility::Private
+        )
+        .is_err()
+    );
 }
 #[test]
 fn row_policies_apply_before_joins_aggregates_and_both_sides_of_update() {

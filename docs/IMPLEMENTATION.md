@@ -525,3 +525,37 @@ Native query/storage implementation is unchanged. The
 and fresh-handle execution against both previous adapters and SQLite. The separate
 [beyond-SQL investigation](PERFORMANCE-BEYOND-SQL.md) records follow-up opportunities
 without claiming unmeasured improvements.
+
+## Tiny joins, native overheads and mutable schema visibility — 2026-10-25
+
+Implemented bounded compiled inner joins with parameter rebinding and native
+index probes, avoiding executor and Arrow setup for supported small queries.
+Native commit admission uses exact sizing instead of disposable packed encoding;
+updates preserve unchanged index structures and all previous OCC invalidations.
+Scoped snapshot construction runs outside the publication mutex. Native
+`projected_table` copies selected fields after complete row authorization.
+
+New application families default to authenticated visibility, with public and
+private overrides. Mutable typed policy metadata is separate from immutable
+schema definitions, exported manifests and application records. Namespace owners
+can set and change policy; explicit anonymous clients can read public families.
+Credential scopes remain ceilings, write/reference permissions remain separate,
+and legacy schemas retain grant-only behavior. Creation and initial policy share
+one transaction. See [the visibility contract](SCHEMA-VISIBILITY.md).
+
+Independent [SQL/native and security reviews](reviews/TINY-JOINS-VISIBILITY.md)
+fixed rejected-payload error behavior, a hidden reference-fingerprint oracle,
+reserved host-marker impersonation, and explicit legacy policy ownership.
+
+Final coordinated validation: **430 Rust tests including one doctest passed**,
+one manual performance probe ignored; **53 TypeScript tests passed**; strict
+all-target Clippy, formatting and diff checks passed. Examples passed for schema
+visibility, generated Rust records, private durable views, indexed SQL, scoped
+delegation, TLS rotation/expiry, online schema installation, and multi-process
+isolation with crash/reopen. Property tests include exact redo sizing, differential
+index/version histories, and randomized tiny-join parity against SQLite and
+generic DataFusion. Crash and checkpoint tests run in the full Rust suite.
+
+Final paired measurements and remaining regressions: [tiny joins](benchmarks/TINY-JOINS.md)
+and [native operations](benchmarks/NATIVE-OVERHEADS.md). Raw results include three
+alternating process pairs per workload scale and frozen executable hashes.

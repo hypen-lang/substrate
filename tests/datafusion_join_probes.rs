@@ -4,28 +4,31 @@ use substrate_liquid::*;
 fn fixture() -> Database {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "probes",
-        1,
-        vec![],
-        vec![
-            Relation::new(
-                "probes.Left",
-                vec![
-                    Role::new("bucket", DataType::Int),
-                    Role::new("key", DataType::Text),
-                ],
-            ),
-            Relation::new(
-                "probes.Right",
-                vec![
-                    Role::new("key", DataType::Text),
-                    Role::new("n", DataType::Int),
-                    Role::new("visible", DataType::Bool),
-                ],
-            ),
-        ],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "probes",
+            1,
+            vec![],
+            vec![
+                Relation::new(
+                    "probes.Left",
+                    vec![
+                        Role::new("bucket", DataType::Int),
+                        Role::new("key", DataType::Text),
+                    ],
+                ),
+                Relation::new(
+                    "probes.Right",
+                    vec![
+                        Role::new("key", DataType::Text),
+                        Role::new("n", DataType::Int),
+                        Role::new("visible", DataType::Bool),
+                    ],
+                ),
+            ],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     for key in ["a", "a", "b", "missing"] {
         tx.insert("probes.Left", vec![1.into(), key.into()])
@@ -190,8 +193,10 @@ fn identity_probes_reject_noncanonical_keys_and_keep_row_policies_live() {
 fn reference_probe_closure_hides_inaccessible_targets() {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
-    tx.install(demo::fitness()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
+    tx.install_with_visibility(demo::fitness(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let ada = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     for minutes in [10, 20, 30] {
         let workout = tx.insert("fitness.Workout", vec![minutes.into()]).unwrap();
@@ -235,7 +240,8 @@ fn relationship_and_five_way_probes_restore_ordered_join_contracts() {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
     for module in [demo::core(), demo::fitness(), demo::crm()] {
-        tx.install(module).unwrap();
+        tx.install_with_visibility(module, substrate_liquid::Visibility::Private)
+            .unwrap();
     }
     let person = Id::from_u128(1);
     tx.insert_with_id("core.Person", person, vec!["Ada".into()])

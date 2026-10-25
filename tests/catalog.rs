@@ -13,14 +13,20 @@ fn fixture() -> (Database, Gateway, Id) {
     )
     .unique(&["owner", "label"]);
     let mut tx = db.admin().transaction();
-    tx.install(Module::new("vault", 1, vec![], vec![secret]))
-        .unwrap();
-    tx.install(Module::new(
-        "app",
-        1,
-        vec![("vault".into(), 1)],
-        vec![public, Relation::new("app.Empty", vec![])],
-    ))
+    tx.install_with_visibility(
+        Module::new("vault", 1, vec![], vec![secret]),
+        substrate_liquid::Visibility::Private,
+    )
+    .unwrap();
+    tx.install_with_visibility(
+        Module::new(
+            "app",
+            1,
+            vec![("vault".into(), 1)],
+            vec![public, Relation::new("app.Empty", vec![])],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.grant(
         "agent",
@@ -261,15 +267,18 @@ fn online_addition_does_not_change_old_descriptor_or_pinned_catalog() {
     let old = db.session("agent").snapshot();
     let before = old.catalog(&Default::default()).unwrap();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "app",
-        2,
-        vec![],
-        vec![Relation::new(
-            "app.New",
-            vec![Role::new("n", DataType::Int)],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "app",
+            2,
+            vec![],
+            vec![Relation::new(
+                "app.New",
+                vec![Role::new("n", DataType::Int)],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.grant("agent", "app.New", Grant::read_write()).unwrap();
     tx.commit().unwrap();
@@ -333,29 +342,37 @@ fn namespace_install_permission_does_not_disclose_existing_families() {
 fn scalar_metadata_preserves_exact_types_without_data_values() {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "all",
-        1,
-        vec![],
-        vec![Relation::new(
-            "all.Values",
-            vec![
-                Role::new("b", DataType::Bool),
-                Role::new("i", DataType::Int),
-                Role::new("d", DataType::Decimal { scale: 18 }),
-                Role::new("t", DataType::Timestamp),
-                Role::new("bytes", DataType::Bytes),
-            ],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "all",
+            1,
+            vec![],
+            vec![Relation::new(
+                "all.Values",
+                vec![
+                    Role::new("b", DataType::Bool),
+                    Role::new("i", DataType::Int),
+                    Role::new("d", DataType::Decimal { scale: 18 }),
+                    Role::new("t", DataType::Timestamp),
+                    Role::new("bytes", DataType::Bytes),
+                ],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.commit().unwrap();
     let page = db.admin().snapshot().catalog(&Default::default()).unwrap();
+    let relation = page
+        .relations
+        .iter()
+        .find(|r| r.name == "all.Values")
+        .unwrap();
     assert!(matches!(
-        page.relations[0].roles[2].data_type,
+        relation.roles[2].data_type,
         CatalogType::Decimal { scale: 18 }
     ));
-    assert_eq!(page.relations[0].roles.len(), 5);
+    assert_eq!(relation.roles.len(), 5);
 }
 
 proptest::proptest! {
@@ -368,7 +385,7 @@ proptest::proptest! {
         let db=Database::memory();
         let relations=(0..flags.len()).map(|i|Relation::new(&format!("test.R{i}"),if i==0{vec![]}else{vec![Role::new("parent",DataType::Ref("test.R0".into()))]})).collect();
         let mut tx=db.admin().transaction();
-        tx.install(Module::new("test",1,vec![],relations)).unwrap();
+        tx.install_with_visibility(Module::new("test",1,vec![],relations), substrate_liquid::Visibility::Private).unwrap();
         for (i,(read,write,reference)) in flags.iter().copied().enumerate() {
             tx.grant("agent",&format!("test.R{i}"),Grant{read,write,reference,filter:RowFilter::All}).unwrap();
         }

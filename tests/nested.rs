@@ -17,9 +17,12 @@ fn plan(snapshot: &Snapshot, name: &str, limit: usize) -> ReadPlan {
 fn fixture(n: usize) -> (Database, ReadPlan, Vec<Id>) {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
-    tx.install(demo::fitness()).unwrap();
-    tx.install(demo::crm()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
+    tx.install_with_visibility(demo::fitness(), substrate_liquid::Visibility::Private)
+        .unwrap();
+    tx.install_with_visibility(demo::crm(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let mut people = vec![];
     for i in 0..n {
         let person = tx
@@ -281,12 +284,10 @@ fn unrelated_readable_modules_do_not_expand_the_selected_sql_catalog() {
     for n in 0..12 {
         let module = format!("extra{n}");
         let name = format!("{module}.Item");
-        tx.install(Module::new(
-            &module,
-            1,
-            vec![],
-            vec![Relation::new(&name, vec![])],
-        ))
+        tx.install_with_visibility(
+            Module::new(&module, 1, vec![], vec![Relation::new(&name, vec![])]),
+            substrate_liquid::Visibility::Private,
+        )
         .unwrap();
         tx.grant("fitness", &name, Grant::read_only()).unwrap();
     }
@@ -319,18 +320,21 @@ fn unrelated_readable_modules_do_not_expand_the_selected_sql_catalog() {
 fn ranking_helper_cannot_collide_with_application_role_names() {
     let (db, mut p, people) = fixture(1);
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "extra",
-        1,
-        vec![("core".into(), 1)],
-        vec![Relation::new(
-            "extra.Item",
-            vec![
-                Role::new("person", DataType::Ref("core.Person".into())),
-                Role::new("__liquid_rank", DataType::Int),
-            ],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "extra",
+            1,
+            vec![("core".into(), 1)],
+            vec![Relation::new(
+                "extra.Item",
+                vec![
+                    Role::new("person", DataType::Ref("core.Person".into())),
+                    Role::new("__liquid_rank", DataType::Int),
+                ],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     for value in [500, 300, 100] {
         tx.insert("extra.Item", vec![people[0].into(), value.into()])

@@ -14,8 +14,9 @@ fn main() -> Result<()> {
         Database::memory()
     };
     let manifest = SchemaManifest::from_json(include_str!("dx/manifest.json"))?;
-    db.admin()
-        .transact(RetryPolicy::default(), |tx| tx.install_manifest(&manifest))?;
+    db.admin().transact(RetryPolicy::default(), |tx| {
+        tx.install_manifest_with_visibility(&manifest, Visibility::Private)
+    })?;
     let person = db.admin().transact(RetryPolicy::default(), |tx| {
         let person = tx.insert_record(Person { name: "Ada".into() })?;
         let workout = tx.insert_record(Workout {

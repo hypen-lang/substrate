@@ -4,7 +4,8 @@ use substrate_liquid::*;
 fn fixture() -> (Database, Id) {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
     let person = tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     tx.commit().unwrap();
     (db, person)

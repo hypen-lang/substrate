@@ -474,9 +474,12 @@ mod tests {
     fn fixture() -> Database {
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(demo::core()).unwrap();
-        tx.install(demo::fitness()).unwrap();
-        tx.install(demo::crm()).unwrap();
+        tx.install_with_visibility(demo::core(), crate::Visibility::Private)
+            .unwrap();
+        tx.install_with_visibility(demo::fitness(), crate::Visibility::Private)
+            .unwrap();
+        tx.install_with_visibility(demo::crm(), crate::Visibility::Private)
+            .unwrap();
         for i in 0..32 {
             let person = tx
                 .insert_with_id(

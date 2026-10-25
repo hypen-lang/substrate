@@ -3,8 +3,10 @@ use substrate_liquid::*;
 fn fixture() -> Database {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
-    tx.install(demo::fitness()).unwrap();
+    tx.install_with_visibility(demo::core(), substrate_liquid::Visibility::Private)
+        .unwrap();
+    tx.install_with_visibility(demo::fitness(), substrate_liquid::Visibility::Private)
+        .unwrap();
     tx.commit().unwrap();
     db
 }

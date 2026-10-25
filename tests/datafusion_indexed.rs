@@ -4,20 +4,23 @@ use substrate_liquid::*;
 fn fixture(rows: usize) -> Database {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "indexed",
-        1,
-        vec![],
-        vec![Relation::new(
-            "indexed.Item",
-            vec![
-                Role::new("n", DataType::Int),
-                Role::new("tag", DataType::Text),
-                Role::new("enabled", DataType::Bool),
-                Role::new("payload", DataType::Bytes),
-            ],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "indexed",
+            1,
+            vec![],
+            vec![Relation::new(
+                "indexed.Item",
+                vec![
+                    Role::new("n", DataType::Int),
+                    Role::new("tag", DataType::Text),
+                    Role::new("enabled", DataType::Bool),
+                    Role::new("payload", DataType::Bytes),
+                ],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     for n in 0..rows {
         tx.insert_with_id(
@@ -271,15 +274,18 @@ fn repeated_parameter_binding_and_missing_identity_do_not_reuse_index_candidates
 fn reference_equality_indexes_preserve_reference_visibility_and_text_semantics() {
     let db = fixture(20);
     let mut tx = db.admin().transaction();
-    tx.install(Module::new(
-        "links",
-        1,
-        vec![("indexed".into(), 1)],
-        vec![Relation::new(
-            "links.Link",
-            vec![Role::new("target", DataType::Ref("indexed.Item".into()))],
-        )],
-    ))
+    tx.install_with_visibility(
+        Module::new(
+            "links",
+            1,
+            vec![("indexed".into(), 1)],
+            vec![Relation::new(
+                "links.Link",
+                vec![Role::new("target", DataType::Ref("indexed.Item".into()))],
+            )],
+        ),
+        substrate_liquid::Visibility::Private,
+    )
     .unwrap();
     tx.insert("links.Link", vec![Value::Ref(Id::from_u128(11))])
         .unwrap();

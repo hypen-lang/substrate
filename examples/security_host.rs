@@ -18,7 +18,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let socket = dir.path().join("service.sock");
     let db = Database::open(&path)?;
     let mut tx = db.admin().transaction();
-    tx.install(demo::core())?;
+    tx.install_with_visibility(demo::core(), Visibility::Private)?;
     let ada = tx.insert("core.Person", vec!["Ada".into()])?;
     let bob = tx.insert("core.Person", vec!["Bob".into()])?;
     tx.install(Module::new(

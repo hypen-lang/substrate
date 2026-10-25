@@ -25,7 +25,7 @@ pub struct RelationCapability {
 #[serde(deny_unknown_fields)]
 pub struct CapabilityScope {
     pub relations: Vec<RelationCapability>,
-    /// Proposal/read/cancel/apply authority in ONE host-owned namespace. Does not
+    /// Proposal/read/cancel/apply and schema visibility authority in ONE host-owned namespace. Does not
     /// confer data grants, provisioning, approval, aliases or lifecycle authority.
     pub schema_namespace: Option<String>,
     /// Remaining delegation depth (0 = cannot delegate), at most eight.
@@ -142,6 +142,7 @@ pub(crate) fn compile(state: &State, row: &Row) -> Result<CompiledCapability> {
             || def.name.starts_with("liquid_control.")
             || def.name.starts_with("liquid_auth.")
             || def.name.starts_with("liquid_view_catalog.")
+            || def.name.starts_with("liquid_visibility.")
         {
             return Err(Error::Denied);
         }

@@ -2,7 +2,8 @@
 use substrate_liquid::*;
 pub fn seed(db: &Database) -> Id {
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), Visibility::Private)
+        .unwrap();
     let person = tx.insert("core.Person", vec!["Alice".into()]).unwrap();
     for app in ["fitness", "crm"] {
         tx.grant_schema(app, app).unwrap();
@@ -31,7 +32,8 @@ trait InstallCommit {
 }
 impl InstallCommit for Transaction {
     fn install_and_commit(mut self, module: Module) {
-        self.install(module).unwrap();
+        self.install_with_visibility(module, Visibility::Private)
+            .unwrap();
         self.commit().unwrap();
     }
 }

@@ -73,7 +73,7 @@ pub fn run(db: &Database) -> Result<()> {
         return Err(Error::Query("demo needs a fresh database".into()));
     }
     let mut tx = admin.transaction();
-    tx.install(core())?;
+    tx.install_with_visibility(core(), Visibility::Private)?;
     let person = tx.insert("core.Person", vec!["Alice".into()])?;
     for app in ["fitness", "crm"] {
         tx.grant_schema(app, app)?;
@@ -92,7 +92,7 @@ pub fn run(db: &Database) -> Result<()> {
     let fitness = db.session("fitness");
     let crm = db.session("crm");
     let mut tx = fitness.transaction();
-    tx.install(self::fitness())?;
+    tx.install_with_visibility(self::fitness(), Visibility::Private)?;
     tx.commit()?;
     assert_eq!(
         baseline.scan("core.Person")?,
@@ -104,7 +104,7 @@ pub fn run(db: &Database) -> Result<()> {
     tx.commit()?;
     let before_crm = admin.snapshot();
     let mut tx = crm.transaction();
-    tx.install(self::crm())?;
+    tx.install_with_visibility(self::crm(), Visibility::Private)?;
     tx.commit()?;
     assert_eq!(
         before_crm.scan("fitness.Performed")?,

@@ -7,7 +7,7 @@ proptest! {
  #![proptest_config(ProptestConfig::with_cases(96))]
  #[test]
  fn sql_mutation_histories_match_native_rows_and_rebuilt_indexes(ops in prop::collection::vec((0u8..3,0u8..12,any::<i64>()),1..70)) {
-  let db=Database::memory();let mut tx=db.admin().transaction();tx.install(Module::new("app",1,vec![],vec![Relation::new("app.Item",vec![Role::new("value",DataType::Int)])])).unwrap();tx.commit().unwrap();
+  let db=Database::memory();let mut tx=db.admin().transaction();tx.install_with_visibility(Module::new("app",1,vec![],vec![Relation::new("app.Item",vec![Role::new("value",DataType::Int)])]), substrate_liquid::Visibility::Private).unwrap();tx.commit().unwrap();
   let mut expected=BTreeMap::new();
   for (op,key,value) in ops {
    let id=Id::from_u128(u128::from(key)+1);
@@ -31,7 +31,7 @@ proptest! {
  }
  #[test]
  fn keyset_pages_match_reference_under_duplicate_values(values in prop::collection::vec(-8i64..8,0..160),limit in 1usize..20) {
-  let db=Database::memory();let mut tx=db.admin().transaction();tx.install(Module::new("app",1,vec![],vec![Relation::new("app.Item",vec![Role::new("value",DataType::Int)])])).unwrap();
+  let db=Database::memory();let mut tx=db.admin().transaction();tx.install_with_visibility(Module::new("app",1,vec![],vec![Relation::new("app.Item",vec![Role::new("value",DataType::Int)])]), substrate_liquid::Visibility::Private).unwrap();
   for (i,v) in values.iter().enumerate(){tx.insert_with_id("app.Item",Id::from_u128(i as u128+1),vec![Value::Int(*v)]).unwrap();}tx.commit().unwrap();
   let snapshot=db.admin().snapshot();
   for predicate in [None,Some(("value",Value::Int(2)))] {

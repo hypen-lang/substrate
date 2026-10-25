@@ -13,6 +13,8 @@ export function insertOp(descriptor, value, alias) {
 }
 export class LocalClient {
   #socket; #token; #capability; #connection;
+  /** Public-schema reads only; invalid credentials are never downgraded to this identity. */
+  static anonymous(socket) { return new LocalClient(socket, ""); }
   constructor(socket, token) { this.#socket = socket; this.#token = token; }
   withCapability(id) {
     if (typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error("expected capability UUID");
@@ -110,6 +112,7 @@ function decodeSql(value) {
 
 /** TLS 1.3 with CA and hostname verification. Credentials already bind a capability. */
 export class RemoteClient extends LocalClient {
+  static anonymous(options) { return typeof options === "string" ? LocalClient.anonymous(options) : new RemoteClient(options, ""); }
   constructor(options, token) {
     if (!options || typeof options.host !== "string" || typeof options.servername !== "string" || !options.servername || !Number.isInteger(options.port) || options.port < 1 || options.port > 65535 || !(typeof options.ca === "string" || Buffer.isBuffer(options.ca))) throw new Error("expected TLS host, port, servername and CA");
     // Copy only supported settings; callers cannot disable certificate verification.

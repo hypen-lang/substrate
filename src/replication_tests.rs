@@ -13,7 +13,8 @@ fn setup(path: &Path) -> Database {
     )
     .unwrap();
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), Visibility::Private)
+        .unwrap();
     tx.insert("core.Person", vec!["Ada".into()]).unwrap();
     tx.grant("reader", "core.Person", Grant::read_only())
         .unwrap();
@@ -476,7 +477,8 @@ fn barrier_requires_exact_digest_and_revision_and_empty_seed_roundtrips() {
     older.digest[0] ^= 1;
     assert!(follower.snapshot_at_cursor("reader", older).is_err()); // Equal revision checks digest.
     let mut tx = db.admin().transaction();
-    tx.install(demo::core()).unwrap();
+    tx.install_with_visibility(demo::core(), Visibility::Private)
+        .unwrap();
     tx.grant("reader", "core.Person", Grant::read_only())
         .unwrap();
     tx.commit().unwrap();

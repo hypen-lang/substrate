@@ -233,6 +233,10 @@ pub struct LocalClient {
     token: String,
 }
 impl LocalClient {
+    /// Read public schemas without an application credential.
+    pub fn anonymous(path: impl AsRef<Path>) -> Self {
+        Self::new(path, "")
+    }
     pub fn new(path: impl AsRef<Path>, token: impl Into<String>) -> Self {
         Self {
             path: path.as_ref().to_path_buf(),

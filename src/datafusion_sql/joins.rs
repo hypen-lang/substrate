@@ -488,21 +488,24 @@ mod tests {
     fn owned_probe_keys_respect_memory_pool_and_error_releases_reservation() {
         let db = Database::memory();
         let mut tx = db.admin().transaction();
-        tx.install(Module::new(
-            "memory_probe",
-            1,
-            vec![],
-            vec![
-                Relation::new(
-                    "memory_probe.Left",
-                    vec![
-                        Role::new("bucket", DataType::Int),
-                        Role::new("key", DataType::Text),
-                    ],
-                ),
-                Relation::new("memory_probe.Right", vec![Role::new("key", DataType::Text)]),
-            ],
-        ))
+        tx.install_with_visibility(
+            Module::new(
+                "memory_probe",
+                1,
+                vec![],
+                vec![
+                    Relation::new(
+                        "memory_probe.Left",
+                        vec![
+                            Role::new("bucket", DataType::Int),
+                            Role::new("key", DataType::Text),
+                        ],
+                    ),
+                    Relation::new("memory_probe.Right", vec![Role::new("key", DataType::Text)]),
+                ],
+            ),
+            crate::Visibility::Private,
+        )
         .unwrap();
         for n in 0..16 {
             let key = format!("{n:04}{}", "x".repeat(508));
