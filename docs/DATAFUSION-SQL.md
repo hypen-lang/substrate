@@ -35,11 +35,26 @@ check that authority. Revocation, expiry, rotation and source-host loss invalida
 retained handles. Data remains pinned to the original revision; authority remains
 live. Already delivered values cannot be recalled.
 
-Each prepared query caches one exact typed parameter binding. Deterministic
-queries reuse an optimized logical plan. A conservative whitelist of simple
+Simple identity/equality and numeric range reads compile once from DataFusion's validated logical
+plan into a typed native-index descriptor. Eligible column projections, aliases,
+compatible ordering and literal limits/offsets execute with fresh authorization and
+budgets, without Arrow conversion or executor dispatch. The same descriptor
+accepts previously unseen parameter values. Unsupported shapes and coercions use
+the ordinary DataFusion executor; SQL text is never matched to select this path.
+Compiled numeric ranges require a finite literal LIMIT. Unbounded ranges retain
+the general provider and its warm Arrow-page cache.
+
+Other prepared queries cache one exact typed parameter binding. Deterministic
+queries reuse an optimized logical plan. A conservative whitelist of audited
 physical operators can additionally reuse an unexecuted template, rebuilding fresh
-operator instances and streams on every call, including the first. Joins, sorts,
-dynamic filters and unknown operators do not reuse physical templates. Stable or
+operator instances and streams on every call, including the first. Eligible native
+index joins, hash joins, sorts, built-in aggregates and `ROW_NUMBER` windows rebuild
+pristine execution state. Hash joins and top-k sorts qualify only when no descendant
+consumes a dynamic filter; fresh producers cannot share thresholds or hash-build state
+with another execution. Aggregate implementations must have a known concrete type
+(or be the engine's exact checked-SUM factory); window descriptors must be the
+internal planner's built-in `ROW_NUMBER` chain, without an observer. Unknown/custom
+operators, aggregates and windows retain fresh planning. Stable or
 volatile functions and context variables bypass the cache. EXISTS, IN and scalar
 subqueries can reuse logical planning after recursive inspection of their raw
 plans and view sources; this prevents caching folded execution-time functions.
@@ -52,9 +67,12 @@ Parameters remain typed values;
 Exact signed integers, decimal minor units and timestamps use Arrow Int64;
 references remain canonical UUID strings and byte values remain binary.
 
-The synchronous API schedules work on a separate shared Tokio runtime, so calling
+The general synchronous API schedules work on a separate shared Tokio runtime, so calling
 it inside an application's Tokio runtime does not nest `block_on`. Every query
 uses a separate execution future and either returns a complete result or an error.
+Compiled simple reads run inline and check deadlines between native pages and
+rows, including before result release. They cannot interrupt a blocked native
+call; deadlines remain cooperative rather than hard wall-clock guarantees.
 
 ## Bounds and SQL surface
 
@@ -85,12 +103,31 @@ legacy `vm_steps` field counts returned cells in DataFusion; it is not an opcode
 CPU budget. In the explicit SQLite compatibility adapter it still counts SQLite
 VM instructions. Deadlines are cooperative cancellation, not process isolation.
 
+Native scans report their proven ordering to DataFusion. Compatible ascending or
+descending numeric range/top-k queries can stop after the required authorized
+rows; offsets and residual predicates retain their correctness barriers. Mixed
+sort directions, incompatible projections and unsafe LIMIT reversals fall back.
+Limited pages are not entered into the full-page cache.
+
+A final physical optimization rule replaces eligible single-key inner hash joins
+with join-driven native identity/equality probes when the authorized input is
+provably at most 128 rows. Keys are deduplicated, while SQL row multiplicity is
+preserved by a fresh DataFusion join. Source budgets, live guards and memory
+reservations apply to each execution. Outer joins, larger or unknown inputs,
+incompatible key types and ordered joins with pushed fetch retain ordinary
+execution. Other ordered joins restore their advertised order with an explicit
+sort after probing, preserving parent ordering assumptions. Both EXPLAIN
+and EXPLAIN ANALYZE show the resulting plan; ANALYZE also reports probe metrics.
+
 Only one read query or EXPLAIN is accepted. DDL, DML, session configuration,
 external table registration, file/network table functions and protected system
 catalogs are unavailable through this API. Unbounded expansion functions and
 collection/string aggregation are outside this initial SQL surface. Invoker views use the same catalog and
 guard. Use `EXPLAIN SELECT ...` for the DataFusion plan. Profiling reports include
-these plans, which can contain literal and bound values.
+these plans, which can contain literal and bound values. EXPLAIN describes the
+DataFusion execution path; eligible compiled simple reads bypass that path in
+normal execution. Consequently, EXPLAIN ANALYZE source counters demonstrate
+provider behavior, not the latency of the compiled simple-read executor.
 
 ## Compatibility
 
@@ -123,7 +160,7 @@ more conflicts than a future provider that records precise read dependencies.
 with the previous eager DataFusion adapter, the explicit SQLite compatibility
 adapter and ordinary indexed SQLite. Native read/write APIs remain unchanged.
 
-The [range/EXISTS/window follow-up](benchmarks/DATAFUSION-RANGE-EXISTS.md) compares
-both previous DataFusion adapters with the current implementation and SQLite.
-Ordered-range/top-k pushdown and join-driven index probes remain unimplemented;
-cached source pages do not remove DataFusion's sorting and hash-join work.
+The [range/EXISTS/window follow-up](benchmarks/DATAFUSION-RANGE-EXISTS.md) records
+the earlier cache improvements. The [indexed execution benchmark](benchmarks/DATAFUSION-EXECUTION.md)
+compares join probes, top-k pushdown and compiled simple reads against both
+earlier adapters and SQLite, including changing parameters and fresh handles.

@@ -2,6 +2,8 @@
 //! No raw DataFusion context or detached table provider escapes this module.
 use crate::*;
 mod checked;
+mod direct;
+mod joins;
 mod planning;
 mod provider;
 use datafusion::{
@@ -24,6 +26,7 @@ use datafusion::{
         context::SQLOptions,
         disk_manager::{DiskManagerBuilder, DiskManagerMode},
         runtime_env::RuntimeEnvBuilder,
+        session_state::SessionStateBuilder,
     },
     logical_expr::LogicalPlan,
     physical_plan::execute_stream,
@@ -102,6 +105,7 @@ pub(crate) struct DfQuery {
     parameter_count: usize,
     cache: planning::PlanCache,
     cacheable: bool,
+    direct: Option<direct::DirectRead>,
     live: crate::engine::LiveGuard,
 }
 impl DfSnapshot {
@@ -121,6 +125,10 @@ impl DfSnapshot {
             .build_arc()
             .map_err(query_error)?;
         let context = SessionContext::new_with_config_rt(config, runtime);
+        let state = SessionStateBuilder::new_from_existing(context.state())
+            .with_physical_optimizer_rule(Arc::new(joins::IndexJoinRule))
+            .build();
+        let context = SessionContext::new_with_state(state);
         let catalog = Arc::new(MemoryCatalogProvider::new());
         catalog
             .register_schema("public", Arc::new(MemorySchemaProvider::new()))
@@ -189,6 +197,7 @@ impl DfSnapshot {
         Ok(DfQuery {
             context: self.context.clone(),
             cacheable: planning::cacheable(&plan),
+            direct: direct::DirectRead::compile(&plan),
             plan,
             parameter_count,
             cache: planning::PlanCache::default(),
@@ -245,6 +254,25 @@ impl DfQuery {
         });
         if parameter_bytes > 1024 * 1024 {
             return Err(Error::Query("SQL parameter byte budget exceeded".into()));
+        }
+        if let Some(direct) = &self.direct {
+            let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                direct.query(params, limits)
+            })) {
+                Ok(result) => result,
+                Err(_) => {
+                    self.cache.clear();
+                    return Err(Error::Query("SQL direct execution failed".into()));
+                }
+            };
+            match result {
+                Ok(Some(table)) => return Ok(table),
+                Ok(None) => {} // Coercions and unsupported bindings use DataFusion.
+                Err(error) => {
+                    self.cache.clear();
+                    return Err(error);
+                }
+            }
         }
         let context = self.context.clone();
         let plan = self.plan.clone();
@@ -595,10 +623,101 @@ mod tests {
             .sql()
             .unwrap();
         let mut query = sql.prepare("SELECT name FROM core.Person").unwrap();
+        let mut direct = sql
+            .prepare("SELECT name FROM core.Person WHERE name=?1")
+            .unwrap();
         assert_eq!(query.query(&[]).unwrap().rows.len(), 1);
+        assert_eq!(
+            direct
+                .query(&[SqlValue::Text("Ada".into())])
+                .unwrap()
+                .rows
+                .len(),
+            1
+        );
         db.clock.set(1010);
         assert!(matches!(query.query(&[]), Err(Error::Denied)));
+        assert!(matches!(
+            direct.query(&[SqlValue::Text("Ada".into())]),
+            Err(Error::Denied)
+        ));
     }
+    #[test]
+    fn indexed_join_templates_rebuild_state_and_preserve_binding_budget_and_authority() {
+        let db = Database::memory();
+        let mut tx = db.admin().transaction();
+        tx.install(demo::core()).unwrap();
+        tx.install(demo::fitness()).unwrap();
+        let mut people = Vec::new();
+        for name in ["Ada", "Grace"] {
+            let person = tx.insert("core.Person", vec![name.into()]).unwrap();
+            people.push(person);
+            for duration in [30, 45, 45] {
+                let workout = tx.insert("fitness.Workout", vec![duration.into()]).unwrap();
+                tx.insert("fitness.Performed", vec![person.into(), workout.into()])
+                    .unwrap();
+            }
+        }
+        for relation in ["core.Person", "fitness.Workout", "fitness.Performed"] {
+            tx.grant("reader", relation, Grant::read_only()).unwrap();
+        }
+        tx.commit().unwrap();
+        let snapshot = db.session("reader").snapshot();
+        let sqlite = snapshot.sqlite_compat().unwrap();
+        let sql = DfSnapshot::new(snapshot, None).unwrap();
+        let text = "SELECT f.id,w.id,w.durationMinutes FROM fitness.Performed f JOIN fitness.Workout w ON w.id=f.workout WHERE f.athlete=?1 ORDER BY f.id";
+        let mut query = sql.prepare(text).unwrap();
+        fn distinct_nodes(
+            a: &Arc<dyn datafusion::physical_plan::ExecutionPlan>,
+            b: &Arc<dyn datafusion::physical_plan::ExecutionPlan>,
+        ) {
+            assert!(!Arc::ptr_eq(a, b), "execution nodes must never be shared");
+            for (a, b) in a.children().into_iter().zip(b.children()) {
+                distinct_nodes(a, b);
+            }
+        }
+        for person in people.iter().cycle().take(6) {
+            let args = [SqlValue::Text(person.to_string())];
+            let expected = sqlite.query(text, &args).unwrap().rows;
+            for _ in 0..4 {
+                assert_eq!(
+                    query.query(&args, QueryLimits::default()).unwrap().rows,
+                    expected
+                );
+                let cached = query.cache.get(&args).unwrap();
+                let first = cached.physical().unwrap().expect("indexed join template");
+                let second = cached.physical().unwrap().unwrap();
+                distinct_nodes(&first, &second);
+            }
+            assert!(
+                query
+                    .query(
+                        &args,
+                        QueryLimits {
+                            max_rows: 1,
+                            ..QueryLimits::default()
+                        }
+                    )
+                    .is_err()
+            );
+            assert!(query.cache.get(&args).is_none());
+            assert_eq!(
+                query.query(&args, QueryLimits::default()).unwrap().rows,
+                expected
+            );
+        }
+        let mut tx = db.admin().transaction();
+        tx.revoke("reader", "fitness.Workout").unwrap();
+        tx.commit().unwrap();
+        assert!(matches!(
+            query.query(
+                &[SqlValue::Text(people[0].to_string())],
+                QueryLimits::default()
+            ),
+            Err(Error::Denied)
+        ));
+    }
+
     #[test]
     fn planning_cache_is_binding_local_and_discards_failed_execution() {
         let db = Database::memory();
@@ -611,6 +730,9 @@ mod tests {
         let mut query = sql
             .prepare("SELECT name FROM core.Person WHERE id=?1")
             .unwrap();
+        // Exercise the generic DataFusion cache independently of the compiled
+        // direct-read specialization tested below.
+        query.direct = None;
         let first = [SqlValue::Text(ada.to_string())];
         let second = [SqlValue::Text(grace.to_string())];
         assert!(query.cache.get(&first).is_none());
@@ -714,19 +836,22 @@ mod tests {
                     expected.rows,
                     "{text}, {binding:?}"
                 );
-                // Non-null matching bindings retain joins/sorts and require
-                // fresh physical plans. NULL can fold to an immutable empty
-                // relation, which is safely eligible for template reuse.
-                if matches!(&binding[0], SqlValue::Text(name) if name == "Ada" || name == "Grace") {
-                    assert!(
-                        query
-                            .cache
-                            .get(&binding)
-                            .unwrap()
-                            .physical()
-                            .unwrap()
-                            .is_none()
-                    );
+                // Audited join/sort shapes may retain templates; unsupported
+                // shapes still replan. Every cached execution gets fresh nodes.
+                let cached = query.cache.get(&binding).unwrap();
+                if let Some(first) = cached.physical().unwrap() {
+                    let second = cached.physical().unwrap().unwrap();
+                    fn distinct(
+                        a: &Arc<dyn datafusion::physical_plan::ExecutionPlan>,
+                        b: &Arc<dyn datafusion::physical_plan::ExecutionPlan>,
+                    ) {
+                        assert!(!Arc::ptr_eq(a, b));
+                        assert_eq!(a.children().len(), b.children().len());
+                        for (a, b) in a.children().into_iter().zip(b.children()) {
+                            distinct(a, b);
+                        }
+                    }
+                    distinct(&first, &second);
                 }
             }
         }

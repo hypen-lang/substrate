@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use datafusion::{
     arrow::{
         array::{ArrayRef, BinaryArray, Int64Array, StringArray},
+        compute::SortOptions,
         datatypes::{DataType as ArrowType, Field, Schema, SchemaRef},
         record_batch::{RecordBatch, RecordBatchOptions},
     },
@@ -12,12 +13,13 @@ use datafusion::{
     common::{DataFusionError, Result, tree_node::TreeNodeRecursion},
     execution::TaskContext,
     logical_expr::{Expr, Operator, TableProviderFilterPushDown, TableType},
-    physical_expr::{EquivalenceProperties, PhysicalExpr},
+    physical_expr::{EquivalenceProperties, PhysicalExpr, PhysicalSortExpr, expressions::Column},
     physical_plan::{
         ChildrenPropertiesMode, DisplayAs, DisplayFormatType, ExecutionPlan, Partitioning,
         PlanProperties, ReplaceChildrenOptions, SendableRecordBatchStream,
         execution_plan::{Boundedness, EmissionType},
         metrics::{Count, ExecutionPlanMetricsSet, MetricBuilder, MetricsSet},
+        sort_pushdown::SortOrderPushdownResult,
         stream::RecordBatchStreamAdapter,
     },
     scalar::ScalarValue,
@@ -30,9 +32,9 @@ use std::{
 };
 
 const PAGE_ROWS: usize = 1000;
-const SOURCE_ROWS: usize = 1_000_000;
-const SOURCE_BYTES: usize = 128 * 1024 * 1024;
-const CELL_BYTES: usize = 1024 * 1024;
+pub(super) const SOURCE_ROWS: usize = 1_000_000;
+pub(super) const SOURCE_BYTES: usize = 128 * 1024 * 1024;
+pub(super) const CELL_BYTES: usize = 1024 * 1024;
 
 fn external(error: Error) -> DataFusionError {
     DataFusionError::External(Box::new(error))
@@ -46,7 +48,7 @@ fn execution(message: &str) -> DataFusionError {
 #[derive(Debug, Default)]
 pub(super) struct SourceBudget(Mutex<(usize, usize)>);
 impl SourceBudget {
-    fn charge(&self, rows: usize, bytes: usize) -> Result<()> {
+    pub(super) fn charge(&self, rows: usize, bytes: usize) -> Result<()> {
         let mut used = self
             .0
             .lock()
@@ -247,6 +249,12 @@ impl fmt::Debug for LiquidTable {
     }
 }
 impl LiquidTable {
+    pub(super) fn snapshot(&self) -> &Snapshot {
+        &self.source.snapshot
+    }
+    pub(super) fn declaration(&self) -> &Relation {
+        &self.source.declaration
+    }
     pub(super) fn new(
         snapshot: Snapshot,
         declaration: Relation,
@@ -565,6 +573,100 @@ pub(super) struct LiquidScanExec {
     metrics: ExecutionPlanMetricsSet,
 }
 impl LiquidScanExec {
+    /// A bound over authorized candidates, not hidden raw index cardinalities.
+    /// It is used only for choosing bounded join probes, never exposed as stats.
+    pub(super) fn selective_upper_bound(&self) -> Option<usize> {
+        if self.limit.is_some() {
+            return None;
+        }
+        match &self.access {
+            Access::Identity(_) => Some(1),
+            Access::Equality { slot, value } => {
+                let page = self
+                    .source
+                    .snapshot
+                    .page_shared(
+                        &self.source.declaration.name,
+                        Some((&self.source.declaration.roles[*slot].name, value)),
+                        None,
+                        super::joins::MAX_INPUT_ROWS + 1,
+                    )
+                    .ok()?;
+                page.next.is_none().then_some(page.rows.len())
+            }
+            _ => None,
+        }
+    }
+    pub(super) fn probe_capable(&self, output_column: usize) -> bool {
+        self.limit.is_none() && self.projection.get(output_column).is_some()
+    }
+    pub(super) fn probe_result_upper_bound(&self, output_column: usize) -> Option<usize> {
+        if !self.probe_capable(output_column) {
+            return None;
+        }
+        if self.projection[output_column] == 0 {
+            Some(1)
+        } else {
+            self.selective_upper_bound()
+        }
+    }
+    /// Build a fresh scan for one exact join key. This never substitutes parsing
+    /// or casts for SQL equality, and cannot cross a source LIMIT boundary.
+    pub(super) fn probe_scan(
+        &self,
+        output_column: usize,
+        value: &ScalarValue,
+    ) -> Result<Option<Arc<dyn ExecutionPlan>>> {
+        self.source
+            .snapshot
+            .live
+            .check_attached()
+            .map_err(external)?;
+        if !self.probe_capable(output_column) {
+            return Err(execution("unsupported native join probe"));
+        }
+        if value.is_null() {
+            return Ok(None);
+        }
+        if value.data_type() != *self.schema().field(output_column).data_type() {
+            return Err(execution("native join probe type mismatch"));
+        }
+        let column = self.projection[output_column];
+        let name = if column == 0 {
+            "id"
+        } else {
+            &self.source.declaration.roles[column - 1].name
+        };
+        let expr = Expr::Column(datafusion::common::Column::new_unqualified(name))
+            .eq(Expr::Literal(value.clone(), None));
+        let Some(mut extra) = predicates(&expr, &self.source.declaration) else {
+            // Canonical references and Bool's 0/1 domain cannot equal other
+            // literal representations, even if their Arrow types agree.
+            return Ok(None);
+        };
+        let key = extra[0].value.clone();
+        let access = if column == 0 {
+            let Value::Ref(id) = key else {
+                return Err(execution("invalid identity probe"));
+            };
+            Access::Identity(id)
+        } else {
+            Access::Equality {
+                slot: column - 1,
+                value: key,
+            }
+        };
+        let mut predicates = self.predicates.clone();
+        predicates.append(&mut extra);
+        Ok(Some(Arc::new(Self::new(
+            self.source.clone(),
+            self.schema(),
+            self.projection.clone(),
+            predicates,
+            access,
+            None,
+        ))))
+    }
     fn new(
         source: Source,
         schema: SchemaRef,
@@ -573,6 +675,29 @@ impl LiquidScanExec {
         access: Access,
         limit: Option<usize>,
     ) -> Self {
+        // Numeric ranges traverse (typed value, occurrence ID); plain/equality
+        // scans traverse occurrence IDs. Filtering preserves their order. Only
+        // advertise a surviving lexicographic prefix after projection: projecting
+        // away a varying leading range value does not make IDs globally sorted.
+        let ordered_columns = match &access {
+            Access::Range(range) => vec![range.slot + 1, 0],
+            _ => vec![0],
+        };
+        let descending = matches!(&access, Access::Range(range) if range.descending);
+        let mut ordering = Vec::new();
+        for column in ordered_columns {
+            let Some(projected) = projection.iter().position(|index| *index == column) else {
+                break;
+            };
+            ordering.push(PhysicalSortExpr::new(
+                Arc::new(Column::new(schema.field(projected).name(), projected)),
+                SortOptions {
+                    descending,
+                    nulls_first: true,
+                },
+            ));
+        }
+        let properties = EquivalenceProperties::new_with_orderings(schema, [ordering]);
         Self {
             source,
             projection,
@@ -580,7 +705,7 @@ impl LiquidScanExec {
             access,
             limit,
             properties: Arc::new(PlanProperties::new(
-                EquivalenceProperties::new(schema),
+                properties,
                 Partitioning::UnknownPartitioning(1),
                 EmissionType::Incremental,
                 Boundedness::Bounded,
@@ -651,6 +776,66 @@ impl ExecutionPlan for LiquidScanExec {
     fn metrics(&self) -> Option<MetricsSet> {
         Some(self.metrics.clone_inner())
     }
+    fn fetch(&self) -> Option<usize> {
+        self.limit
+    }
+    fn with_fetch(&self, limit: Option<usize>) -> Option<Arc<dyn ExecutionPlan>> {
+        // This leaf applies its own exact predicates before counting emitted
+        // rows. Residual filters and offsets remain outside and DataFusion must
+        // retain their barriers when deciding whether a fetch can reach us.
+        let limit = match (self.limit, limit) {
+            (Some(old), Some(new)) => Some(old.min(new)),
+            (old, new) => old.or(new),
+        };
+        Some(Arc::new(Self::new(
+            self.source.clone(),
+            self.schema(),
+            self.projection.clone(),
+            self.predicates.clone(),
+            self.access.clone(),
+            limit,
+        )))
+    }
+    fn try_pushdown_sort(
+        &self,
+        order: &[PhysicalSortExpr],
+    ) -> Result<SortOrderPushdownResult<Arc<dyn ExecutionPlan>>> {
+        // Reversing an already-limited source would choose a different subset.
+        // The native range cursor can reverse both value and ID, but cannot
+        // satisfy mixed directions or unrelated expressions/leading columns.
+        let Access::Range(range) = &self.access else {
+            return Ok(SortOrderPushdownResult::Unsupported);
+        };
+        if self.limit.is_some() || order.is_empty() || order.len() > 2 {
+            return Ok(SortOrderPushdownResult::Unsupported);
+        }
+        let descending = order[0].options.descending;
+        for (index, sort) in order.iter().enumerate() {
+            let Some(column) = (sort.expr.as_ref() as &dyn std::any::Any).downcast_ref::<Column>()
+            else {
+                return Ok(SortOrderPushdownResult::Unsupported);
+            };
+            let expected = if index == 0 { range.slot + 1 } else { 0 };
+            if self.projection.get(column.index()) != Some(&expected)
+                || sort.options.descending != descending
+                || self.schema().field(column.index()).is_nullable()
+            {
+                return Ok(SortOrderPushdownResult::Unsupported);
+            }
+        }
+        let mut range = range.clone();
+        range.descending = descending;
+        Ok(SortOrderPushdownResult::Exact {
+            inner: Arc::new(Self::new(
+                self.source.clone(),
+                self.schema(),
+                self.projection.clone(),
+                self.predicates.clone(),
+                Access::Range(range),
+                None,
+            )),
+        })
+    }
     fn execute(
         &self,
         partition: usize,
@@ -687,7 +872,7 @@ impl ExecutionPlan for LiquidScanExec {
                 && self.limit.is_none(),
         };
         let stream = futures::stream::try_unfold(cursor, |mut cursor| async move {
-            if cursor.started {
+            if cursor.started && !cursor.done && cursor.remaining > 0 {
                 tokio::task::yield_now().await;
             }
             cursor.started = true;

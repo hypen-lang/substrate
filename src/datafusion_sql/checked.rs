@@ -210,6 +210,12 @@ fn checked_sum() -> Arc<AggregateUDF> {
         .clone()
 }
 
+/// Only our static, audited factory is eligible for physical template reuse.
+/// A user-defined aggregate with the same name/signature is not sufficient.
+pub(super) fn reusable_sum(function: &AggregateUDF) -> bool {
+    Arc::ptr_eq(function.inner(), checked_sum().inner())
+}
+
 #[derive(Default, Debug)]
 struct CheckedSum {
     value: Option<i128>,

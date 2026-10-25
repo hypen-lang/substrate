@@ -289,6 +289,20 @@ fn reference_equality_indexes_preserve_reference_visibility_and_text_semantics()
     tx.commit().unwrap();
     let sql = db.session("even").snapshot().sql().unwrap();
     let visible = Id::from_u128(11).to_string();
+    let mut direct = sql
+        .prepare("SELECT target FROM links.Link WHERE target=?1")
+        .unwrap();
+    assert_eq!(
+        direct.query(&[S::Text(visible.clone())]).unwrap().rows,
+        vec![vec![S::Text(visible.clone())]]
+    );
+    assert!(
+        direct
+            .query(&[S::Text(Id::from_u128(12).to_string())])
+            .unwrap()
+            .rows
+            .is_empty()
+    );
     assert_eq!(
         sql.query(
             "SELECT count(*) FROM links.Link WHERE target=?1",

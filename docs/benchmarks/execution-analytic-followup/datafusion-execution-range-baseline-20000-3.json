@@ -1,0 +1,1944 @@
+{
+  "children_per_app_per_person": 2,
+  "environment": {
+    "arch": "aarch64",
+    "datafusion_execution": "55.2.0",
+    "datafusion_facade": "55.0.0",
+    "imbl": "7.0.2",
+    "os": "macos",
+    "postgres": null,
+    "sql_engine": "DataFusion",
+    "sqlite": "3.46.0",
+    "substrate": "0.1.0"
+  },
+  "iterations": 10,
+  "measurements": [
+    {
+      "first_execution_ms": {
+        "sqlite": 0.112459,
+        "sqlite_compat_admin": 0.024459,
+        "sqlite_compat_reader": 0.016792,
+        "substrate_admin": 25.982708,
+        "substrate_reader": 0.138542
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.161292,
+          "execution_ms": 0.0025,
+          "prepare_ms": 0.004417
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.119083,
+          "execution_ms": 0.004292,
+          "prepare_ms": 0.003792
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.0785,
+          "execution_ms": 0.091083,
+          "prepare_ms": 0.074417
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.041958,
+          "execution_ms": 0.077416,
+          "prepare_ms": 0.06370799999999999
+        }
+      },
+      "name": "01_primary_key",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "3",
+            "0",
+            "0",
+            "SEARCH Person USING INDEX sqlite_autoindex_Person_1 (id=?)"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "TableScan: core.Person projection=[id, name], full_filters=[core.Person.id = Utf8(\"00000000-0000-0000-0000-000000002711\")]"
+          ],
+          [
+            "physical_plan",
+            "CooperativeExec\n  LiquidScanExec: relation=core.Person, access=identity, projection=[0, 1], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.004167,
+        "sqlite_compat_admin": 0.032167,
+        "sqlite_compat_reader": 0.00325,
+        "substrate_admin": 28.770500000000002,
+        "substrate_reader": 0.108209
+      },
+      "repeat_verified": true,
+      "rows": 1,
+      "sha256": "b21d7d487a388d2f5f27250a60f63cb90dbe38ade5cd15618e489cc972eab0f7",
+      "sql": "SELECT id,name FROM core.\"Person\" WHERE id='00000000-0000-0000-0000-000000002711'",
+      "sqlite": {
+        "max_us": 0.42089999999999994,
+        "median_us": 0.3542,
+        "min_us": 0.3458,
+        "samples_us": [
+          0.42089999999999994,
+          0.35829999999999995,
+          0.3542,
+          0.3542,
+          0.35,
+          0.3542,
+          0.3458
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 0.7209,
+        "median_us": 0.65,
+        "min_us": 0.6416000000000001,
+        "samples_us": [
+          0.7209,
+          0.6584,
+          0.65,
+          0.6667,
+          0.65,
+          0.6416999999999999,
+          0.6416000000000001
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 0.8459,
+        "median_us": 0.8083,
+        "min_us": 0.8083,
+        "samples_us": [
+          0.8459,
+          0.8084,
+          0.8083,
+          0.8083,
+          0.8083,
+          0.8083,
+          0.825
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 18.6042,
+        "median_us": 16.3208,
+        "min_us": 15.5625,
+        "samples_us": [
+          16.3208,
+          15.8708,
+          16.75,
+          18.6042,
+          16.5834,
+          15.5625,
+          15.9917
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 16.9792,
+        "median_us": 16.3834,
+        "min_us": 15.875,
+        "samples_us": [
+          15.875,
+          16.3834,
+          16.2125,
+          16.9792,
+          16.9583,
+          16.475,
+          15.9667
+        ]
+      }
+    },
+    {
+      "first_execution_ms": {
+        "sqlite": 0.24695899999999998,
+        "sqlite_compat_admin": 1.094708,
+        "sqlite_compat_reader": 0.198917,
+        "substrate_admin": 8.3335,
+        "substrate_reader": 0.337
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.132416,
+          "execution_ms": 0.1015,
+          "prepare_ms": 0.0050420000000000005
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.082959,
+          "execution_ms": 0.190917,
+          "prepare_ms": 0.003208
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.075041,
+          "execution_ms": 0.22949999999999998,
+          "prepare_ms": 0.09933399999999999
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.040166999999999994,
+          "execution_ms": 0.297583,
+          "prepare_ms": 0.073792
+        }
+      },
+      "name": "02_indexed_equality",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "4",
+            "0",
+            "0",
+            "SEARCH Workout USING INDEX workout_duration (durationMinutes=?)"
+          ],
+          [
+            "14",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: fitness.Workout.id ASC NULLS FIRST\n  TableScan: fitness.Workout projection=[id, durationMinutes], full_filters=[fitness.Workout.durationMinutes = Int64(45)]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: expr=[id@0 ASC], preserve_partitioning=[false]\n  CooperativeExec\n    LiquidScanExec: relation=fitness.Workout, access=role_equality, projection=[0, 1], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.006791,
+        "sqlite_compat_admin": 0.007208,
+        "sqlite_compat_reader": 0.0027080000000000003,
+        "substrate_admin": 0.837292,
+        "substrate_reader": 0.06966699999999999
+      },
+      "repeat_verified": true,
+      "rows": 334,
+      "sha256": "d273c148116e69c6546ee12f6f88e1d14ae11cf5b86eeb4a387cfee80cc7549a",
+      "sql": "SELECT id,\"durationMinutes\" FROM fitness.\"Workout\" WHERE \"durationMinutes\"=45 ORDER BY id",
+      "sqlite": {
+        "max_us": 87.04169999999999,
+        "median_us": 79.20419999999999,
+        "min_us": 78.2875,
+        "samples_us": [
+          81.6208,
+          78.6292,
+          79.125,
+          87.04169999999999,
+          78.2875,
+          79.20419999999999,
+          82.275
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 107.64580000000001,
+        "median_us": 102.65829999999998,
+        "min_us": 101.225,
+        "samples_us": [
+          107.64580000000001,
+          102.65829999999998,
+          104.86670000000001,
+          101.225,
+          101.2584,
+          101.7458,
+          102.77919999999999
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 113.8042,
+        "median_us": 103.27920000000002,
+        "min_us": 100.7083,
+        "samples_us": [
+          113.8042,
+          103.3916,
+          103.27920000000002,
+          105.8416,
+          101.75,
+          100.7083,
+          101.8084
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 159.0209,
+        "median_us": 148.3291,
+        "min_us": 144.3959,
+        "samples_us": [
+          150.8417,
+          145.5125,
+          145.15839999999997,
+          144.3959,
+          159.0209,
+          149.05,
+          148.3291
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 166.0291,
+        "median_us": 152.5833,
+        "min_us": 151.1542,
+        "samples_us": [
+          166.0291,
+          151.1542,
+          158.7417,
+          155.4417,
+          152.5833,
+          152.5292,
+          151.475
+        ]
+      }
+    },
+    {
+      "first_execution_ms": {
+        "sqlite": 0.152375,
+        "sqlite_compat_admin": 2.676,
+        "sqlite_compat_reader": 3.650167,
+        "substrate_admin": 9.080708999999999,
+        "substrate_reader": 3.603875
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.157833,
+          "execution_ms": 1.4094170000000001,
+          "prepare_ms": 0.007500000000000001
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.0955,
+          "execution_ms": 3.551875,
+          "prepare_ms": 0.0055
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.081,
+          "execution_ms": 1.4095,
+          "prepare_ms": 0.109959
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.047083,
+          "execution_ms": 3.4707079999999997,
+          "prepare_ms": 0.088625
+        }
+      },
+      "name": "03_range_top_100",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "5",
+            "0",
+            "0",
+            "SEARCH Workout USING INDEX workout_duration (durationMinutes>? AND durationMinutes<?)"
+          ],
+          [
+            "29",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: fitness.Workout.durationMinutes ASC NULLS FIRST, fitness.Workout.id ASC NULLS FIRST, fetch=100\n  TableScan: fitness.Workout projection=[id, durationMinutes], full_filters=[fitness.Workout.durationMinutes >= Int64(40), fitness.Workout.durationMinutes < Int64(60)]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: TopK(fetch=100), expr=[durationMinutes@1 ASC, id@0 ASC], preserve_partitioning=[false]\n  CooperativeExec\n    LiquidScanExec: relation=fitness.Workout, access=numeric_range, projection=[0, 1], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.008417,
+        "sqlite_compat_admin": 0.021208,
+        "sqlite_compat_reader": 0.003042,
+        "substrate_admin": 0.899291,
+        "substrate_reader": 0.073833
+      },
+      "repeat_verified": true,
+      "rows": 100,
+      "sha256": "e19a8ab4eef2a39c92b3bacfd51ac5c4583e20c838d19e27cf6534f283e5f424",
+      "sql": "SELECT id,\"durationMinutes\" FROM fitness.\"Workout\" WHERE \"durationMinutes\">=40 AND \"durationMinutes\"<60 ORDER BY \"durationMinutes\",id LIMIT 100",
+      "sqlite": {
+        "max_us": 58.775,
+        "median_us": 56.2208,
+        "min_us": 55.6958,
+        "samples_us": [
+          58.775,
+          55.82919999999999,
+          55.6958,
+          56.7625,
+          56.058299999999996,
+          56.2208,
+          56.291700000000006
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 1480.8208,
+        "median_us": 1417.7833,
+        "min_us": 1373.2917000000002,
+        "samples_us": [
+          1480.8208,
+          1437.7625,
+          1373.2917000000002,
+          1434.9958,
+          1417.7833,
+          1377.35,
+          1378.2375
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 4266.975,
+        "median_us": 2272.5915999999997,
+        "min_us": 1640.2666999999997,
+        "samples_us": [
+          1640.2666999999997,
+          2001.8,
+          1981.1833000000001,
+          2272.5915999999997,
+          3120.7334,
+          4266.975,
+          2733.9166
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 115.38329999999999,
+        "median_us": 108.4333,
+        "min_us": 105.7,
+        "samples_us": [
+          115.38329999999999,
+          108.4333,
+          111.59580000000001,
+          109.9041,
+          105.7,
+          106.05829999999999,
+          105.7541
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 111.70840000000001,
+        "median_us": 108.62079999999999,
+        "min_us": 105.71669999999999,
+        "samples_us": [
+          108.1416,
+          111.58340000000001,
+          110.40419999999999,
+          108.62079999999999,
+          108.2542,
+          111.70840000000001,
+          105.71669999999999
+        ]
+      }
+    },
+    {
+      "first_execution_ms": {
+        "sqlite": 0.009667,
+        "sqlite_compat_admin": 0.014708,
+        "sqlite_compat_reader": 0.007625,
+        "substrate_admin": 12.611583000000001,
+        "substrate_reader": 17.539958000000002
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.183208,
+          "execution_ms": 0.013415999999999999,
+          "prepare_ms": 0.012875
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.16558299999999998,
+          "execution_ms": 0.015041,
+          "prepare_ms": 0.011042
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.08045799999999999,
+          "execution_ms": 6.899042000000001,
+          "prepare_ms": 0.11141699999999999
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.080708,
+          "execution_ms": 21.502166,
+          "prepare_ms": 0.20975
+        }
+      },
+      "name": "04_relationship_lookup",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "6",
+            "0",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "11",
+            "0",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ],
+          [
+            "23",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: f.id ASC NULLS FIRST\n  Projection: f.id, w.id, w.durationMinutes\n    Inner Join: f.workout = w.id\n      SubqueryAlias: f\n        TableScan: fitness.Performed projection=[id, workout], full_filters=[fitness.Performed.athlete = Utf8(\"00000000-0000-0000-0000-000000002711\")]\n      SubqueryAlias: w\n        TableScan: fitness.Workout projection=[id, durationMinutes]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: expr=[id@0 ASC], preserve_partitioning=[false]\n  HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(workout@1, id@0)], projection=[id@0, id@2, durationMinutes@3]\n    CooperativeExec\n      LiquidScanExec: relation=fitness.Performed, access=role_equality, projection=[0, 2], limit=None\n    CooperativeExec\n      LiquidScanExec: relation=fitness.Workout, access=family_scan, projection=[0, 1], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.015167,
+        "sqlite_compat_admin": 0.017,
+        "sqlite_compat_reader": 0.006333,
+        "substrate_admin": 0.9388340000000001,
+        "substrate_reader": 0.115625
+      },
+      "repeat_verified": true,
+      "rows": 2,
+      "sha256": "36376da69111cdfa3c83fcc6ac7c25f16953b1656490d77f6515f434b232dcd6",
+      "sql": "SELECT f.id,w.id,w.\"durationMinutes\" FROM fitness.\"Performed\" f JOIN fitness.\"Workout\" w ON w.id=f.workout WHERE f.athlete='00000000-0000-0000-0000-000000002711' ORDER BY f.id",
+      "sqlite": {
+        "max_us": 1.2583,
+        "median_us": 1.0833,
+        "min_us": 1.075,
+        "samples_us": [
+          1.2583,
+          1.0958999999999999,
+          1.0791,
+          1.075,
+          1.0833,
+          1.0792,
+          1.0916000000000001
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 2.4875,
+        "median_us": 2.1917,
+        "min_us": 2.1790999999999996,
+        "samples_us": [
+          2.4875,
+          2.2042,
+          2.1790999999999996,
+          2.1833,
+          2.2042,
+          2.1792000000000002,
+          2.1917
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 2.6541,
+        "median_us": 2.5375,
+        "min_us": 2.525,
+        "samples_us": [
+          2.6541,
+          2.6041,
+          2.5583,
+          2.5375,
+          2.5332999999999997,
+          2.5375,
+          2.525
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 349.4208,
+        "median_us": 332.5083,
+        "min_us": 306.6167,
+        "samples_us": [
+          348.7792,
+          332.5083,
+          306.6167,
+          317.25,
+          338.7292,
+          330.31669999999997,
+          349.4208
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 354.1291,
+        "median_us": 337.9083,
+        "min_us": 322.25419999999997,
+        "samples_us": [
+          337.49580000000003,
+          322.25419999999997,
+          326.7167,
+          347.2583,
+          354.1291,
+          339.25419999999997,
+          337.9083
+        ]
+      }
+    },
+    {
+      "first_execution_ms": {
+        "sqlite": 0.020958,
+        "sqlite_compat_admin": 0.0165,
+        "sqlite_compat_reader": 0.016082999999999997,
+        "substrate_admin": 8.450625,
+        "substrate_reader": 21.346416
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.198458,
+          "execution_ms": 0.016416999999999998,
+          "prepare_ms": 0.023
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.14125,
+          "execution_ms": 0.022334,
+          "prepare_ms": 0.0205
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.084542,
+          "execution_ms": 13.04525,
+          "prepare_ms": 0.192958
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.075917,
+          "execution_ms": 40.94,
+          "prepare_ms": 0.279667
+        }
+      },
+      "name": "05_cross_app_five_way",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "11",
+            "0",
+            "0",
+            "SEARCH p USING COVERING INDEX sqlite_autoindex_Person_1 (id=?)"
+          ],
+          [
+            "15",
+            "0",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "22",
+            "0",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ],
+          [
+            "27",
+            "0",
+            "0",
+            "SEARCH c USING INDEX customer_person (customer=?)"
+          ],
+          [
+            "34",
+            "0",
+            "0",
+            "SEARCH d USING INDEX sqlite_autoindex_Deal_1 (id=?)"
+          ],
+          [
+            "50",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: f.id ASC NULLS FIRST, c.id ASC NULLS FIRST\n  Projection: p.id, f.id, w.durationMinutes, c.id, d.amount\n    Inner Join: c.deal = d.id\n      Projection: p.id, f.id, w.durationMinutes, c.id, c.deal\n        Inner Join: p.id = c.customer\n          Projection: p.id, f.id, w.durationMinutes\n            Inner Join: f.workout = w.id\n              Projection: p.id, f.id, f.workout\n                Inner Join: p.id = f.athlete\n                  SubqueryAlias: p\n                    TableScan: core.Person projection=[id], full_filters=[core.Person.id = Utf8(\"00000000-0000-0000-0000-000000002711\")]\n                  SubqueryAlias: f\n                    TableScan: fitness.Performed projection=[id, athlete, workout], full_filters=[fitness.Performed.athlete = Utf8(\"00000000-0000-0000-0000-000000002711\")]\n              SubqueryAlias: w\n                TableScan: fitness.Workout projection=[id, durationMinutes]\n          SubqueryAlias: c\n            TableScan: crm.CustomerDeal projection=[id, customer, deal], full_filters=[crm.CustomerDeal.customer = Utf8(\"00000000-0000-0000-0000-000000002711\")]\n      SubqueryAlias: d\n        TableScan: crm.Deal projection=[id, amount]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: expr=[id@1 ASC, id@3 ASC], preserve_partitioning=[false]\n  HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(deal@4, id@0)], projection=[id@0, id@1, durationMinutes@2, id@3, amount@6]\n    HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, customer@1)], projection=[id@0, id@1, durationMinutes@2, id@3, deal@5]\n      HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(workout@2, id@0)], projection=[id@0, id@1, durationMinutes@4]\n        HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, athlete@1)], projection=[id@0, id@1, workout@3]\n          CooperativeExec\n            LiquidScanExec: relation=core.Person, access=identity, projection=[0], limit=None\n          CooperativeExec\n            LiquidScanExec: relation=fitness.Performed, access=role_equality, projection=[0, 1, 2], limit=None\n        CooperativeExec\n          LiquidScanExec: relation=fitness.Workout, access=family_scan, projection=[0, 1], limit=None\n      CooperativeExec\n        LiquidScanExec: relation=crm.CustomerDeal, access=role_equality, projection=[0, 1, 2], limit=None\n    CooperativeExec\n      LiquidScanExec: relation=crm.Deal, access=family_scan, projection=[0, 1], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.025541,
+        "sqlite_compat_admin": 0.023541,
+        "sqlite_compat_reader": 0.011875,
+        "substrate_admin": 0.6505000000000001,
+        "substrate_reader": 0.225208
+      },
+      "repeat_verified": true,
+      "rows": 4,
+      "sha256": "347d73f8350190e8b9dee803b748cc099e9b15089b4eaab1b793dd58a6a8129c",
+      "sql": "SELECT p.id,f.id,w.\"durationMinutes\",c.id,d.amount FROM core.\"Person\" p JOIN fitness.\"Performed\" f ON f.athlete=p.id JOIN fitness.\"Workout\" w ON w.id=f.workout JOIN crm.\"CustomerDeal\" c ON c.customer=p.id JOIN crm.\"Deal\" d ON d.id=c.deal WHERE p.id='00000000-0000-0000-0000-000000002711' ORDER BY f.id,c.id",
+      "sqlite": {
+        "max_us": 3.475,
+        "median_us": 3.225,
+        "min_us": 3.2083,
+        "samples_us": [
+          3.475,
+          3.2083,
+          3.225,
+          3.225,
+          3.2207999999999997,
+          3.2291,
+          3.2417000000000002
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 6.9708,
+        "median_us": 6.4542,
+        "min_us": 6.370799999999999,
+        "samples_us": [
+          6.7125,
+          6.4542,
+          6.475,
+          6.4125,
+          6.370799999999999,
+          6.3957999999999995,
+          6.9708
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 9.9209,
+        "median_us": 7.8208,
+        "min_us": 7.404199999999999,
+        "samples_us": [
+          7.6792,
+          7.8208,
+          7.404199999999999,
+          9.9209,
+          7.825,
+          7.7333,
+          7.8417
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 915.9957999999999,
+        "median_us": 883.8833000000001,
+        "min_us": 865.2458,
+        "samples_us": [
+          890.9625,
+          865.2458,
+          887.725,
+          883.575,
+          915.9957999999999,
+          883.8833000000001,
+          883.0
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 920.575,
+        "median_us": 899.4291999999999,
+        "min_us": 880.2957999999999,
+        "samples_us": [
+          896.0417,
+          906.2959000000001,
+          899.4291999999999,
+          880.2957999999999,
+          907.8542,
+          920.575,
+          896.2334000000001
+        ]
+      }
+    },
+    {
+      "first_execution_ms": {
+        "sqlite": 38.179042,
+        "sqlite_compat_admin": 121.656,
+        "sqlite_compat_reader": 210.53941600000002,
+        "substrate_admin": 81.717,
+        "substrate_reader": 151.667417
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.581792,
+          "execution_ms": 335.599,
+          "prepare_ms": 0.034917
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.315292,
+          "execution_ms": 550.078542,
+          "prepare_ms": 0.047708
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.158625,
+          "execution_ms": 144.537917,
+          "prepare_ms": 0.945792
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.153584,
+          "execution_ms": 391.21975,
+          "prepare_ms": 0.929458
+        }
+      },
+      "name": "06_cross_app_group_top_25",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "16",
+            "0",
+            "0",
+            "SCAN p USING COVERING INDEX sqlite_autoindex_Person_1"
+          ],
+          [
+            "18",
+            "0",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "27",
+            "0",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ],
+          [
+            "32",
+            "0",
+            "0",
+            "SEARCH c USING INDEX customer_person (customer=?)"
+          ],
+          [
+            "41",
+            "0",
+            "0",
+            "SEARCH d USING INDEX sqlite_autoindex_Deal_1 (id=?)"
+          ],
+          [
+            "89",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: sum(d.amount) DESC NULLS LAST, p.id ASC NULLS FIRST, fetch=25\n  Projection: p.id, count(Int64(1)) AS count(*), sum(w.durationMinutes), sum(d.amount)\n    Aggregate: groupBy=[[p.id]], aggr=[[count(Int64(1)), sum(CAST(CAST(w.durationMinutes AS Int64) AS Int64)), sum(CAST(CAST(d.amount AS Int64) AS Int64))]]\n      Projection: p.id, w.durationMinutes, d.amount\n        Inner Join: c.deal = d.id\n          Projection: p.id, w.durationMinutes, c.deal\n            Inner Join: p.id = c.customer\n              Projection: p.id, w.durationMinutes\n                Inner Join: f.workout = w.id\n                  Projection: p.id, f.workout\n                    Inner Join: p.id = f.athlete\n                      SubqueryAlias: p\n                        TableScan: core.Person projection=[id]\n                      SubqueryAlias: f\n                        TableScan: fitness.Performed projection=[athlete, workout]\n                  SubqueryAlias: w\n                    TableScan: fitness.Workout projection=[id, durationMinutes]\n              SubqueryAlias: c\n                TableScan: crm.CustomerDeal projection=[customer, deal]\n          SubqueryAlias: d\n            TableScan: crm.Deal projection=[id, amount]"
+          ],
+          [
+            "physical_plan",
+            "ProjectionExec: expr=[id@0 as id, count(Int64(1))@1 as count(*), sum(w.durationMinutes)@2 as sum(w.durationMinutes), sum(d.amount)@3 as sum(d.amount)]\n  SortExec: TopK(fetch=25), expr=[sum(d.amount)@3 DESC NULLS LAST, id@0 ASC], preserve_partitioning=[false]\n    AggregateExec: mode=Single, gby=[id@0 as id], aggr=[count(Int64(1)), sum(w.durationMinutes), sum(d.amount)]\n      HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(deal@2, id@0)], projection=[id@0, durationMinutes@1, amount@4]\n        HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, customer@0)], projection=[id@0, durationMinutes@1, deal@3]\n          HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(workout@1, id@0)], projection=[id@0, durationMinutes@3]\n            HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, athlete@0)], projection=[id@0, workout@2]\n              CooperativeExec\n                LiquidScanExec: relation=core.Person, access=family_scan, projection=[0], limit=None\n              CooperativeExec\n                LiquidScanExec: relation=fitness.Performed, access=family_scan, projection=[1, 2], limit=None\n            CooperativeExec\n              LiquidScanExec: relation=fitness.Workout, access=family_scan, projection=[0, 1], limit=None\n          CooperativeExec\n            LiquidScanExec: relation=crm.CustomerDeal, access=family_scan, projection=[1, 2], limit=None\n        CooperativeExec\n          LiquidScanExec: relation=crm.Deal, access=family_scan, projection=[0, 1], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.036083,
+        "sqlite_compat_admin": 0.046334,
+        "sqlite_compat_reader": 0.014917,
+        "substrate_admin": 10.748917,
+        "substrate_reader": 0.27349999999999997
+      },
+      "repeat_verified": true,
+      "rows": 25,
+      "sha256": "f5b5b9cb8af4d983848fbd263c26bb60ba6c6d5cc82ac23be5400a9b41a6f445",
+      "sql": "SELECT p.id,COUNT(*),SUM(w.\"durationMinutes\"),SUM(d.amount) FROM core.\"Person\" p JOIN fitness.\"Performed\" f ON f.athlete=p.id JOIN fitness.\"Workout\" w ON w.id=f.workout JOIN crm.\"CustomerDeal\" c ON c.customer=p.id JOIN crm.\"Deal\" d ON d.id=c.deal GROUP BY p.id ORDER BY SUM(d.amount) DESC,p.id LIMIT 25",
+      "sqlite": {
+        "max_us": 69936.7625,
+        "median_us": 41026.6167,
+        "min_us": 36569.0083,
+        "samples_us": [
+          43865.1875,
+          41026.6167,
+          69936.7625,
+          41532.7875,
+          39118.766599999995,
+          36569.0083,
+          36593.0
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 140372.6292,
+        "median_us": 121462.9208,
+        "min_us": 118077.3666,
+        "samples_us": [
+          132911.45,
+          140372.6292,
+          128447.16670000002,
+          121462.9208,
+          118380.24579999999,
+          118077.3666,
+          120324.9834
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 487456.74169999996,
+        "median_us": 246427.425,
+        "min_us": 138619.6458,
+        "samples_us": [
+          138619.6458,
+          147895.85830000002,
+          151320.6458,
+          246427.425,
+          284884.25419999997,
+          487456.74169999996,
+          294280.25
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 16150.833300000002,
+        "median_us": 12888.5208,
+        "min_us": 12518.1083,
+        "samples_us": [
+          12934.2458,
+          12874.8959,
+          16150.833300000002,
+          12888.5208,
+          12997.166700000002,
+          12518.1083,
+          12674.1667
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 13381.1625,
+        "median_us": 12693.7417,
+        "min_us": 12376.1667,
+        "samples_us": [
+          12926.5958,
+          12693.7417,
+          13381.1625,
+          12851.337500000001,
+          12529.479199999998,
+          12492.2542,
+          12376.1667
+        ]
+      }
+    },
+    {
+      "first_execution_ms": {
+        "sqlite": 1.378917,
+        "sqlite_compat_admin": 59.233875,
+        "sqlite_compat_reader": 73.504583,
+        "substrate_admin": 12.739917,
+        "substrate_reader": 13.620000000000001
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.16666599999999998,
+          "execution_ms": 30.726625000000002,
+          "prepare_ms": 0.014916
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.157375,
+          "execution_ms": 81.585833,
+          "prepare_ms": 0.01475
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.122,
+          "execution_ms": 13.876332999999999,
+          "prepare_ms": 0.15804200000000002
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.091875,
+          "execution_ms": 50.941458000000004,
+          "prepare_ms": 0.358917
+        }
+      },
+      "name": "07_correlated_exists",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "5",
+            "0",
+            "0",
+            "SCAN p USING INDEX sqlite_autoindex_Person_1"
+          ],
+          [
+            "9",
+            "0",
+            "0",
+            "CORRELATED SCALAR SUBQUERY 1"
+          ],
+          [
+            "16",
+            "9",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "22",
+            "9",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: p.id ASC NULLS FIRST, fetch=100\n  LeftSemi Join: p.id = __correlated_sq_1.athlete\n    SubqueryAlias: p\n      TableScan: core.Person projection=[id, name]\n    SubqueryAlias: __correlated_sq_1\n      Projection: f.athlete\n        LeftSemi Join: f.workout = w.id\n          SubqueryAlias: f\n            TableScan: fitness.Performed projection=[athlete, workout]\n          SubqueryAlias: w\n            TableScan: fitness.Workout projection=[id], full_filters=[fitness.Workout.durationMinutes > Int64(110)]"
+          ],
+          [
+            "physical_plan",
+            "SortExec: TopK(fetch=100), expr=[id@0 ASC], preserve_partitioning=[false]\n  HashJoinExec: mode=CollectLeft, join_type=LeftSemi, on=[(id@0, athlete@0)]\n    CooperativeExec\n      LiquidScanExec: relation=core.Person, access=family_scan, projection=[0, 1], limit=None\n    HashJoinExec: mode=CollectLeft, join_type=LeftSemi, on=[(workout@1, id@0)], projection=[athlete@0]\n      CooperativeExec\n        LiquidScanExec: relation=fitness.Performed, access=family_scan, projection=[1, 2], limit=None\n      CooperativeExec\n        LiquidScanExec: relation=fitness.Workout, access=numeric_range, projection=[0], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.050291999999999996,
+        "sqlite_compat_admin": 0.07775,
+        "sqlite_compat_reader": 0.030542,
+        "substrate_admin": 2.2515840000000003,
+        "substrate_reader": 0.56025
+      },
+      "repeat_verified": true,
+      "rows": 100,
+      "sha256": "24acedce654066dbb4e699f2dd531ddd3cc39117158860fb03bab4823de0b4d9",
+      "sql": "SELECT p.id,p.name FROM core.\"Person\" p WHERE EXISTS (SELECT 1 FROM fitness.\"Performed\" f JOIN fitness.\"Workout\" w ON w.id=f.workout WHERE f.athlete=p.id AND w.\"durationMinutes\">110) ORDER BY p.id LIMIT 100",
+      "sqlite": {
+        "max_us": 885.4625,
+        "median_us": 675.8458,
+        "min_us": 569.4916999999999,
+        "samples_us": [
+          675.8458,
+          636.0125,
+          791.1417,
+          747.0334,
+          569.4916999999999,
+          593.8334,
+          885.4625
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 63787.425,
+        "median_us": 51901.1833,
+        "min_us": 41582.5083,
+        "samples_us": [
+          41582.5083,
+          52622.5,
+          60267.754100000006,
+          63787.425,
+          51901.1833,
+          45544.025,
+          49480.2125
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 74785.95,
+        "median_us": 50412.6583,
+        "min_us": 40023.033299999996,
+        "samples_us": [
+          74785.95,
+          68484.0666,
+          50846.7083,
+          50412.6583,
+          40238.3,
+          42412.7125,
+          40023.033299999996
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 2511.5083,
+        "median_us": 2122.7084,
+        "min_us": 1587.1041999999998,
+        "samples_us": [
+          2405.1375,
+          2456.0083999999997,
+          1945.9125,
+          2511.5083,
+          2122.7084,
+          1587.1041999999998,
+          1613.7374999999997
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 2171.0125,
+        "median_us": 1619.3875,
+        "min_us": 1463.4792000000002,
+        "samples_us": [
+          1575.3957999999998,
+          1571.4125,
+          1463.4792000000002,
+          2029.9707999999998,
+          1619.3875,
+          1619.9042,
+          2171.0125
+        ]
+      }
+    },
+    {
+      "first_execution_ms": {
+        "sqlite": 48.786042,
+        "sqlite_compat_admin": 152.19012500000002,
+        "sqlite_compat_reader": 218.718416,
+        "substrate_admin": 53.038624999999996,
+        "substrate_reader": 45.662541000000004
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.174292,
+          "execution_ms": 78.144375,
+          "prepare_ms": 0.034625
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.153,
+          "execution_ms": 147.240083,
+          "prepare_ms": 0.034125
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.134625,
+          "execution_ms": 28.22,
+          "prepare_ms": 0.250792
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.078375,
+          "execution_ms": 67.887542,
+          "prepare_ms": 0.3735
+        }
+      },
+      "name": "08_filtered_nested_top_1",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "2",
+            "0",
+            "0",
+            "CO-ROUTINE ranked"
+          ],
+          [
+            "5",
+            "2",
+            "0",
+            "CO-ROUTINE (subquery-3)"
+          ],
+          [
+            "12",
+            "5",
+            "0",
+            "SCAN p USING COVERING INDEX sqlite_autoindex_Person_1"
+          ],
+          [
+            "14",
+            "5",
+            "0",
+            "SEARCH f USING INDEX performed_athlete (athlete=?)"
+          ],
+          [
+            "20",
+            "5",
+            "0",
+            "SEARCH w USING INDEX sqlite_autoindex_Workout_1 (id=?)"
+          ],
+          [
+            "46",
+            "5",
+            "0",
+            "USE TEMP B-TREE FOR LAST 2 TERMS OF ORDER BY"
+          ],
+          [
+            "70",
+            "2",
+            "0",
+            "SCAN (subquery-3)"
+          ],
+          [
+            "122",
+            "0",
+            "0",
+            "SCAN ranked"
+          ],
+          [
+            "139",
+            "0",
+            "0",
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Sort: ranked.person_id ASC NULLS FIRST, fetch=100\n  SubqueryAlias: ranked\n    Projection: p.id AS person_id, f.id AS link_id, w.id AS workout_id, w.durationMinutes AS minutes\n      Filter: row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW <= UInt64(1)\n        WindowAggr: windowExpr=[[row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW]]\n          Projection: p.id, f.id, w.id, w.durationMinutes\n            Inner Join: f.workout = w.id\n              Projection: p.id, f.id, f.workout\n                Inner Join: p.id = f.athlete\n                  SubqueryAlias: p\n                    TableScan: core.Person projection=[id]\n                  SubqueryAlias: f\n                    TableScan: fitness.Performed projection=[id, athlete, workout]\n              SubqueryAlias: w\n                TableScan: fitness.Workout projection=[id, durationMinutes], full_filters=[fitness.Workout.durationMinutes >= Int64(30)]"
+          ],
+          [
+            "physical_plan",
+            "ProjectionExec: expr=[id@0 as person_id, id@1 as link_id, id@2 as workout_id, durationMinutes@3 as minutes]\n  FilterExec: row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW@4 <= 1, projection=[id@0, id@1, id@2, durationMinutes@3], fetch=100\n    BoundedWindowAggExec: wdw=[row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW: Field { \"row_number() PARTITION BY [p.id] ORDER BY [w.durationMinutes DESC NULLS LAST, f.id ASC NULLS FIRST] RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\": UInt64 }, frame: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW], mode=[Sorted]\n      SortExec: expr=[id@0 ASC NULLS LAST, durationMinutes@3 DESC NULLS LAST, id@1 ASC], preserve_partitioning=[false]\n        HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(workout@2, id@0)], projection=[id@0, id@1, id@3, durationMinutes@4]\n          HashJoinExec: mode=CollectLeft, join_type=Inner, on=[(id@0, athlete@1)], projection=[id@0, id@1, workout@3]\n            CooperativeExec\n              LiquidScanExec: relation=core.Person, access=family_scan, projection=[0], limit=None\n            CooperativeExec\n              LiquidScanExec: relation=fitness.Performed, access=family_scan, projection=[0, 1, 2], limit=None\n          CooperativeExec\n            LiquidScanExec: relation=fitness.Workout, access=numeric_range, projection=[0, 1], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.060625000000000005,
+        "sqlite_compat_admin": 0.0555,
+        "sqlite_compat_reader": 0.025,
+        "substrate_admin": 1.9069589999999998,
+        "substrate_reader": 0.25804099999999996
+      },
+      "repeat_verified": true,
+      "rows": 100,
+      "sha256": "52195ac623aa4f3cddfdb92fd502f457a60e91a14dc3d6c89a5a566ef2b9678b",
+      "sql": "SELECT person_id,link_id,workout_id,minutes FROM (SELECT p.id AS person_id,f.id AS link_id,w.id AS workout_id,w.\"durationMinutes\" AS minutes,ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY w.\"durationMinutes\" DESC,f.id) AS rn FROM core.\"Person\" p JOIN fitness.\"Performed\" f ON f.athlete=p.id JOIN fitness.\"Workout\" w ON w.id=f.workout WHERE w.\"durationMinutes\">=30) ranked WHERE rn<=1 ORDER BY person_id LIMIT 100",
+      "sqlite": {
+        "max_us": 35726.4917,
+        "median_us": 27528.558299999997,
+        "min_us": 26600.229199999994,
+        "samples_us": [
+          28734.304200000002,
+          26600.229199999994,
+          27319.3,
+          29034.695900000002,
+          35726.4917,
+          26727.35,
+          27528.558299999997
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 191450.4042,
+        "median_us": 155191.8875,
+        "min_us": 109190.875,
+        "samples_us": [
+          168829.125,
+          109190.875,
+          126555.1625,
+          191450.4042,
+          180345.9583,
+          155191.8875,
+          131340.51669999998
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 163686.225,
+        "median_us": 135361.85,
+        "min_us": 108968.1416,
+        "samples_us": [
+          135108.7375,
+          150452.59170000002,
+          142656.8334,
+          163686.225,
+          135361.85,
+          109008.35829999999,
+          108968.1416
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 14373.25,
+        "median_us": 9173.9041,
+        "min_us": 8427.9542,
+        "samples_us": [
+          9294.5,
+          8427.9542,
+          9173.9041,
+          9034.3625,
+          8889.4084,
+          12969.3042,
+          14373.25
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 20074.2333,
+        "median_us": 12785.312500000002,
+        "min_us": 9914.85,
+        "samples_us": [
+          9914.85,
+          11814.5917,
+          12392.35,
+          17094.6041,
+          12785.312500000002,
+          13281.0583,
+          20074.2333
+        ]
+      }
+    },
+    {
+      "first_execution_ms": {
+        "sqlite": 1.120583,
+        "sqlite_compat_admin": 5.495417,
+        "sqlite_compat_reader": 7.2359160000000005,
+        "substrate_admin": 6.231125,
+        "substrate_reader": 6.453041
+      },
+      "fresh_handle": {
+        "sqlite_compat_admin": {
+          "catalog_ms": 0.18429199999999998,
+          "execution_ms": 5.288166,
+          "prepare_ms": 0.007084
+        },
+        "sqlite_compat_reader": {
+          "catalog_ms": 0.158834,
+          "execution_ms": 19.426417,
+          "prepare_ms": 0.008
+        },
+        "substrate_admin": {
+          "catalog_ms": 0.085833,
+          "execution_ms": 4.906874999999999,
+          "prepare_ms": 0.136167
+        },
+        "substrate_reader": {
+          "catalog_ms": 0.082333,
+          "execution_ms": 18.694875,
+          "prepare_ms": 0.2545
+        }
+      },
+      "name": "09_full_scan_aggregate",
+      "plans": {
+        "postgres": null,
+        "sqlite": [
+          [
+            "3",
+            "0",
+            "0",
+            "SCAN Workout USING COVERING INDEX workout_duration"
+          ]
+        ],
+        "substrate": [
+          [
+            "logical_plan",
+            "Projection: count(Int64(1)) AS count(*), sum(fitness.Workout.durationMinutes), min(fitness.Workout.durationMinutes), max(fitness.Workout.durationMinutes)\n  Aggregate: groupBy=[[]], aggr=[[count(Int64(1)), sum(CAST(CAST(fitness.Workout.durationMinutes AS Int64) AS Int64)), min(fitness.Workout.durationMinutes), max(fitness.Workout.durationMinutes)]]\n    TableScan: fitness.Workout projection=[durationMinutes]"
+          ],
+          [
+            "physical_plan",
+            "ProjectionExec: expr=[count(Int64(1))@0 as count(*), sum(fitness.Workout.durationMinutes)@1 as sum(fitness.Workout.durationMinutes), min(fitness.Workout.durationMinutes)@2 as min(fitness.Workout.durationMinutes), max(fitness.Workout.durationMinutes)@3 as max(fitness.Workout.durationMinutes)]\n  AggregateExec: mode=Single, gby=[], aggr=[count(Int64(1)), sum(fitness.Workout.durationMinutes), min(fitness.Workout.durationMinutes), max(fitness.Workout.durationMinutes)]\n    CooperativeExec\n      LiquidScanExec: relation=fitness.Workout, access=family_scan, projection=[1], limit=None\n"
+          ]
+        ]
+      },
+      "postgres_psql": null,
+      "prepare_ms": {
+        "sqlite": 0.026333,
+        "sqlite_compat_admin": 0.019708,
+        "sqlite_compat_reader": 0.003708,
+        "substrate_admin": 1.490958,
+        "substrate_reader": 0.19349999999999998
+      },
+      "repeat_verified": true,
+      "rows": 1,
+      "sha256": "710e14c98f045929e176ba7b441ff75c5dae3f6c7bc07dd91dcacd746bb81879",
+      "sql": "SELECT COUNT(*),SUM(\"durationMinutes\"),MIN(\"durationMinutes\"),MAX(\"durationMinutes\") FROM fitness.\"Workout\"",
+      "sqlite": {
+        "max_us": 1124.4334000000001,
+        "median_us": 1053.6291999999999,
+        "min_us": 1004.05,
+        "samples_us": [
+          1124.4334000000001,
+          1004.05,
+          1053.6291999999999,
+          1094.0709000000002,
+          1024.1165999999998,
+          1010.2375,
+          1123.9958
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 5311.0584,
+        "median_us": 5209.8542,
+        "min_us": 5034.741599999999,
+        "samples_us": [
+          5284.6125,
+          5262.1792000000005,
+          5209.8542,
+          5181.0,
+          5034.741599999999,
+          5311.0584,
+          5124.575
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 6586.2667,
+        "median_us": 6134.6541,
+        "min_us": 5997.6666,
+        "samples_us": [
+          6226.075,
+          5997.6666,
+          6134.6541,
+          6017.85,
+          6129.654100000001,
+          6276.295799999999,
+          6586.2667
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 269.00840000000005,
+        "median_us": 254.0292,
+        "min_us": 248.4875,
+        "samples_us": [
+          269.00840000000005,
+          254.0292,
+          263.72079999999994,
+          255.55,
+          248.4875,
+          250.80419999999998,
+          251.1208
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 270.2,
+        "median_us": 251.7875,
+        "min_us": 245.24590000000003,
+        "samples_us": [
+          251.7875,
+          270.2,
+          253.675,
+          251.75,
+          256.8459,
+          249.8125,
+          245.24590000000003
+        ]
+      }
+    }
+  ],
+  "occurrences": 180000,
+  "parameter_rebinding": [
+    {
+      "distinct_parameter_sets": 1,
+      "name": "id_same_value",
+      "prepare_ms": {
+        "sqlite": 0.020916,
+        "sqlite_compat_admin": 0.017,
+        "sqlite_compat_reader": 0.003375,
+        "substrate_admin": 0.1835,
+        "substrate_reader": 0.095709
+      },
+      "repeat_verified": true,
+      "sha256": "0bdd24baf1b634e5f8273bf3122ef055eaf151215e776cc95a760686d9ad8a03",
+      "sql": "SELECT id,name FROM core.\"Person\" WHERE id=?1",
+      "sqlite": {
+        "max_us": 0.4333,
+        "median_us": 0.3625,
+        "min_us": 0.35409999999999997,
+        "samples_us": [
+          0.4333,
+          0.38330000000000003,
+          0.37079999999999996,
+          0.3625,
+          0.3625,
+          0.35409999999999997,
+          0.3542
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 0.8125,
+        "median_us": 0.6416999999999999,
+        "min_us": 0.6375,
+        "samples_us": [
+          0.8042,
+          0.8125,
+          0.7083,
+          0.6416999999999999,
+          0.6416999999999999,
+          0.6375,
+          0.6416999999999999
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 0.8333,
+        "median_us": 0.8084,
+        "min_us": 0.7958000000000001,
+        "samples_us": [
+          0.8333,
+          0.8083,
+          0.8125,
+          0.8165999999999999,
+          0.8084,
+          0.8042,
+          0.7958000000000001
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 21.6625,
+        "median_us": 16.8916,
+        "min_us": 15.05,
+        "samples_us": [
+          18.3291,
+          16.2709,
+          17.275,
+          21.6625,
+          15.05,
+          16.8916,
+          15.8583
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 25.187499999999996,
+        "median_us": 20.9834,
+        "min_us": 19.675,
+        "samples_us": [
+          25.187499999999996,
+          23.0833,
+          21.4667,
+          20.9834,
+          19.675,
+          20.1083,
+          20.475
+        ]
+      }
+    },
+    {
+      "distinct_parameter_sets": 16,
+      "name": "id_16_values",
+      "prepare_ms": {
+        "sqlite": 0.011792,
+        "sqlite_compat_admin": 0.007500000000000001,
+        "sqlite_compat_reader": 0.001917,
+        "substrate_admin": 0.10054099999999999,
+        "substrate_reader": 0.055042
+      },
+      "repeat_verified": true,
+      "sha256": "9f0929f47361116b537d45fe202dfaa8058a1e4a4c2da07192880cd97bfbf066",
+      "sql": "SELECT id,name FROM core.\"Person\" WHERE id=?1",
+      "sqlite": {
+        "max_us": 0.45830000000000004,
+        "median_us": 0.40840000000000004,
+        "min_us": 0.3834,
+        "samples_us": [
+          0.45830000000000004,
+          0.425,
+          0.40840000000000004,
+          0.4,
+          0.4125,
+          0.4,
+          0.3834
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 0.7291000000000001,
+        "median_us": 0.6959,
+        "min_us": 0.6832999999999999,
+        "samples_us": [
+          0.7291000000000001,
+          0.7,
+          0.6832999999999999,
+          0.7,
+          0.6959,
+          0.6832999999999999,
+          0.6917
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 0.9082999999999999,
+        "median_us": 0.8958,
+        "min_us": 0.8709000000000001,
+        "samples_us": [
+          0.9082999999999999,
+          0.9,
+          0.8958999999999999,
+          0.8958,
+          0.8833,
+          0.8709000000000001,
+          0.875
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 68.95,
+        "median_us": 62.775,
+        "min_us": 62.1625,
+        "samples_us": [
+          68.95,
+          64.4125,
+          62.775,
+          62.1625,
+          62.4208,
+          62.55839999999999,
+          63.59169999999999
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 100.63750000000002,
+        "median_us": 64.8625,
+        "min_us": 60.441700000000004,
+        "samples_us": [
+          62.93330000000001,
+          68.6625,
+          65.575,
+          64.8625,
+          63.3042,
+          60.441700000000004,
+          100.63750000000002
+        ]
+      }
+    },
+    {
+      "distinct_parameter_sets": 16,
+      "name": "numeric_equality_16_values",
+      "prepare_ms": {
+        "sqlite": 0.018958,
+        "sqlite_compat_admin": 0.0095,
+        "sqlite_compat_reader": 0.0025830000000000002,
+        "substrate_admin": 0.11474999999999999,
+        "substrate_reader": 0.054791
+      },
+      "repeat_verified": true,
+      "sha256": "dceb0e5a832a495f2387cd3cfbb76dc3574f5171b00192aa6cdc2b43caaa6ac7",
+      "sql": "SELECT id,\"durationMinutes\" FROM fitness.\"Workout\" WHERE \"durationMinutes\"=?1 ORDER BY id",
+      "sqlite": {
+        "max_us": 108.8167,
+        "median_us": 90.5125,
+        "min_us": 88.975,
+        "samples_us": [
+          108.8167,
+          94.1833,
+          89.7875,
+          89.35839999999999,
+          88.975,
+          90.5125,
+          92.82910000000001
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 107.7583,
+        "median_us": 105.22080000000001,
+        "min_us": 104.8709,
+        "samples_us": [
+          104.8709,
+          105.88340000000001,
+          105.19590000000001,
+          105.22080000000001,
+          107.7583,
+          105.92080000000001,
+          104.95420000000001
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 130.69170000000003,
+        "median_us": 121.52079999999998,
+        "min_us": 120.5375,
+        "samples_us": [
+          130.69170000000003,
+          124.37920000000001,
+          121.8,
+          121.52079999999998,
+          121.1084,
+          120.7666,
+          120.5375
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 197.0708,
+        "median_us": 188.2833,
+        "min_us": 185.5958,
+        "samples_us": [
+          188.2833,
+          188.30419999999998,
+          187.1875,
+          185.5958,
+          187.8416,
+          197.0708,
+          188.3125
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 208.9375,
+        "median_us": 205.81660000000002,
+        "min_us": 203.67919999999998,
+        "samples_us": [
+          208.9375,
+          208.27089999999998,
+          204.26250000000002,
+          205.81660000000002,
+          206.775,
+          203.67919999999998,
+          205.63330000000002
+        ]
+      }
+    },
+    {
+      "distinct_parameter_sets": 16,
+      "name": "numeric_range_16_values",
+      "prepare_ms": {
+        "sqlite": 0.024709000000000002,
+        "sqlite_compat_admin": 0.011916000000000001,
+        "sqlite_compat_reader": 0.0036669999999999997,
+        "substrate_admin": 0.167583,
+        "substrate_reader": 0.075542
+      },
+      "repeat_verified": true,
+      "sha256": "2426aac6f7b5cd3982e153487ee40e85aa3482e7e090b2343f367ad8500c3a0e",
+      "sql": "SELECT id,\"durationMinutes\" FROM fitness.\"Workout\" WHERE \"durationMinutes\">=?1 AND \"durationMinutes\"<?2 ORDER BY \"durationMinutes\",id LIMIT 10",
+      "sqlite": {
+        "max_us": 54.8375,
+        "median_us": 53.9625,
+        "min_us": 53.520900000000005,
+        "samples_us": [
+          54.6125,
+          54.8375,
+          54.1333,
+          53.833299999999994,
+          53.75,
+          53.520900000000005,
+          53.9625
+        ]
+      },
+      "sqlite_compat_admin": {
+        "max_us": 376.35839999999996,
+        "median_us": 347.9166,
+        "min_us": 342.6666,
+        "samples_us": [
+          376.35839999999996,
+          355.18330000000003,
+          347.45,
+          353.13340000000005,
+          347.9166,
+          342.6666,
+          346.6417
+        ]
+      },
+      "sqlite_compat_reader": {
+        "max_us": 658.5417,
+        "median_us": 556.6416,
+        "min_us": 495.64580000000007,
+        "samples_us": [
+          645.925,
+          521.2208,
+          634.325,
+          658.5417,
+          556.6416,
+          495.64580000000007,
+          498.81659999999994
+        ]
+      },
+      "substrate_admin": {
+        "max_us": 141.20409999999998,
+        "median_us": 136.54170000000002,
+        "min_us": 132.6708,
+        "samples_us": [
+          136.54170000000002,
+          132.6708,
+          137.6959,
+          136.3041,
+          137.4125,
+          141.20409999999998,
+          135.35
+        ]
+      },
+      "substrate_reader": {
+        "max_us": 138.6542,
+        "median_us": 133.975,
+        "min_us": 131.7458,
+        "samples_us": [
+          133.6375,
+          138.6542,
+          134.9083,
+          133.975,
+          135.80829999999997,
+          132.79579999999999,
+          131.7458
+        ]
+      }
+    }
+  ],
+  "people": 20000,
+  "postgres_measured": false,
+  "postgres_timing": "psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency",
+  "prepared": true,
+  "projection": {
+    "catalog_ms": {
+      "sqlite_compat_admin": 0.079167,
+      "sqlite_compat_reader": 0.035625,
+      "substrate_admin": 0.077791,
+      "substrate_reader": 0.028374999999999997
+    },
+    "fixture_rows": 256,
+    "measurements": [
+      {
+        "admin_rows": 256,
+        "admin_sha256": "dfd7dcf5dd329493c2b0ecacad92fa42cd320a8f8987db740fcb9e465dd6bed1",
+        "name": "project_without_payload",
+        "reader_rows": 128,
+        "reader_sha256": "08e32d364a9b73602443f6d703b8e56e56ffad325115d3fe73e7832d96fcdfb7",
+        "repeat_verified": true,
+        "sqlite": {
+          "max_us": 18.4709,
+          "median_us": 17.9709,
+          "min_us": 17.8291,
+          "samples_us": [
+            17.9166,
+            17.8291,
+            18.4709,
+            17.8958,
+            18.025,
+            18.3625,
+            17.9709
+          ]
+        },
+        "sqlite_compat_admin": {
+          "max_us": 41.3375,
+          "median_us": 38.28339999999999,
+          "min_us": 38.075,
+          "samples_us": [
+            38.3,
+            38.075,
+            38.28339999999999,
+            41.3375,
+            39.325,
+            38.2208,
+            38.191700000000004
+          ]
+        },
+        "sqlite_compat_reader": {
+          "max_us": 28.1625,
+          "median_us": 27.920799999999996,
+          "min_us": 27.7,
+          "samples_us": [
+            28.1625,
+            27.9791,
+            27.920799999999996,
+            27.7125,
+            27.783300000000004,
+            28.0416,
+            27.7
+          ]
+        },
+        "sqlite_filtered": {
+          "max_us": 9.85,
+          "median_us": 9.7625,
+          "min_us": 9.7125,
+          "samples_us": [
+            9.7625,
+            9.85,
+            9.7625,
+            9.7334,
+            9.7834,
+            9.775,
+            9.7125
+          ]
+        },
+        "substrate_admin": {
+          "max_us": 78.5208,
+          "median_us": 75.475,
+          "min_us": 73.975,
+          "samples_us": [
+            76.7208,
+            74.38329999999999,
+            74.4375,
+            73.975,
+            78.5208,
+            77.5375,
+            75.475
+          ]
+        },
+        "substrate_reader": {
+          "max_us": 71.0209,
+          "median_us": 68.2125,
+          "min_us": 67.0417,
+          "samples_us": [
+            68.2125,
+            67.6583,
+            71.0209,
+            67.0417,
+            69.9042,
+            67.2208,
+            69.175
+          ]
+        }
+      },
+      {
+        "admin_rows": 1,
+        "admin_sha256": "4b64cd4e19f8719d80e5451b4152987ba9e6c9c3e2a9ba8526bd05f3dba9a0ad",
+        "name": "count_without_payload",
+        "reader_rows": 1,
+        "reader_sha256": "336ad384303fc49361cb76b92507cdd2e64d271969c3e2615ec63521ea563c06",
+        "repeat_verified": true,
+        "sqlite": {
+          "max_us": 0.2209,
+          "median_us": 0.1833,
+          "min_us": 0.1541,
+          "samples_us": [
+            0.2209,
+            0.2,
+            0.20829999999999999,
+            0.1833,
+            0.1583,
+            0.1541,
+            0.1542
+          ]
+        },
+        "sqlite_compat_admin": {
+          "max_us": 11.0459,
+          "median_us": 10.9875,
+          "min_us": 10.9583,
+          "samples_us": [
+            11.0459,
+            10.995899999999999,
+            11.0041,
+            10.9875,
+            10.9583,
+            10.9792,
+            10.9792
+          ]
+        },
+        "sqlite_compat_reader": {
+          "max_us": 10.4708,
+          "median_us": 9.9417,
+          "min_us": 9.8792,
+          "samples_us": [
+            10.4708,
+            10.1208,
+            10.045800000000002,
+            9.8792,
+            9.9417,
+            9.9416,
+            9.9125
+          ]
+        },
+        "sqlite_filtered": {
+          "max_us": 1.2167,
+          "median_us": 1.2083,
+          "min_us": 1.1916,
+          "samples_us": [
+            1.2167,
+            1.2083,
+            1.2041,
+            1.2084,
+            1.2041,
+            1.2125,
+            1.1916
+          ]
+        },
+        "substrate_admin": {
+          "max_us": 80.5875,
+          "median_us": 70.5709,
+          "min_us": 68.5667,
+          "samples_us": [
+            80.5875,
+            70.5709,
+            68.5667,
+            71.4666,
+            68.7125,
+            68.7959,
+            72.73330000000001
+          ]
+        },
+        "substrate_reader": {
+          "max_us": 76.1125,
+          "median_us": 71.1625,
+          "min_us": 67.81660000000001,
+          "samples_us": [
+            69.325,
+            70.2375,
+            67.81660000000001,
+            71.6542,
+            72.3542,
+            76.1125,
+            71.1625
+          ]
+        }
+      }
+    ],
+    "row_policy": "reader sees visible=true rows only; direct SQLite reader query has equivalent WHERE",
+    "unselected_payload_bytes_per_row": 16384
+  },
+  "samples": 7,
+  "setup_ms": {
+    "postgres": null,
+    "sqlite": 150.62729099999999,
+    "sqlite_compat_admin_catalog": 3.038666,
+    "sqlite_compat_reader_catalog": 0.094167,
+    "substrate": 665.352709,
+    "substrate_admin_sql_catalog": 18.176125000000003,
+    "substrate_reader_sql_catalog": 0.103334
+  },
+  "warm_cache": true,
+  "benchmark_started_at_utc": "2026-10-25T10:43:12.612486+00:00",
+  "benchmark_process_elapsed_seconds": 71.15631812496576,
+  "benchmark_adapter": "execution-range-baseline",
+  "benchmark_binary_sha256": "dfdbb7733f28c08d67afa46f5c0a3d242122cdb5f5a592440837835b5e090584",
+  "benchmark_binary_bytes": 121774320,
+  "paired_repetition": 3,
+  "paired_execution_order": [
+    "execution-eager-baseline",
+    "execution",
+    "execution-range-baseline"
+  ]
+}

@@ -488,3 +488,40 @@ between runs; this is a shared-machine benchmark. Point/selective paths did not
 improve, and cold conversion remains significant. The separately executed manual
 release probe also passed and records the executor round-trip cost without
 claiming additive component profiling.
+
+## Join probes, ordered top-k and compiled reads — 2026-10-25
+
+The SQL provider now advertises proven native ordering and supports safe fetch
+and reverse numeric-range pushdown. A final DataFusion physical optimizer rule
+replaces eligible small-input inner joins with authorized native index probes;
+DataFusion still evaluates pair matching, filters and duplicate semantics using
+fresh execution state. Ordinary EXPLAIN and ANALYZE include the rewritten plan.
+
+Simple validated identity/equality/range reads compile into immutable typed descriptors
+that accept new parameters without repeated optimization, Arrow conversion or
+runtime dispatch. Unsupported shapes/coercions use DataFusion. Selected payloads,
+source candidates, output limits and live authority are checked on every call.
+Inline deadlines are cooperative between native operations, not hard interruption.
+The [SQL guide](DATAFUSION-SQL.md) details the eligibility and fallback boundaries.
+
+The analytical follow-up also retains audited physical templates for hash joins,
+sorts, known built-in aggregates (including checked SUM) and built-in ROW_NUMBER
+windows. Every execution rebuilds mutable state. Dynamic-filter consumers,
+unknown implementations and unsupported forms retain ordinary planning. Tests
+require the actual grouped/top-k and nested-window benchmark shapes to retain
+templates, and check concurrent execution, dropped consumers, memory failures,
+binding changes and live authority.
+
+Validation: **394 Rust tests passed**, one manual performance probe ignored;
+strict all-target Clippy passed. Coverage includes differential typed rebinding,
+LIMIT/order barriers, ascending/descending top-k, duplicate and nullable join
+keys, fallback joins, memory reservation failures, source/output budgets,
+reference visibility, pinned data, revocation and capability expiry. The existing
+DataFusion example passed. Independent [review](reviews/DATAFUSION-EXECUTION.md)
+found and helped fix page-size, key-memory, cache-error and EXPLAIN issues.
+
+Native query/storage implementation is unchanged. The
+[paired benchmark](benchmarks/DATAFUSION-EXECUTION.md) records warm, unseen-binding
+and fresh-handle execution against both previous adapters and SQLite. The separate
+[beyond-SQL investigation](PERFORMANCE-BEYOND-SQL.md) records follow-up opportunities
+without claiming unmeasured improvements.

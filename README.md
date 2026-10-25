@@ -270,28 +270,40 @@ or failover, and follower permissions remain eventual until revocations arrive.
 
 ## Performance and next priorities
 
-Before the DataFusion replacement, Substrate was slower than direct SQLite in the
-embedded read workloads. That 2,000-person run verified all eight results and measured approximately
-**2.5×** SQLite time for a primary-key lookup, **2.3×** for a five-family point join,
-**3.3×** for an aggregate, and **5.3×** for range/top 100. The latter was about 33.7×
-in the earlier repeated baseline. These are warm prepared-read measurements from a
-shared development machine; they exclude setup, transport and writes. PostgreSQL
-was not rerun. See the [current comparison](docs/benchmarks/COMPARISON.md).
+Performance depends on query shape, authorization, result size and durability.
+The [latest SQL comparison](docs/benchmarks/DATAFUSION-EXECUTION.md) measures both
+prior DataFusion adapters, explicit SQLite compatibility and direct indexed SQLite
+at 2,000 and 20,000 people. It separates preparation, warm queries, fresh handles
+and previously unseen parameters; PostgreSQL was not rerun. These are local
+embedded read measurements, excluding transport and writes.
 
-Separate focused optimization probes show:
+At 20,000 people / 180,000 occurrences, warm prepared admin reads measured these
+medians in microseconds across three processes:
 
-- Correlated EXISTS at 2,000 rows: **552.86 ms → 1.10 ms**, after prioritizing identity indexes.
-- Numeric range/top 100: **440 µs → 50 µs**, after range and ordering pushdown.
-- COUNT with unused 64 KiB payloads: **2,613 µs → 64 µs**, using shared internal rows.
+| Query | Current | Previous adapter | Direct SQLite |
+| --- | ---: | ---: | ---: |
+| Identity lookup | 0.45 | 44.76 | 0.38 |
+| Relationship lookup | 54.50 | 1,060.28 | 1.15 |
+| Five-family selective join | 134.25 | 2,303.85 | 3.26 |
+| Grouped join / top 25 | 12,304.91 | 19,167.78 | 40,094.38 |
+| Nested window / top 1 | 7,158.01 | 9,173.90 | 24,354.14 |
+
+All nine established admin query shapes improved over both previous DataFusion adapters
+in this final run. The shared machine still produces timing variation; these are
+workload results, not universal speedups. SQLite does not perform Substrate's
+authority/reference checks. Tiny joins remain substantially faster in SQLite;
+the report also includes an equivalent covering-index control for numeric reads.
+
+Separate native and durability measurements remain useful context:
+
 - Shared-reference visibility at 1,000 roots: **248.497 ms → 1.128 ms**, using snapshot-local completed-result caching.
 - Default durable group commit at 32 concurrent writers: **274 → 4,103 tx/s** (three-run local medians); sequential writers were essentially unchanged.
 - Incremental checkpoints: **17,408 → 2,048 row writes** over 2,048 inserts. Total insertion time was essentially unchanged; individual durable commits still dominated.
 
-These are local focused measurements, not universal speedups. Their query shapes
-and timing boundaries differ from the full comparison. See [query planning](docs/benchmarks/QUERY-PLANNING.md),
-[visibility](docs/VISIBILITY-PERFORMANCE.md),
-[checkpoint measurements](docs/benchmarks/INCREMENTAL-CHECKPOINTS.md), and
-[operational hardening](docs/OPERATIONAL-HARDENING.md).
+These historical focused measurements have different boundaries from the SQL
+comparison and are not universal speedups. See [visibility](docs/VISIBILITY-PERFORMANCE.md),
+[group commit](docs/group-commit.md), [checkpoint measurements](docs/benchmarks/INCREMENTAL-CHECKPOINTS.md),
+and [operational hardening](docs/OPERATIONAL-HARDENING.md).
 
 The [candidate experiments](docs/benchmarks/CANDIDATES.md) informed adoption of
 `imbl` for persistent collections and DataFusion for SQL reads. `imbl` improved
@@ -302,31 +314,20 @@ were slower. These are workload-specific results, with preparation costs reporte
 separately. JSON parsing and durability-matched storage tests did not justify
 replacing serde_json or redb. Reports include raw results and reproduction commands.
 
-The [latest SQL comparison](docs/benchmarks/DATAFUSION-RANGE-EXISTS.md) verifies
-nine query shapes across 18 runs, comparing both the eager and initial indexed
-DataFusion adapters, explicit SQLite compatibility and direct indexed SQLite.
-Bounded authorized range-page reuse and deterministic subquery planning recover
-the warm range, EXISTS and window regressions from the
-[initial index-backed adapter](docs/benchmarks/DATAFUSION-INDEXED.md).
-At 180,000 occurrences, times in milliseconds were:
+SQL now uses join-driven native index probes for eligible selective inner joins,
+ordered numeric range/top-k pushdown, and compiled identity/equality/range reads that
+reuse typed bindings without per-value planning or Arrow conversion. Each path
+retains native visibility checks, live revocation and per-query budgets. Both
+`EXPLAIN` and `EXPLAIN ANALYZE` show the physical join plan.
 
-| Query | Eager DataFusion | Initial indexed | Current | Direct SQLite |
-| --- | ---: | ---: | ---: | ---: |
-| Range / top 100 | 0.462 | 2.569 | 0.195 | 0.066 |
-| Correlated EXISTS | 1.506 | 3.423 | 1.384 | 0.527 |
-| Nested window | 11.55 | 23.78 | 10.89 | 31.29 |
-
-These are warm process medians on a shared machine; individual runs vary.
-Point reads still cost **32.1 µs versus SQLite's 0.425 µs**, and the selective
-five-family join **1.22 ms versus 0.0075 ms**. This change does not improve those
-paths. The point path pays executor/task and result-conversion overhead; selective
-joins still scan families whose identities become known only during the join.
-Native indexed APIs retain their existing execution path.
-
-Fresh handles still pay conversion: first range, EXISTS and window execution took
-**2.77, 17.44 and 37.97 ms** for admin access. The report separates setup, first-use
-and warm costs, and includes changed-parameter reads, authorization checks, raw
-results and the remaining ordering/join/planning work.
+General analytical queries still use DataFusion and its bounded source-page cache.
+Complex queries retain a one-binding plan cache; audited joins, aggregates, sorts
+and `ROW_NUMBER` windows reuse templates with fresh execution state. Larger joins
+use ordinary DataFusion execution. Fresh full scans still pay conversion costs. Native indexed
+APIs and storage retain their existing behavior. See the
+[SQL guide](docs/DATAFUSION-SQL.md) for precise eligibility and cancellation limits,
+and the [beyond-SQL investigation](docs/PERFORMANCE-BEYOND-SQL.md) for the next
+write, native-read and transport opportunities.
 
 The implementation queue and remaining limitations are tracked in [missing.md](missing.md).
 Package publication and Bend verification are excluded from this run. Additive schema

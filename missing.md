@@ -21,7 +21,7 @@ operation is not implied by a small replication/sharding implementation.
 
 | Workstream | Agent/status | First acceptance criteria | Further work within the milestone |
 | --- | --- | --- | --- |
-| SQL execution and planning | Native slice and index-backed DataFusion implemented/tested | Identity/equality/range indexes, projection/safe LIMIT pushdown, bounded planning/page caches, authorization/coercion regression tests and paired measurements | Better selectivity statistics, wider range domains, indexed join probes, ordered-range/top-k pushdown, changed-parameter planning |
+| SQL execution and planning | Native slice and indexed DataFusion implemented/tested | Authorized indexes, ordered top-k, bounded join probes, compiled identity/equality/bounded-range reads, fresh plan reuse, bounded caches and paired measurements | Better selectivity statistics, wider range domains, broader join eligibility, parameterized complex plans and batch-native analytical sources |
 | Operational hardening and transport | `operational_hardening` — initial slice implemented/tested | Bounded per-peer admission/failure limits, safe observability, remove accept polling/duplicate serialization where feasible; preserve per-operation auth and test real sockets | Enrollment/OIDC or mTLS mapping, certificate reload/rotation, durable audit history, stronger CPU/memory isolation, cancellation and request CPU isolation |
 | Incremental checkpoints | `checkpoint_scaling` — incremental v2 implemented/tested | Avoid rewriting unchanged checkpoint rows; retain atomic head/checkpoint/prune, integrity and old-file compatibility; crash tests and write-amplification measurements | Background work with bounded publication stalls, recovery-cost bounds under maintenance lag |
 | Durable group commit and separate publication lock | `durable_group_commit` — implemented/tested | Bounded queue; ordered OCC/auth validation against evolving tentative state; one revision per accepted transaction; one Immediate durable redb transaction per group; publish/ack only after persistence; individual conflicts and fail-stop errors | Benchmark optional collection windows and caps,1/8/32 writers,p50/p99,reader stalls,checkpoint/crash boundaries |
@@ -352,3 +352,36 @@ reads cost 32.1 µs versus direct SQLite's 0.425 µs; the selective join cost
 executor round trip and 19.8 µs prepared constant query, showing substantial
 fixed overhead without assigning additive phase costs. New handles still pay
 source conversion; larger caches alone will not solve the remaining pain points.
+
+## Indexed SQL execution follow-up — 2026-10-25
+
+The previous section records the earlier milestone's measurements. Join-driven
+probes, ordered range/top-k pushdown and compiled simple reads are now implemented
+in the SQL adapter. Native APIs and storage are unchanged. Simple identity,
+role-equality and numeric-range descriptors accept unseen exact typed parameter values without
+replanning or Arrow conversion. Selective inner joins can avoid full-family
+conversion, and compatible numeric top-k reads stop at the required visible rows.
+Audited hash joins, sorts, built-in aggregates and `ROW_NUMBER` windows can also
+reuse physical templates for the same binding, with fresh mutable execution state.
+
+Remaining boundaries:
+
+- Join probes currently require a single-key inner join, compatible key types,
+  one partition and a provably bounded input of at most 128 rows. Wider joins,
+  large/unknown inputs and ordered joins with pushed fetch retain ordinary execution.
+- General DataFusion queries still cache one exact binding. Parameterized logical
+  templates for complex expressions, multi-role ranges and joins remain further work.
+- Full analytical scans still convert rows into Arrow; the bounded page cache
+  cannot remove first-use cost or hold arbitrarily large working sets. Larger
+  caches are not a substitute for selective execution or a batch-oriented source.
+- Inline simple reads check deadlines cooperatively between native operations;
+  they cannot interrupt a blocked native call.
+- SQL transaction read dependencies remain conservative; native state and indexes
+  remain memory-resident.
+
+See [the execution benchmark](docs/benchmarks/DATAFUSION-EXECUTION.md) and
+[independent review](docs/reviews/DATAFUSION-EXECUTION.md). The
+[beyond-SQL investigation](docs/PERFORMANCE-BEYOND-SQL.md) prioritizes duplicated
+redo encoding, unnecessary index updates, authorization work under the publication
+lock, native projection/copy costs and transport queueing. Those are investigated
+opportunities, not changes to native semantics in this SQL milestone.

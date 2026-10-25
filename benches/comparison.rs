@@ -369,6 +369,88 @@ fn parameter_workloads(
         json!({"name":name,"sql":sql,"distinct_parameter_sets":parameters.len(),"sha256":digest,"repeat_verified":true,"prepare_ms":{"sqlite":sqlite_prepare_ms,"substrate_admin":admin_prepare_ms,"substrate_reader":reader_prepare_ms,"sqlite_compat_admin":compat_prepare_ms,"sqlite_compat_reader":compat_reader_prepare_ms},"sqlite":ordinary,"substrate_admin":substrate_admin,"substrate_reader":substrate_reader,"sqlite_compat_admin":sqlite_compat_admin,"sqlite_compat_reader":sqlite_compat_reader})
     }).collect()
 }
+
+/// Each timed binding is distinct and has not been executed by this prepared
+/// query. Unlike measure_rebinding, no correctness pass primes these bindings.
+fn measure_unseen(
+    label: &str,
+    warmup: &[S],
+    warmup_expected: &Rows,
+    cases: &[Vec<S>],
+    expected: &[Rows],
+    mut query: impl FnMut(&[S]) -> Rows,
+) -> J {
+    assert_eq!(&query(warmup), warmup_expected, "{label}: warm-up");
+    let mut means = Vec::new();
+    for (parameters, results) in cases.chunks(ITERATIONS).zip(expected.chunks(ITERATIONS)) {
+        let start = Instant::now();
+        let actual = parameters
+            .iter()
+            .map(|params| query(params))
+            .collect::<Vec<_>>();
+        means.push(start.elapsed().as_secs_f64() * 1e6 / parameters.len() as f64);
+        assert_eq!(actual, results, "{label}: first unseen execution");
+        black_box(actual);
+    }
+    for (params, expected) in cases.iter().zip(expected) {
+        assert_eq!(&query(params), expected, "{label}: repeat after timing");
+    }
+    stats(means)
+}
+
+fn unseen_parameter_workloads(
+    n: usize,
+    conn: &Connection,
+    admin: &SqlSnapshot,
+    reader: &SqlSnapshot,
+    compat: &SqliteSnapshot,
+    compat_reader: &SqliteSnapshot,
+) -> Vec<J> {
+    let count = SAMPLES * ITERATIONS;
+    let cases = [
+        (
+            "unseen_id_values",
+            r#"SELECT id,name FROM core."Person" WHERE id=?1"#,
+            vec![S::Text(person(n + count + 1).to_string())],
+            (0..count)
+                .map(|i| vec![S::Text(person(i).to_string())])
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "unseen_numeric_equalities",
+            r#"SELECT id,"durationMinutes" FROM fitness."Workout" WHERE "durationMinutes"=?1 ORDER BY id"#,
+            vec![S::Integer(-1000)],
+            (0..count).map(|i| vec![S::Integer(i as i64)]).collect(),
+        ),
+        (
+            "unseen_numeric_ranges",
+            r#"SELECT id,"durationMinutes" FROM fitness."Workout" WHERE "durationMinutes">=?1 AND "durationMinutes"<?2 ORDER BY "durationMinutes",id LIMIT 10"#,
+            vec![S::Integer(-1000), S::Integer(-999)],
+            (0..count)
+                .map(|i| vec![S::Integer(i as i64), S::Integer(i as i64 + 3)])
+                .collect(),
+        ),
+    ];
+    cases.into_iter().map(|(name, sql, warmup, parameters)| {
+        let (mut sqlite, sqlite_prepare_ms) = timed(|| conn.prepare(&flatten(sql)).unwrap());
+        let (mut liquid, admin_prepare_ms) = timed(|| admin.prepare(sql).unwrap());
+        let (mut authorized, reader_prepare_ms) = timed(|| reader.prepare(sql).unwrap());
+        let (mut old, compat_prepare_ms) = timed(|| compat.prepare(sql).unwrap());
+        let (mut old_reader, compat_reader_prepare_ms) = timed(|| compat_reader.prepare(sql).unwrap());
+        // A separate oracle statement leaves each timed prepared query unbound.
+        // The shared native data/SQLite page caches are intentionally warm.
+        let mut oracle = conn.prepare(&flatten(sql)).unwrap();
+        let expected = parameters.iter().map(|params| sqlite_rows_with(&mut oracle, params)).collect::<Vec<_>>();
+        let warmup_expected = sqlite_rows_with(&mut oracle, &warmup);
+        let digest = format!("{:x}", Sha256::digest(serde_json::to_vec(&expected).unwrap()));
+        let ordinary = measure_unseen(name, &warmup, &warmup_expected, &parameters, &expected, |params| sqlite_rows_with(&mut sqlite, params));
+        let substrate_admin = measure_unseen(name, &warmup, &warmup_expected, &parameters, &expected, |params| canonical(liquid.query(params).unwrap().rows));
+        let substrate_reader = measure_unseen(name, &warmup, &warmup_expected, &parameters, &expected, |params| canonical(authorized.query(params).unwrap().rows));
+        let sqlite_compat_admin = measure_unseen(name, &warmup, &warmup_expected, &parameters, &expected, |params| canonical(old.query(params).unwrap().rows));
+        let sqlite_compat_reader = measure_unseen(name, &warmup, &warmup_expected, &parameters, &expected, |params| canonical(old_reader.query(params).unwrap().rows));
+        json!({"name":name,"sql":sql,"distinct_parameter_sets":parameters.len(),"sha256":digest,"repeat_verified":true,"first_binding_execution_verified":true,"prepare_ms":{"sqlite":sqlite_prepare_ms,"substrate_admin":admin_prepare_ms,"substrate_reader":reader_prepare_ms,"sqlite_compat_admin":compat_prepare_ms,"sqlite_compat_reader":compat_reader_prepare_ms},"sqlite":ordinary,"substrate_admin":substrate_admin,"substrate_reader":substrate_reader,"sqlite_compat_admin":sqlite_compat_admin,"sqlite_compat_reader":sqlite_compat_reader})
+    }).collect()
+}
 fn projection_workload() -> J {
     const ROWS: usize = 256;
     const PAYLOAD_BYTES: usize = 16 * 1024;
@@ -513,6 +595,93 @@ fn fresh_handles(db: &Database, sql: &str, expected: &Rows) -> J {
     J::Object(result)
 }
 
+/// Keep the established SQLite baseline intact, then measure the additional
+/// covering index matching the native numeric index's (value, occurrence ID).
+fn sqlite_covering_index(conn: &Connection, n: usize) -> J {
+    let selected = workloads(n)
+        .into_iter()
+        .filter(|(name, _)| matches!(*name, "02_indexed_equality" | "03_range_top_100"))
+        .map(|(name, sql)| {
+            let expected = sqlite_rows(&mut conn.prepare(&flatten(&sql)).unwrap());
+            (name, sql, expected)
+        })
+        .collect::<Vec<_>>();
+    let range_sql = r#"SELECT id,"durationMinutes" FROM fitness."Workout" WHERE "durationMinutes">=?1 AND "durationMinutes"<?2 ORDER BY "durationMinutes",id LIMIT 10"#;
+    let parameters = (0..SAMPLES * ITERATIONS)
+        .map(|i| vec![S::Integer(i as i64), S::Integer(i as i64 + 3)])
+        .collect::<Vec<_>>();
+    let warmup = [S::Integer(-1000), S::Integer(-999)];
+    let mut oracle = conn.prepare(&flatten(range_sql)).unwrap();
+    let expected = parameters
+        .iter()
+        .map(|params| sqlite_rows_with(&mut oracle, params))
+        .collect::<Vec<_>>();
+    let warmup_expected = sqlite_rows_with(&mut oracle, &warmup);
+    drop(oracle);
+    let ddl = r#"CREATE INDEX workout_duration_id ON Workout("durationMinutes",id); ANALYZE;"#;
+    let (_, index_build_ms) = timed(|| conn.execute_batch(ddl).unwrap());
+    let measurements = selected.into_iter().map(|(name, sql, expected)| {
+        let (mut query, prepare_ms) = timed(|| conn.prepare(&flatten(&sql)).unwrap());
+        assert_eq!(sqlite_rows(&mut query), expected, "covering index first: {name}");
+        let measurement = measure(|| { black_box(sqlite_rows(&mut query)); });
+        assert_eq!(sqlite_rows(&mut query), expected, "covering index repeat: {name}");
+        let digest = format!("{:x}", Sha256::digest(serde_json::to_vec(&expected).unwrap()));
+        let plan = sqlite_rows(&mut conn.prepare(&flatten(&format!("EXPLAIN QUERY PLAN {sql}"))).unwrap());
+        json!({"name":name,"sql":sql,"rows":expected.len(),"sha256":digest,"repeat_verified":true,"prepare_ms":prepare_ms,"sqlite":measurement,"plan":plan})
+    }).collect::<Vec<_>>();
+    let (mut query, prepare_ms) = timed(|| conn.prepare(&flatten(range_sql)).unwrap());
+    let measurement = measure_unseen(
+        "covering unseen ranges",
+        &warmup,
+        &warmup_expected,
+        &parameters,
+        &expected,
+        |params| sqlite_rows_with(&mut query, params),
+    );
+    let plan = sqlite_rows_with(
+        &mut conn
+            .prepare(&flatten(&format!("EXPLAIN QUERY PLAN {range_sql}")))
+            .unwrap(),
+        &parameters[0],
+    );
+    let digest = format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&expected).unwrap())
+    );
+    json!({"ddl":ddl,"index_build_ms":index_build_ms,"measurements":measurements,"unseen_parameters":[{"name":"unseen_numeric_ranges","sql":range_sql,"distinct_parameter_sets":parameters.len(),"sha256":digest,"repeat_verified":true,"first_binding_execution_verified":true,"prepare_ms":prepare_ms,"sqlite":measurement,"plan":plan}]})
+}
+
+/// Separate fresh catalogs expose conversion/probe counters after all timings.
+fn execution_diagnostics(db: &Database, n: usize) -> Vec<J> {
+    workloads(n)
+        .into_iter()
+        .filter(|(name, _)| {
+            matches!(
+                *name,
+                "03_range_top_100" | "04_relationship_lookup" | "05_cross_app_five_way" | "09_full_scan_aggregate"
+            )
+        })
+        .map(|(name, query)| {
+            let admin = db.admin().snapshot().sql().unwrap();
+            let reader = db.session("reader").snapshot().sql().unwrap();
+            let statement = format!("EXPLAIN ANALYZE {query}");
+            let (admin_plan, admin_wall_ms) = timed(|| canonical(admin.query(&statement, &[]).unwrap().rows));
+            let (reader_plan, reader_wall_ms) = timed(|| canonical(reader.query(&statement, &[]).unwrap().rows));
+            let mut result = json!({"name": name,
+                "substrate_admin": admin_plan, "substrate_reader": reader_plan,
+                "fresh_wall_ms": {"substrate_admin":admin_wall_ms,"substrate_reader":reader_wall_ms}});
+            if name == "09_full_scan_aggregate" {
+                let (admin_plan, admin_wall_ms) = timed(|| canonical(admin.query(&statement, &[]).unwrap().rows));
+                let (reader_plan, reader_wall_ms) = timed(|| canonical(reader.query(&statement, &[]).unwrap().rows));
+                result["warm_substrate_admin"] = json!(admin_plan);
+                result["warm_substrate_reader"] = json!(reader_plan);
+                result["warm_wall_ms"] = json!({"substrate_admin":admin_wall_ms,"substrate_reader":reader_wall_ms});
+            }
+            result
+        })
+        .collect()
+}
+
 fn main() {
     let n = std::env::var("SUBSTRATE_BENCH_ROWS")
         .ok()
@@ -623,9 +792,12 @@ fn main() {
         eprintln!("verified and measured {name}");
     }
     let rebinding = parameter_workloads(n, &conn, &sql, &authorized, &compat, &compat_reader);
+    let unseen = unseen_parameter_workloads(n, &conn, &sql, &authorized, &compat, &compat_reader);
     let projection = projection_workload();
+    let diagnostics = execution_diagnostics(&db, n);
+    let covering = sqlite_covering_index(&conn, n);
     let postgres_version = pg
         .as_ref()
         .map(|dsn| psql(dsn, "SELECT version();").trim().to_owned());
-    println!("{}",serde_json::to_string_pretty(&json!({"people":n,"occurrences":n*9,"children_per_app_per_person":2,"samples":SAMPLES,"iterations":ITERATIONS,"warm_cache":true,"prepared":true,"environment":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"sqlite":rusqlite::version(),"substrate":env!("CARGO_PKG_VERSION"),"sql_engine":"DataFusion","datafusion_facade":datafusion::DATAFUSION_VERSION,"datafusion_execution":locked_version("datafusion-physical-plan"),"imbl":locked_version("imbl"),"postgres":postgres_version},"setup_ms":{"substrate":substrate_setup,"substrate_admin_sql_catalog":admin_catalog_ms,"substrate_reader_sql_catalog":reader_catalog_ms,"sqlite_compat_admin_catalog":compat_admin_catalog_ms,"sqlite_compat_reader_catalog":compat_reader_catalog_ms,"sqlite":sqlite_setup,"postgres":postgres_setup},"postgres_measured":pg.is_some(),"postgres_timing":"psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency","measurements":measurements,"parameter_rebinding":rebinding,"projection":projection})).unwrap());
+    println!("{}",serde_json::to_string_pretty(&json!({"people":n,"occurrences":n*9,"children_per_app_per_person":2,"samples":SAMPLES,"iterations":ITERATIONS,"warm_cache":true,"prepared":true,"environment":{"os":std::env::consts::OS,"arch":std::env::consts::ARCH,"sqlite":rusqlite::version(),"substrate":env!("CARGO_PKG_VERSION"),"sql_engine":"DataFusion","datafusion_facade":datafusion::DATAFUSION_VERSION,"datafusion_execution":locked_version("datafusion-physical-plan"),"imbl":locked_version("imbl"),"postgres":postgres_version},"setup_ms":{"substrate":substrate_setup,"substrate_admin_sql_catalog":admin_catalog_ms,"substrate_reader_sql_catalog":reader_catalog_ms,"sqlite_compat_admin_catalog":compat_admin_catalog_ms,"sqlite_compat_reader_catalog":compat_reader_catalog_ms,"sqlite":sqlite_setup,"postgres":postgres_setup},"postgres_measured":pg.is_some(),"postgres_timing":"psql client elapsed incl local IPC/protocol, excluding process startup; not comparable engine-only latency","measurements":measurements,"parameter_rebinding":rebinding,"unseen_parameters":unseen,"execution_diagnostics":diagnostics,"sqlite_covering_index":covering,"projection":projection})).unwrap());
 }

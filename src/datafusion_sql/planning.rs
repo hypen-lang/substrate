@@ -19,6 +19,7 @@ use datafusion::{
     },
     physical_plan::{
         ExecutionPlan,
+        aggregates::AggregateExec,
         coop::CooperativeExec,
         empty::EmptyExec,
         execution_plan::{ChildrenPropertiesMode, ReplaceChildrenOptions},
@@ -31,7 +32,9 @@ use datafusion::{
 use rusqlite::types::Value as SqlValue;
 use std::{any::Any, sync::Arc};
 
-use super::provider::LiquidScanExec;
+use super::{joins::LiquidIndexJoinExec, provider::LiquidScanExec};
+
+mod analytic;
 
 #[derive(Clone, PartialEq, Eq)]
 enum Parameter {
@@ -175,8 +178,8 @@ fn logical_cacheable(plan: &LogicalPlan, depth: usize) -> bool {
                     }
                     // Inspect raw subquery plans before optimization can fold
                     // execution-time functions. Correlation is deterministic
-                    // for this pinned snapshot and exact parameter binding;
-                    // only the optimized logical plan is retained for joins.
+                    // for this pinned snapshot and exact parameter binding.
+                    // Physical reuse has its own audited operator whitelist.
                     Expr::Exists(expr) => logical_cacheable(&expr.subquery.subquery, depth + 1),
                     Expr::InSubquery(expr) => logical_cacheable(&expr.subquery.subquery, depth + 1),
                     Expr::ScalarSubquery(query) => logical_cacheable(&query.subquery, depth + 1),
@@ -207,10 +210,18 @@ fn logical_cacheable(plan: &LogicalPlan, depth: usize) -> bool {
 }
 
 fn reusable(plan: &Arc<dyn ExecutionPlan>) -> bool {
+    if let Some(allowed) = analytic::reusable(plan) {
+        return allowed && plan.children().into_iter().all(reusable);
+    }
     // Exact concrete types: do not accept an unknown wrapper merely because it
     // delegates DataFusion downcasts to one of the supported inner operators.
     let kind = plan.as_ref() as &dyn Any;
+    let plain_aggregate = kind
+        .downcast_ref::<AggregateExec>()
+        .is_some_and(reusable_aggregate);
     if !(kind.is::<LiquidScanExec>()
+        || kind.is::<LiquidIndexJoinExec>()
+        || plain_aggregate
         || kind.is::<CooperativeExec>()
         || kind.is::<ProjectionExec>()
         || kind.is::<FilterExec>()
@@ -231,6 +242,31 @@ fn reusable(plan: &Arc<dyn ExecutionPlan>) -> bool {
         })
     });
     result.is_ok() && safe && plan.children().into_iter().all(reusable)
+}
+
+fn reusable_aggregate(aggregate: &AggregateExec) -> bool {
+    use datafusion::functions_aggregate::{
+        average::Avg,
+        count::Count,
+        min_max::{Max, Min},
+        sum::Sum,
+    };
+    // UDF volatility alone cannot prove absence of mutable implementation state.
+    // These exact upstream builtins hold only signatures/configuration; their
+    // accumulators (including DISTINCT sets) are newly created by each stream.
+    aggregate.dynamic_expressions_produced().is_empty()
+        && aggregate.limit_options().is_none()
+        && !aggregate.group_expr().has_grouping_set()
+        && aggregate.aggr_expr().iter().all(|expression| {
+            let implementation = expression.fun().inner().as_ref() as &dyn Any;
+            expression.fun().signature().volatility == Volatility::Immutable
+                && (implementation.is::<Count>()
+                    || implementation.is::<Sum>()
+                    || implementation.is::<Min>()
+                    || implementation.is::<Max>()
+                    || implementation.is::<Avg>()
+                    || super::checked::reusable_sum(expression.fun()))
+        })
 }
 
 fn reusable_expression(expr: &Arc<dyn PhysicalExpr>) -> bool {
@@ -259,7 +295,23 @@ fn fresh(plan: &Arc<dyn ExecutionPlan>) -> Result<Arc<dyn ExecutionPlan>> {
         .children()
         .into_iter()
         .map(fresh)
-        .collect::<Result<_>>()?;
+        .collect::<Result<Vec<_>>>()?;
+    if let Some(plan) = analytic::fresh(plan, &children)? {
+        return Ok(plan);
+    }
+    if let Some(join) = (plan.as_ref() as &dyn Any).downcast_ref::<LiquidIndexJoinExec>() {
+        return join.fresh_execution(children);
+    }
+    if (plan.as_ref() as &dyn Any).is::<AggregateExec>() {
+        // Upstream Recompute calls try_new_with_schema: fresh metrics and plan
+        // properties, preserving optimized output names/metadata. No accumulator
+        // lives in AggregateExec; the audited builtin descriptors are immutable.
+        // Its copied dynamic filter is guaranteed absent by reusable_aggregate.
+        return Arc::clone(plan).replace_children(
+            children,
+            ReplaceChildrenOptions::new(ChildrenPropertiesMode::Recompute),
+        );
+    }
     Arc::clone(plan).replace_children(
         children,
         ReplaceChildrenOptions::new(ChildrenPropertiesMode::Keep),
@@ -359,6 +411,181 @@ mod tests {
                 .await
                 .unwrap();
             assert!(!cacheable(frame.logical_plan()));
+        });
+    }
+
+    #[test]
+    fn aggregate_templates_rebuild_accumulators_and_recover_from_memory_errors() {
+        use crate::{DataType, Database, Grant, Module, Relation, Role, Value};
+        use datafusion::{
+            common::ScalarValue,
+            execution::{TaskContext, runtime_env::RuntimeEnvBuilder},
+            physical_plan::collect,
+        };
+        let db = Database::memory();
+        let mut tx = db.admin().transaction();
+        tx.install(Module::new(
+            "reuse",
+            1,
+            vec![],
+            vec![Relation::new(
+                "reuse.Rows",
+                vec![
+                    Role::new("bucket", DataType::Int),
+                    Role::new("n", DataType::Int),
+                ],
+            )],
+        ))
+        .unwrap();
+        for n in 0..512 {
+            tx.insert("reuse.Rows", vec![Value::Int(n % 4), Value::Int(n)])
+                .unwrap();
+        }
+        tx.grant("reader", "reuse.Rows", Grant::read_only())
+            .unwrap();
+        tx.commit().unwrap();
+        let snapshot =
+            super::super::DfSnapshot::new(db.session("reader").snapshot(), None).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let queries = [
+                "SELECT COUNT(*),SUM(n),MIN(n),MAX(n),AVG(n),COUNT(DISTINCT n) FROM reuse.Rows",
+                "SELECT bucket,COUNT(*),SUM(n) FROM reuse.Rows GROUP BY bucket ORDER BY bucket",
+                "SELECT COUNT(*) FILTER (WHERE n>100),SUM(n) FILTER (WHERE n<100) FROM reuse.Rows",
+            ];
+            for query in queries {
+                let frame = snapshot.context.sql(query).await.unwrap();
+                assert!(cacheable(frame.logical_plan()));
+                let checked = super::super::checked::rewrite(frame.logical_plan().clone()).unwrap();
+                let frame = datafusion::dataframe::DataFrame::new(
+                    snapshot.context.state(),
+                    checked.clone(),
+                );
+                let template = frame.create_physical_plan().await.unwrap();
+                let mut cache = PlanCache::default();
+                cache.put(&[], checked, template.clone());
+                let cached = cache.get(&[]).unwrap();
+                let first = cached
+                    .physical()
+                    .unwrap()
+                    .expect("audited aggregate must retain physical template");
+                let second = cached.physical().unwrap().unwrap();
+                assert!(!Arc::ptr_eq(&first, &second));
+                assert!(!Arc::ptr_eq(&first, &template));
+                let task = Arc::new(TaskContext::from(&snapshot.context));
+                let (first, second) =
+                    futures::join!(collect(first, task.clone()), collect(second, task.clone()));
+                let expected = first.unwrap();
+                assert_eq!(expected, second.unwrap());
+                assert_eq!(
+                    expected,
+                    collect(cached.physical().unwrap().unwrap(), task.clone())
+                        .await
+                        .unwrap()
+                );
+                if query == queries[0] {
+                    assert_eq!(
+                        ScalarValue::try_from_array(expected[0].column(0), 0).unwrap(),
+                        ScalarValue::Int64(Some(512))
+                    );
+                    assert_eq!(
+                        ScalarValue::try_from_array(expected[0].column(1), 0).unwrap(),
+                        ScalarValue::Int64(Some(130816))
+                    );
+                }
+                let constrained = RuntimeEnvBuilder::new()
+                    .with_memory_limit(1, 1.0)
+                    .build_arc()
+                    .unwrap();
+                let pool = constrained.memory_pool.clone();
+                let constrained_task =
+                    Arc::new(TaskContext::from(&snapshot.context).with_runtime(constrained));
+                let failure = collect(cached.physical().unwrap().unwrap(), constrained_task).await;
+                if query == queries[1] {
+                    assert!(
+                        failure.is_err(),
+                        "group aggregate must enforce memory budget: {query}"
+                    );
+                }
+                assert_eq!(
+                    pool.reserved(),
+                    0,
+                    "failure must release memory reservations"
+                );
+                assert_eq!(
+                    expected,
+                    collect(cached.physical().unwrap().unwrap(), task.clone())
+                        .await
+                        .unwrap()
+                );
+            }
+            let frame = snapshot
+                .context
+                .sql("SELECT COUNT(*),SUM(n) FROM reuse.Rows")
+                .await
+                .unwrap();
+            let checked = super::super::checked::rewrite(frame.logical_plan().clone()).unwrap();
+            let template = datafusion::dataframe::DataFrame::new(snapshot.context.state(), checked)
+                .create_physical_plan()
+                .await
+                .unwrap();
+            assert!(reusable(&template));
+            let mut tx = db.admin().transaction();
+            tx.revoke("reader", "reuse.Rows").unwrap();
+            tx.commit().unwrap();
+            assert!(
+                collect(
+                    fresh(&template).unwrap(),
+                    Arc::new(TaskContext::from(&snapshot.context))
+                )
+                .await
+                .is_err()
+            );
+        });
+    }
+
+    #[test]
+    fn unknown_immutable_aggregate_with_builtin_name_is_not_reusable() {
+        use datafusion::{arrow::datatypes::DataType, logical_expr::create_udaf};
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let context = SessionContext::new();
+            context.register_udaf(create_udaf(
+                "sum",
+                vec![DataType::Int64],
+                Arc::new(DataType::Int64),
+                Volatility::Immutable,
+                Arc::new(|_| {
+                    Err(datafusion::common::DataFusionError::Execution(
+                        "must never execute".into(),
+                    ))
+                }),
+                Arc::new(vec![DataType::Int64]),
+            ));
+            let frame = context
+                .sql("SELECT SUM(column1) FROM (VALUES (1), (2))")
+                .await
+                .unwrap();
+            assert!(cacheable(frame.logical_plan()));
+            let plan = frame.create_physical_plan().await.unwrap();
+            let mut found = false;
+            plan.apply(|node| {
+                if let Some(aggregate) = (node.as_ref() as &dyn Any).downcast_ref::<AggregateExec>()
+                {
+                    assert!(!reusable_aggregate(aggregate));
+                    found = true;
+                }
+                Ok(TreeNodeRecursion::Continue)
+            })
+            .unwrap();
+            assert!(found);
+            assert!(!reusable(&plan));
         });
     }
 }
