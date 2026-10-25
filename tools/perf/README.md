@@ -66,7 +66,10 @@ show the metric table. There is no PR-comment bot or write token.
 
 1. Open a PR containing the workflow and harness to run its first paired check.
    Draft PRs are included. Manual dispatch becomes available after the workflow
-   exists on the default branch; its baseline defaults to `main` and can be changed.
+   exists on the default branch. The initial manual baseline is the published
+   `codex/performance-baseline-76ebf34` engine revision because remote `main`
+   currently has no Rust project. Select the desired engine baseline explicitly
+   once development branches are published; never compare against an empty tree.
    Existing open PRs run on their next update/reopen or manual dispatch after activation.
 2. In the target branch ruleset/protection, require **Performance gate** and
    require the branch to be up to date before merging. The workflow fails a check;

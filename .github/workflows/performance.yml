@@ -8,7 +8,7 @@ on:
       baseline:
         description: Base revision to compare against
         required: true
-        default: main
+        default: codex/performance-baseline-76ebf34
 
 permissions:
   contents: read
