@@ -3,6 +3,73 @@ use crate::{
     capability::{CapabilityScope, RelationCapability},
     storage::Op,
 };
+
+#[test]
+fn cached_scalar_policies_match_reference_across_modes_principals_and_rebinding() {
+    let db = Database::memory();
+    let mut tx = db.admin().transaction();
+    tx.install(Module::new(
+        "leaf",
+        1,
+        vec![],
+        vec![Relation::new(
+            "leaf.Row",
+            vec![Role::new("allowed", DataType::Bool)],
+        )],
+    ))
+    .unwrap();
+    tx.insert("leaf.Row", vec![Value::Bool(true)]).unwrap();
+    tx.insert("leaf.Row", vec![Value::Bool(false)]).unwrap();
+    for principal in ["reader", crate::visibility::ANONYMOUS] {
+        tx.grant(
+            principal,
+            "leaf.Row",
+            Grant {
+                filter: RowFilter::Equals {
+                    role: "allowed".into(),
+                    value: Value::Bool(true),
+                },
+                ..Grant::read_only()
+            },
+        )
+        .unwrap();
+    }
+    tx.commit().unwrap();
+    let mut memo = VisibilityMemo::default();
+    for mode in [
+        Visibility::Public,
+        Visibility::Authenticated,
+        Visibility::Private,
+    ] {
+        let mut tx = db.admin().transaction();
+        tx.set_schema_visibility("leaf.Row", mode).unwrap();
+        tx.commit().unwrap();
+        let snapshot = db.admin().snapshot();
+        let def = snapshot.state.relation("leaf.Row").unwrap();
+        for principal in ["reader", "other", crate::visibility::ANONYMOUS, "reader"] {
+            for _ in 0..2 {
+                for row in snapshot.state.families[&def.id].values() {
+                    let expected = snapshot.state.visible(
+                        Some(principal),
+                        def.id,
+                        row.id,
+                        &mut BTreeSet::new(),
+                        &mut BTreeSet::new(),
+                    );
+                    assert_eq!(
+                        memo.visible_row(&snapshot.state, principal, &def, row),
+                        expected
+                    );
+                    assert_eq!(
+                        memo.visible(&snapshot.state, principal, (def.id, row.id)),
+                        expected
+                    );
+                }
+                assert!(!memo.visible(&snapshot.state, principal, (def.id, Id::new())));
+            }
+        }
+    }
+}
 fn graph(edges: &[(usize, usize)], allowed: &[bool]) -> (Database, Vec<Id>, Id) {
     let mut state = State::default();
     let relation = Relation::new(

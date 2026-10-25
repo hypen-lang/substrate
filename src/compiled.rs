@@ -10,6 +10,7 @@ pub(crate) struct CompiledRelation {
     offsets: BTreeMap<String, usize>,
     unique_slots: Vec<Vec<usize>>,
     checks: Vec<(usize, Check)>,
+    pub reference_slots: Vec<(usize, String)>,
 }
 impl CompiledRelation {
     pub fn new(declaration: Relation) -> Self {
@@ -29,7 +30,17 @@ impl CompiledRelation {
             .iter()
             .map(|check| (offsets[check.role()], check.clone()))
             .collect();
+        let reference_slots = declaration
+            .roles
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, role)| match &role.data_type {
+                DataType::Ref(target) => Some((slot, target.clone())),
+                _ => None,
+            })
+            .collect();
         Self {
+            reference_slots,
             checks,
             fingerprint: declaration.fingerprint(),
             declaration,

@@ -103,3 +103,46 @@ verifies identical workload descriptions. Binary assertions check retained
 snapshots, current values, reopened durable values, indexes and projected output.
 
 Final results and limitations: [paired native benchmark](benchmarks/NATIVE-OVERHEADS.md).
+
+## Restricted reads and contention follow-up
+
+The follow-up to `2dac848` removes repeated family-tree lookups from full scans
+and borrows indexed rows once. Snapshot scans acquire their visibility memo once
+per operation; transactional scans still traverse every reference and record all
+conflict dependencies, including denied targets. Compiled relations record their
+reference slots. Snapshot-local family policies preserve the union of ambient
+visibility and explicit grants; capability overlays still disable ambient access.
+Only an unfiltered family without reference roles can skip per-row decisions.
+Other families retain the complete reference-closure check.
+
+Restricted output vectors grow only with authorized rows, unless the engine has
+proved that every candidate is visible. Reserving space from a hidden physical
+row count would expose that count through Rust's observable vector capacity.
+Full owned reads still copy requested payloads; projection avoids those copies
+only when the caller excludes those fields.
+
+Capability installation now compiles the persistent scoped grant map once. A
+capability session retains at most one effective snapshot, shared by its clones,
+and reuses it only for the same published state, generation, capability, and
+credential. Cache lookups and insertion never wait: contention falls back to
+normal authorization outside the cache lock. Old cached snapshots are dropped
+after unlocking. A new data revision always receives fresh data and authority
+resolution; this is not an authorization cache across revisions.
+
+Live fences use a publication generation captured with the state under the head
+mutex. An unchanged generation permits a read fence to avoid that mutex while
+still checking database attachment, poison, denial, and expiry. Every commit and
+replication publication advances the generation under the same mutex. Failure
+and counter exhaustion permanently disable this shortcut. Changed generations
+use the original locked dependency validation. Historical transaction bases
+explicitly disable the generation shortcut. SQL retains entry, page, and final
+release fences; constructing buffered output needs deadline checks per row but
+does not need another head lock per output row.
+
+The [follow-up measurements](benchmarks/READ-REGRESSIONS.md) compare against
+`2dac848` and SQLite. In addition to the original finite-reader workload, the
+native harness keeps four readers running throughout all writes and records
+their progress and latency. This distinguishes faster writer commits from
+readers merely finishing sooner. The SQLite owned-scan control materializes the
+same identities, integers, and 64 KiB BLOBs into the same Rust `Row` output type;
+it does not implement Substrate authorization.

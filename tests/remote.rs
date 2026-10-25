@@ -299,7 +299,9 @@ fn persistent_tls_observes_expiry_without_reconnecting() {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs()
-        + 1;
+        // Expiry is second-granular. +1 can leave only a few milliseconds
+        // for TLS setup at a second boundary, before the first success assertion.
+        + 2;
     let short = h.db.issue_credential("owner", h.root, end).unwrap();
     let mut session = h.client(&short.token).connect().unwrap();
     assert!(matches!(session.request(query()).unwrap(), Response::Ok(_)));

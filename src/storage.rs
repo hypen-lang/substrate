@@ -13,6 +13,20 @@ use std::{
 pub(crate) type Bucket = (Id, usize, Value);
 pub(crate) type UniqueKey = (Id, usize, Vec<Value>);
 pub(crate) type RowKey = (Id, Id);
+enum ReadPolicy {
+    All,
+    Filter(CompiledGrant),
+    Denied,
+}
+impl ReadPolicy {
+    fn allows(&self, row: &Row) -> bool {
+        match self {
+            Self::All => true,
+            Self::Filter(grant) => grant.allows(row),
+            Self::Denied => false,
+        }
+    }
+}
 /// Completed reference-closure results for one immutable state and principal.
 /// Snapshot clones share it; policy/state rebinding resets it before use.
 #[derive(Default)]
@@ -20,21 +34,72 @@ pub(crate) struct VisibilityMemo {
     state: Weak<State>,
     principal: Option<String>,
     completed: BTreeMap<RowKey, bool>,
+    policies: BTreeMap<Id, ReadPolicy>,
     #[cfg(test)]
     pub expanded: usize,
 }
 impl VisibilityMemo {
-    pub fn visible(&mut self, state: &Arc<State>, principal: &str, root: RowKey) -> bool {
-        if !Weak::ptr_eq(&self.state, &Arc::downgrade(state))
-            || self.principal.as_deref() != Some(principal)
+    fn bind(&mut self, state: &Arc<State>, principal: &str) {
+        if self.state.as_ptr() != Arc::as_ptr(state) || self.principal.as_deref() != Some(principal)
         {
             self.state = Arc::downgrade(state);
             self.principal = Some(principal.into());
             self.completed.clear();
+            self.policies.clear();
             #[cfg(test)]
             {
                 self.expanded = 0;
             }
+        }
+    }
+    fn policy(&mut self, state: &State, principal: &str, tid: Id) -> &ReadPolicy {
+        self.policies.entry(tid).or_insert_with(|| {
+            let grant = (principal != crate::visibility::ANONYMOUS)
+                .then(|| state.grant(principal, tid))
+                .flatten()
+                .filter(|grant| grant.read);
+            if grant.is_some_and(|grant| matches!(grant.filter, RowFilter::All))
+                || state.ambient_read(principal, tid)
+            {
+                ReadPolicy::All
+            } else if let Some(grant) = grant {
+                ReadPolicy::Filter(grant.clone())
+            } else {
+                ReadPolicy::Denied
+            }
+        })
+    }
+    /// Borrowed scan rows need no second lookup. Scalar families have no
+    /// reference closure, so their compiled family policy is the whole decision.
+    pub fn all_rows_visible(
+        &mut self,
+        state: &Arc<State>,
+        principal: &str,
+        relation: &CompiledRelation,
+    ) -> bool {
+        self.bind(state, principal);
+        relation.reference_slots.is_empty()
+            && matches!(self.policy(state, principal, relation.id), ReadPolicy::All)
+    }
+    pub fn visible_row(
+        &mut self,
+        state: &Arc<State>,
+        principal: &str,
+        relation: &CompiledRelation,
+        row: &Row,
+    ) -> bool {
+        if relation.reference_slots.is_empty() {
+            self.bind(state, principal);
+            return self.policy(state, principal, relation.id).allows(row);
+        }
+        self.visible(state, principal, (relation.id, row.id))
+    }
+    pub fn visible(&mut self, state: &Arc<State>, principal: &str, root: RowKey) -> bool {
+        self.bind(state, principal);
+        if state.relations[&root.0].reference_slots.is_empty() {
+            return state
+                .row(root.0, root.1)
+                .is_some_and(|row| self.policy(state, principal, root.0).allows(row));
         }
         if let Some(result) = self.completed.get(&root) {
             return *result;
@@ -65,12 +130,12 @@ impl VisibilityMemo {
                 denied.insert(key);
                 continue;
             };
-            if !state.row_read_allowed(principal, tid, row) {
+            if !self.policy(state, principal, tid).allows(row) {
                 denied.insert(key);
                 continue;
             }
-            for (role, value) in state.relations[&tid].roles.iter().zip(row.values.iter()) {
-                if let (DataType::Ref(target), Value::Ref(target_id)) = (&role.data_type, value) {
+            for (slot, target) in &state.relations[&tid].reference_slots {
+                if let Value::Ref(target_id) = &row.values[*slot] {
                     let child = (state.names[target], *target_id);
                     parents.entry(child).or_default().push(key);
                     pending.push(child);

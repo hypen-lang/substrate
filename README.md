@@ -279,7 +279,7 @@ or failover, and follower permissions remain eventual until revocations arrive.
 ## Performance and next priorities
 
 Performance depends on query shape, authorization, result size and durability.
-The [latest tiny-join comparison](docs/benchmarks/TINY-JOINS.md) measures the
+The [tiny-join milestone comparison](docs/benchmarks/TINY-JOINS.md) measures the
 preceding DataFusion adapter, SQLite compatibility and direct indexed SQLite at
 2,000 and 20,000 people. These are local embedded reads, excluding transport and
 writes, with three alternating process pairs and exact result checks.
@@ -295,8 +295,13 @@ medians in microseconds:
 | Grouped join / top 25 | 14,155.658 | 15,095.567 | 42,021.725 |
 | Nested window / top 1 | 9,079.604 | 9,702.987 | 26,475.746 |
 
-The tiny joins improved roughly 36×. Restricted-reader joins also improved,
-while some restricted non-join reads slowed with the new visibility checks.
+The tiny joins improved roughly 36×. That milestone also introduced restricted
+non-join read overhead, addressed in the [read and contention follow-up](docs/benchmarks/READ-REGRESSIONS.md).
+Against `2dac848`, restricted point reads improved from 0.783 to 0.404 µs,
+indexed equality from 91.112 to 57.521 µs, and range/top-100 from 25.646 to
+18.054 µs at 20,000 people. Direct SQLite measured 0.362, 81.217 and 59.579 µs
+respectively. These are warm embedded executions; a fresh restricted point-query
+handle still costs about 130 µs including catalog construction and preparation.
 SQLite does not perform Substrate's authorization or reference-closure checks.
 Fresh handles, unseen bindings, all query shapes and regressions are included in
 the report; the [preceding execution report](docs/benchmarks/DATAFUSION-EXECUTION.md)
@@ -305,10 +310,13 @@ retains the earlier adapters' evidence.
 [Native measurements](docs/benchmarks/NATIVE-OVERHEADS.md) show a 32-field partial
 update improving from 34.167 to 9.000 µs and projection of 256 payload-heavy rows
 from 570.917 to 16.875 µs. Projection allocation traffic fell from 16.87 MB to
-29 KB. Full owned scans were slower in this run, and durable sequential updates
-remained near 4 ms. Under four-reader contention, average and p99 commit latency
-improved but median latency worsened. These are workload results, not universal
-speedups.
+29 KB. The follow-up removes repeated scan lookups and policy work; projection
+improves further from 18.916 to 6.334 µs in its matched runs. Full owned scans
+remain copy-bound and effectively flat (649 → 642 µs with substantial run
+variation), while durable sequential updates remain near 4 ms. The original
+four-reader workload's writer median improves from 23.250 to 4.375 µs. A new
+sustained-reader control shows roughly unchanged writer latency and improved
+reader p99 (58.667 → 33.208 µs). These are workload results, not universal speedups.
 
 Separate native and durability measurements remain useful context:
 

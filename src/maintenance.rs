@@ -246,7 +246,7 @@ fn attempt(
     if wrote && let Err(error) = durable.checkpoint(&state) {
         head.lock()
             .map_err(|_| Error::Storage("database lock poisoned".into()))?
-            .failed = true;
+            .fail();
         return Err(error);
     }
     Ok(Attempt::Completed {

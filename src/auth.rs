@@ -260,7 +260,7 @@ impl Database {
             return Err(Error::Denied);
         }
         let mut session = self.session(&c.principal);
-        session.capability = Some(c.capability);
+        session.select_capability(c.capability);
         session.credential = Some(id);
         session.snapshot().check_live()?;
         Ok(session)

@@ -240,7 +240,7 @@ impl Coordinator {
                 && let Err(error) = writer.append_group(&records, &next)
             {
                 if let Ok(mut head) = head.lock() {
-                    head.failed = true;
+                    head.fail();
                 }
                 for result in &mut results {
                     if result.is_ok() {
@@ -253,7 +253,7 @@ impl Coordinator {
             }
             crate::durable::failpoint("group_before_publication");
             match head.lock() {
-                Ok(mut head) => head.state = Arc::new(next),
+                Ok(mut head) => head.publish(next),
                 Err(_) => return fail_all("published head lock poisoned; reopen database".into()),
             }
             crate::durable::failpoint("group_after_publication");

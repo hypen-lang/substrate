@@ -197,7 +197,12 @@ impl DirectRead {
             };
             budget.charge(rows.len(), 0).map_err(super::query_error)?;
             for row in rows {
-                check()?;
+                // Native pages and the final result release are live-authority
+                // fences. Output construction publishes nothing, so only the
+                // deadline needs checking for each row, not the head mutex.
+                if start.elapsed() >= Duration::from_millis(limits.timeout_ms) {
+                    return Err(Error::Query("SQL deadline exceeded".into()));
+                }
                 // Charge selected native payload before allocating output values.
                 let source_bytes =
                     self.source_projection

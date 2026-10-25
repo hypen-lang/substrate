@@ -6,7 +6,7 @@ use std::{
     hint::black_box,
     sync::{
         Arc, Barrier,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Instant,
 };
@@ -199,14 +199,62 @@ fn projection() -> Result<Json> {
         },
         24,
     )?;
+    // Match full owned output, including occurrence IDs and BLOB copies. SQLite
+    // has no Substrate authorization work in this control. Populate it after the
+    // native timings so the extra database does not perturb that working set.
+    let expected_rows = snapshot.scan("projection.Row")?;
+    let mut sqlite = rusqlite::Connection::open_in_memory()?;
+    sqlite.execute_batch(
+        "CREATE TABLE rows (id BLOB PRIMARY KEY, n INTEGER NOT NULL, blob BLOB NOT NULL) WITHOUT ROWID",
+    )?;
+    {
+        let tx = sqlite.transaction()?;
+        {
+            let mut insert = tx.prepare("INSERT INTO rows VALUES (?1, ?2, ?3)")?;
+            for row in &expected_rows {
+                let (Value::Int(n), Value::Bytes(blob)) = (&row.values[0], &row.values[1]) else {
+                    unreachable!("fixed benchmark schema")
+                };
+                insert.execute(rusqlite::params![row.id.0.as_bytes().as_slice(), n, blob])?;
+            }
+        }
+        tx.commit()?;
+    }
+    let mut statement = sqlite.prepare("SELECT id, n, blob FROM rows ORDER BY id")?;
+    assert_eq!(expected_rows, sqlite_owned_rows(&mut statement)?);
+    let sqlite_scan = measure(
+        || {
+            black_box(sqlite_owned_rows(&mut statement)?);
+            Ok(())
+        },
+        24,
+    )?;
     Ok(
-        json!({"rows":256,"payload_bytes":65536,"legacy_table_project":legacy,"projected_table":projected,"owned_scan":scan,"verified":true}),
+        json!({"rows":256,"payload_bytes":65536,"legacy_table_project":legacy,"projected_table":projected,"owned_scan":scan,"sqlite_owned_scan":sqlite_scan,"verified":true}),
     )
 }
+fn sqlite_owned_rows(statement: &mut rusqlite::Statement<'_>) -> Result<Vec<Row>> {
+    let mut cursor = statement.query([])?;
+    let mut result = Vec::with_capacity(256);
+    while let Some(row) = cursor.next()? {
+        let id = uuid::Uuid::from_slice(
+            row.get_ref(0)?
+                .as_blob()
+                .map_err(|error| Error::Query(error.to_string()))?,
+        )
+        .map_err(|error| Error::Query(error.to_string()))?;
+        result.push(Row {
+            id: Id(id),
+            values: vec![Value::Int(row.get(1)?), Value::Bytes(row.get(2)?)].into_boxed_slice(),
+        });
+    }
+    Ok(result)
+}
+
 fn projected(snapshot: &Snapshot) -> Result<Table> {
     snapshot.projected_table("projection.Row", "r", &["r.id", "r.n"])
 }
-fn contention() -> Result<Json> {
+fn contention_fixture() -> Result<(Database, Session, Id)> {
     let db = Database::memory();
     let mut tx = db.admin().transaction();
     let relations = (0..32)
@@ -234,6 +282,10 @@ fn contention() -> Result<Json> {
     tx.commit()?;
     let cap = db.issue_capability(Id::new(), "app", scope)?;
     let session = db.session("app").with_capability(cap.id)?;
+    Ok((db, session, id))
+}
+fn contention() -> Result<Json> {
+    let (db, session, id) = contention_fixture()?;
     let snapshots = measure(
         || {
             black_box(session.snapshot());
@@ -270,6 +322,127 @@ fn contention() -> Result<Json> {
         "writer_p50_us":writer_samples[127],"writer_p99_us":writer_samples[253],"snapshot":snapshots}),
     )
 }
+
+/// Unlike the finite case, reader threads cannot finish their work before the
+/// writer samples its median. Record overlap as well as elapsed time so reduced
+/// contention cannot be mistaken for a faster workload.
+fn sustained_contention() -> Result<Json> {
+    let (db, session, id) = contention_fixture()?;
+    let start = Barrier::new(5);
+    let done = AtomicBool::new(false);
+    let active = AtomicUsize::new(0);
+    let progress: [AtomicUsize; 4] = std::array::from_fn(|_| AtomicUsize::new(0));
+    struct StopReaders<'a>(&'a AtomicBool);
+    impl Drop for StopReaders<'_> {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Release);
+        }
+    }
+    struct ActiveReader<'a>(&'a AtomicUsize);
+    impl Drop for ActiveReader<'_> {
+        fn drop(&mut self) {
+            self.0.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+    let (writer_samples, observations, reader_samples) = std::thread::scope(|threads| {
+        let mut readers = Vec::with_capacity(4);
+        for counter in &progress {
+            let session = &session;
+            let start = &start;
+            let done = &done;
+            let active = &active;
+            readers.push(threads.spawn(move || -> Result<Vec<f64>> {
+                let mut samples = Vec::with_capacity(4096);
+                let read = || -> Result<()> {
+                    let rows = session.snapshot().scan("scopes.R0")?;
+                    if rows.len() != 1 || !matches!(rows[0].values[0], Value::Int(0..=255)) {
+                        return Err(Error::Query("invalid concurrent read result".into()));
+                    }
+                    black_box(rows);
+                    Ok(())
+                };
+                // Arrive at the barrier even if this read fails, so the writer
+                // can stop and join every worker without a barrier deadlock.
+                let first = read();
+                counter.fetch_add(1, Ordering::Release);
+                active.fetch_add(1, Ordering::AcqRel);
+                let _active = ActiveReader(active);
+                start.wait();
+                first?;
+                while !done.load(Ordering::Acquire) {
+                    let now = Instant::now();
+                    read()?;
+                    samples.push(now.elapsed().as_secs_f64() * 1e6);
+                    counter.fetch_add(1, Ordering::Release);
+                }
+                Ok(samples)
+            }));
+        }
+        // This guard is dropped before scoped-thread joining on every exit,
+        // including a write error or panic, so readers never wait indefinitely.
+        let stop = StopReaders(&done);
+        let mut writer_samples = Vec::with_capacity(256);
+        let mut observations = Vec::with_capacity(256);
+        start.wait();
+        for n in 0..256 {
+            let active_before = active.load(Ordering::Acquire);
+            let before: Vec<_> = progress.iter().map(|p| p.load(Ordering::Acquire)).collect();
+            if active_before != 4 {
+                return Err(Error::Query(
+                    "sustained reader exited before writer completion".into(),
+                ));
+            }
+            let now = Instant::now();
+            let mut tx = db.admin().transaction();
+            tx.update("scopes.R0", id, vec![n.into()])?;
+            tx.commit()?;
+            writer_samples.push(now.elapsed().as_secs_f64() * 1e6);
+            let after: Vec<_> = progress.iter().map(|p| p.load(Ordering::Acquire)).collect();
+            observations.push(json!({
+                "active_readers_before": active_before,
+                "active_readers_after": active.load(Ordering::Acquire),
+                "reader_completed_before": before,
+                "reader_completed_after": after,
+            }));
+        }
+        drop(stop);
+        let reader_samples = readers
+            .into_iter()
+            .map(|reader| {
+                reader
+                    .join()
+                    .map_err(|_| Error::Query("sustained reader panicked".into()))?
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok((writer_samples, observations, reader_samples))
+    })?;
+    let mut sorted_writer = writer_samples.clone();
+    sorted_writer.sort_by(f64::total_cmp);
+    let mut sorted_reader: Vec<_> = reader_samples.iter().flatten().copied().collect();
+    sorted_reader.sort_by(f64::total_cmp);
+    if sorted_reader.is_empty() {
+        return Err(Error::Query(
+            "sustained readers made no progress during writes".into(),
+        ));
+    }
+    assert_eq!(
+        db.admin().snapshot().get("scopes.R0", id)?.unwrap().values[0],
+        255.into()
+    );
+    Ok(json!({
+        "scope_relations": 32,
+        "readers": 4,
+        "writer_samples_us": writer_samples,
+        "writer_p50_us": sorted_writer[127],
+        "writer_p99_us": sorted_writer[253],
+        "writer_observations": observations,
+        "reader_samples_us": reader_samples,
+        "reader_completed": progress.iter().map(|p| p.load(Ordering::Acquire)).collect::<Vec<_>>(),
+        "reader_p50_us": sorted_reader[(sorted_reader.len() - 1) / 2],
+        "reader_p99_us": sorted_reader[((sorted_reader.len() - 1) * 99) / 100],
+        "verified": true,
+    }))
+}
 fn main() -> Result<()> {
     let mut results = vec![];
     for width in [2, 8, 32] {
@@ -283,7 +456,7 @@ fn main() -> Result<()> {
     println!(
         "{}",
         serde_json::to_string_pretty(
-            &json!({"writes":results,"projection":projection()?,"contention":contention()?})
+            &json!({"writes":results,"projection":projection()?,"contention":contention()?,"sustained_contention":sustained_contention()?})
         )
         .unwrap()
     );

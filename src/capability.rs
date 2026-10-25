@@ -50,6 +50,9 @@ pub struct DelegatedCapability {
 pub(crate) struct CompiledCapability {
     pub record: DelegatedCapability,
     pub grants: BTreeMap<Id, CompiledGrant>,
+    /// Ready-to-use scoped policy root. Snapshots clone this persistent map
+    /// instead of allocating every grant again on every read.
+    pub scoped_grants: im::OrdMap<(String, Id), CompiledGrant>,
     pub revoked: bool,
 }
 pub(crate) fn module() -> &'static Module {
@@ -154,9 +157,14 @@ pub(crate) fn compile(state: &State, row: &Row) -> Result<CompiledCapability> {
         }
         grants.insert(r.relation, CompiledGrant::new(r.grant.clone(), def));
     }
+    let scoped_grants = grants
+        .iter()
+        .map(|(id, grant)| ((record.subject.clone(), *id), grant.clone()))
+        .collect();
     Ok(CompiledCapability {
         record,
         grants,
+        scoped_grants,
         revoked: *revoked,
     })
 }
@@ -362,7 +370,7 @@ impl Session {
         let subject = self.principal.as_deref().ok_or(Error::Denied)?;
         self.db.check_capability(subject, id)?;
         let mut selected = self.clone();
-        selected.capability = Some(id);
+        selected.select_capability(id);
         Ok(selected)
     }
     pub fn delegate_capability(

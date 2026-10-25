@@ -8,18 +8,37 @@ use crate::{
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 struct Head {
     state: Arc<State>,
     failed: bool,
+    publication: Arc<AtomicU64>,
+}
+impl Head {
+    /// Called with the publication mutex held. The release store is the live
+    /// authority publication point; snapshots capture state and generation under
+    /// that same mutex. MAX permanently disables the unlocked fence on overflow.
+    fn publish(&mut self, state: State) {
+        self.state = Arc::new(state);
+        let next = self.publication.load(Ordering::Relaxed).saturating_add(1);
+        self.publication.store(next, Ordering::Release);
+    }
+    fn fail(&mut self) {
+        self.failed = true;
+        self.publication.store(u64::MAX, Ordering::Release);
+    }
 }
 /// Privileged embedding handle. Only trusted host code should hold this value.
 /// Authenticate externally, then hand an application its restricted Session.
 #[derive(Clone)]
 pub struct Database {
     head: Arc<Mutex<Head>>,
+    publication: Arc<AtomicU64>,
     coordinator: Arc<commit::Coordinator>,
     pub(crate) clock: Arc<crate::auth::Clock>,
 }
@@ -74,13 +93,16 @@ impl Database {
         durable: Option<Durable>,
         options: GroupCommitOptions,
     ) -> Self {
+        let publication = Arc::new(AtomicU64::new(0));
         Self {
             coordinator: Arc::new(commit::Coordinator::new(durable, options)),
             clock: Arc::new(crate::auth::Clock::default()),
             head: Arc::new(Mutex::new(Head {
                 state: Arc::new(state),
                 failed: false,
+                publication: publication.clone(),
             })),
+            publication,
         }
     }
     /// Atomically persist current state and prune its covered log, without
@@ -112,7 +134,7 @@ impl Database {
             self.head
                 .lock()
                 .map_err(|_| Error::Storage("database lock poisoned".into()))?
-                .failed = true;
+                .fail();
         }
         result
     }
@@ -153,6 +175,7 @@ impl Database {
             principal: None,
             capability: None,
             credential: None,
+            scoped_snapshot: None,
         }
     }
     /// An unauthenticated, non-admin session. It can only read public families.
@@ -165,6 +188,7 @@ impl Database {
             principal: Some(principal.into()),
             capability: None,
             credential: None,
+            scoped_snapshot: None,
         }
     }
 }
@@ -173,6 +197,11 @@ impl Database {
 #[derive(Clone)]
 pub(crate) struct LiveGuard {
     head: Weak<Mutex<Head>>,
+    publication: Arc<AtomicU64>,
+    authorized_generation: u64,
+    /// The immutable published state used to resolve this authority. Keeping a
+    /// weak reference prevents address reuse without retaining old row data.
+    authorized_state: Weak<State>,
     dependencies: Vec<(Key, u64)>,
     denied: bool,
     privileged: bool,
@@ -183,6 +212,9 @@ impl LiveGuard {
     /// A spilled read lease must remain attached even for host/admin snapshots.
     pub(crate) fn check_attached(&self) -> Result<()> {
         let authority = self.head.upgrade().ok_or(Error::Denied)?;
+        if self.unchanged_publication(&authority)? {
+            return Ok(());
+        }
         let head = authority.lock().map_err(|_| Error::Denied)?;
         if head.failed {
             return Err(Error::Denied);
@@ -196,10 +228,11 @@ impl LiveGuard {
         if self.expires_at.is_some_and(|end| self.clock.now() >= end)
             || failed
             || self.denied
-            || self
-                .dependencies
-                .iter()
-                .any(|(key, v)| state.version(key) != *v)
+            || (self.authorized_state.as_ptr() != std::ptr::from_ref(state)
+                && self
+                    .dependencies
+                    .iter()
+                    .any(|(key, v)| state.version(key) != *v))
         {
             Err(Error::Denied)
         } else {
@@ -211,8 +244,24 @@ impl LiveGuard {
             return Ok(());
         }
         let authority = self.head.upgrade().ok_or(Error::Denied)?;
+        if self.unchanged_publication(&authority)? {
+            return Ok(());
+        }
         let head = authority.lock().map_err(|_| Error::Denied)?;
         self.check_state(&head.state, head.failed)
+    }
+    fn unchanged_publication(&self, authority: &Mutex<Head>) -> Result<bool> {
+        if authority.is_poisoned()
+            || (!self.privileged
+                && (self.denied || self.expires_at.is_some_and(|end| self.clock.now() >= end)))
+        {
+            return Err(Error::Denied);
+        }
+        // Only authority captured with this exact published generation may
+        // avoid the mutex. Changed generations use the original dependency
+        // validation, including retained snapshots after unrelated writes.
+        Ok(self.authorized_generation != u64::MAX
+            && self.publication.load(Ordering::Acquire) == self.authorized_generation)
     }
 }
 impl Database {
@@ -230,17 +279,87 @@ pub struct Session {
     pub(crate) principal: Option<String>,
     pub(crate) capability: Option<Id>,
     pub(crate) credential: Option<Id>,
+    scoped_snapshot: Option<Arc<Mutex<Option<ScopedSnapshot>>>>,
+}
+/// A single-entry cache shared by clones of one session. The weak source key
+/// keeps the allocation identity valid without retaining another data snapshot.
+/// A different published state always resolves authority again.
+struct ScopedSnapshot {
+    source: Weak<State>,
+    capability: Id,
+    credential: Option<Id>,
+    state: Arc<State>,
+    guard: LiveGuard,
 }
 impl Session {
+    pub(crate) fn select_capability(&mut self, id: Id) {
+        if self.capability != Some(id) || self.scoped_snapshot.is_none() {
+            self.scoped_snapshot = Some(Arc::new(Mutex::new(None)));
+        }
+        self.capability = Some(id);
+    }
     pub fn snapshot(&self) -> Snapshot {
-        let (state, failed) = {
+        let (state, failed, generation) = {
             let head = self.db.head.lock().expect("database lock poisoned");
-            (head.state.clone(), head.failed)
+            (
+                head.state.clone(),
+                head.failed,
+                head.publication.load(Ordering::Relaxed),
+            )
         };
         // Resolve capability ancestry and construct scoped policy state against
         // the captured immutable revision, outside the publication lock. The
         // resulting guard still checks live dependencies before every operation.
-        let (state, guard) = self.authorize_state(state, failed);
+        let (state, guard) = if let Some((capability, cache)) = self
+            .capability
+            .zip(self.scoped_snapshot.as_ref())
+            .filter(|_| !failed)
+        {
+            // Cache access never queues readers behind overlay construction or
+            // another reader. A miss/contended lock resolves the captured state
+            // normally; live guards still enforce expiry and revocation.
+            let cached = cache.try_lock().ok().and_then(|cache| {
+                cache
+                    .as_ref()
+                    .filter(|cached| {
+                        cached.source.as_ptr() == Arc::as_ptr(&state)
+                            && cached.capability == capability
+                            && cached.credential == self.credential
+                            && cached.guard.authorized_generation == generation
+                    })
+                    .map(|cached| (cached.state.clone(), cached.guard.clone()))
+            });
+            if let Some(cached) = cached {
+                cached
+            } else {
+                let source = Arc::downgrade(&state);
+                let (state, guard) = self.authorize_state(state, failed, generation);
+                if !guard.denied
+                    && let Ok(mut cache) = cache.try_lock()
+                    && cache.as_ref().is_none_or(|cached| {
+                        cached.state.revision <= state.revision
+                            && (cached.source.as_ptr() != source.as_ptr()
+                                || cached.capability != capability
+                                || cached.credential != self.credential)
+                    })
+                {
+                    let retired = cache.replace(ScopedSnapshot {
+                        source,
+                        capability,
+                        credential: self.credential,
+                        state: state.clone(),
+                        guard: guard.clone(),
+                    });
+                    // Releasing an old persistent snapshot can reclaim many
+                    // nodes. Do not hold even this short cache lock while doing it.
+                    drop(cache);
+                    drop(retired);
+                }
+                (state, guard)
+            }
+        } else {
+            self.authorize_state(state, failed, generation)
+        };
         Snapshot {
             state,
             principal: self.principal.clone(),
@@ -248,9 +367,17 @@ impl Session {
             visibility: Arc::new(Mutex::new(VisibilityMemo::default())),
         }
     }
-    fn authorize_state(&self, state: Arc<State>, failed: bool) -> (Arc<State>, LiveGuard) {
+    fn authorize_state(
+        &self,
+        state: Arc<State>,
+        failed: bool,
+        generation: u64,
+    ) -> (Arc<State>, LiveGuard) {
         let mut guard = LiveGuard {
             head: Arc::downgrade(&self.db.head),
+            publication: self.db.publication.clone(),
+            authorized_generation: generation,
+            authorized_state: Arc::downgrade(&state),
             dependencies: vec![],
             denied: failed,
             privileged: self.principal.is_none(),
@@ -284,14 +411,9 @@ impl Session {
                         (key, v)
                     }));
                     let mut effective = (*state).clone();
-                    effective.grants.clear();
+                    effective.grants = cap.scoped_grants.clone();
                     effective.schema_grants.clear();
                     effective.visibility_disabled = true;
-                    for (id, grant) in &cap.grants {
-                        effective
-                            .grants
-                            .insert((principal.clone(), *id), grant.clone());
-                    }
                     (Arc::new(effective), guard)
                 }
                 Err(_) => {
@@ -335,7 +457,7 @@ pub struct Snapshot {
     pub(crate) state: Arc<State>,
     pub(crate) principal: Option<String>,
     pub(crate) live: LiveGuard,
-    visibility: Arc<Mutex<VisibilityMemo>>,
+    pub(crate) visibility: Arc<Mutex<VisibilityMemo>>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stats {
@@ -446,29 +568,60 @@ impl Snapshot {
             }
             (None, Some(&self.state.families[&def.id]))
         };
-        // Borrow candidates directly: no intermediate vector of all identities.
+        // Full scans already hold the rows in key order. Keep those references
+        // instead of walking the family tree again for each occurrence identity.
+        // Vec capacity is observable by callers. Restricted output must grow
+        // only with visible rows, never expose the physical candidate count.
+        let candidate_count =
+            bucket.map_or(0, |ids| ids.len()) + family.map_or(0, |rows| rows.len());
         let candidates = bucket
             .into_iter()
-            .flat_map(|ids| ids.iter().copied())
-            .chain(family.into_iter().flat_map(|rows| rows.keys().copied()));
-        let rows = candidates
-            .filter(|id| {
-                if let Some(reads) = &mut reads {
-                    // Transactional reads deliberately retain full dependency
-                    // traversal. A snapshot memo hit must never omit OCC keys.
-                    self.state.visible(
-                        self.principal.as_deref(),
-                        def.id,
-                        *id,
-                        &mut BTreeSet::new(),
-                        reads,
-                    )
-                } else {
-                    self.visible_for_cursor(def.id, *id)
-                }
-            })
-            .map(|id| map(self.state.row(def.id, id).expect("visible row")))
-            .collect();
+            .flat_map(|ids| ids.iter())
+            .filter_map(|id| self.state.row(def.id, *id))
+            .chain(family.into_iter().flat_map(|rows| rows.values()));
+        // A scan is one immutable-state operation. Reuse one memo guard instead
+        // of locking it once per row. Transaction reads must still visit every
+        // dependency, even if a previous snapshot read populated this memo.
+        let mut memo = if reads.is_none() && self.principal.is_some() {
+            Some(self.visibility.lock().map_err(|_| Error::Denied)?)
+        } else {
+            None
+        };
+        let all_visible = reads.is_none()
+            && self.principal.as_deref().is_none_or(|principal| {
+                memo.as_mut()
+                    .is_some_and(|memo| memo.all_rows_visible(&self.state, principal, &def))
+            });
+        if all_visible {
+            // The decision is immutable for this snapshot; copying payloads
+            // needs no memo lock and must not serialize cloned snapshot readers.
+            drop(memo.take());
+        }
+        // Exact reservation is also safe for a proven unfiltered scalar family:
+        // in that case physical and authorized cardinality are identical.
+        let mut rows = Vec::with_capacity(if all_visible { candidate_count } else { 0 });
+        for row in candidates {
+            let visible = if all_visible {
+                true
+            } else if let Some(reads) = &mut reads {
+                self.state.visible(
+                    self.principal.as_deref(),
+                    def.id,
+                    row.id,
+                    &mut BTreeSet::new(),
+                    reads,
+                )
+            } else if let (Some(principal), Some(memo)) = (self.principal.as_deref(), memo.as_mut())
+            {
+                memo.visible_row(&self.state, principal, &def, row)
+            } else {
+                true
+            };
+            if visible {
+                rows.push(map(row));
+            }
+        }
+        drop(memo);
         self.check_live()?;
         Ok(rows)
     }
@@ -482,6 +635,7 @@ impl Snapshot {
         reads: Option<&mut BTreeSet<Key>>,
     ) -> Result<Option<Row>> {
         let def = self.resolve_read(name)?;
+        let row = self.state.row(def.id, id);
         let visible = if let Some(reads) = reads {
             self.state.visible(
                 self.principal.as_deref(),
@@ -490,22 +644,16 @@ impl Snapshot {
                 &mut BTreeSet::new(),
                 reads,
             )
+        } else if let (Some(principal), Some(row)) = (self.principal.as_deref(), row) {
+            self.visibility
+                .lock()
+                .is_ok_and(|mut memo| memo.visible_row(&self.state, principal, &def, row))
         } else {
-            self.visible_for_cursor(def.id, id)
+            row.is_some()
         };
-        let row = visible.then(|| (**self.state.row(def.id, id).expect("visible row")).clone());
+        let result = row.filter(|_| visible).map(|row| (**row).clone());
         self.check_live()?;
-        Ok(row)
-    }
-    /// Immutable snapshot visibility: cache only completed closure decisions.
-    /// Callers must keep entry/result live gates; cached data never caches authority.
-    pub(crate) fn visible_for_cursor(&self, relation: Id, id: Id) -> bool {
-        let Some(principal) = self.principal.as_deref() else {
-            return self.state.row(relation, id).is_some();
-        };
-        self.visibility
-            .lock()
-            .is_ok_and(|mut memo| memo.visible(&self.state, principal, (relation, id)))
+        Ok(result)
     }
     /// Global physical statistics are privileged; app aggregates use authorized scans.
     pub fn stats(&self) -> Result<Stats> {
@@ -600,7 +748,9 @@ impl Transaction {
         self.reads.insert(key);
     }
     pub(crate) fn bind_session(&mut self, session: &Session) -> Result<()> {
-        let (_, guard) = session.authorize_state(self.base.clone(), false);
+        // This transaction base can precede the current publication. Disable
+        // the unlocked fence rather than pairing it with a newer generation.
+        let (_, guard) = session.authorize_state(self.base.clone(), false, u64::MAX);
         guard.check()?;
         self.live = guard;
         Ok(())
@@ -620,7 +770,7 @@ impl Transaction {
             .as_deref()
             .filter(|p| *p != crate::visibility::ANONYMOUS)
             .ok_or(Error::Denied)?;
-        let (_, guard) = session.authorize_state(self.base.clone(), false);
+        let (_, guard) = session.authorize_state(self.base.clone(), false, u64::MAX);
         guard.check()?;
         self.live = guard;
         if let Some(id) = session.capability {
@@ -1372,6 +1522,14 @@ mod tests {
 #[path = "visibility_tests.rs"]
 mod visibility_tests;
 
+#[cfg(test)]
+#[path = "scoped_snapshot_tests.rs"]
+mod scoped_snapshot_tests;
+
+#[cfg(test)]
+#[path = "publication_tests.rs"]
+mod publication_tests;
+
 // Trusted-host replication hooks. Followers keep this memory-only handle private.
 impl Database {
     pub(crate) fn replication_capture(&self) -> Result<Arc<State>> {
@@ -1434,12 +1592,12 @@ impl Database {
         if head.failed {
             return Err(Error::Storage("reopen failed follower".into()));
         }
-        head.state = Arc::new(state);
+        head.publish(state);
         Ok(())
     }
     pub(crate) fn replication_fail(&self) {
         if let Ok(mut head) = self.head.lock() {
-            head.failed = true;
+            head.fail();
         }
     }
 }

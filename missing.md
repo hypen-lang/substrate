@@ -5,9 +5,11 @@ milestones in the README. Package publication and Bend verification are explicit
 excluded from this implementation run. This is a status ledger, not a claim that
 queued features already work.
 
-Latest change: compiled tiny joins, native write/snapshot/projection optimizations,
-and mutable schema visibility are implemented. Verification and paired performance
-results are recorded in the final follow-up section; earlier sections are history.
+Latest change: restricted reads and scoped snapshot contention are optimized with
+compiled visibility decisions, nonblocking scope reuse, and publication-generation
+fences. Full scans avoid duplicate lookups; large owned payload copies remain a
+measured limit. Verification and paired performance results are recorded in the
+final follow-up section; earlier sections are history.
 See the final adoption section for current limits; earlier sections retain the
 chronological benchmark and implementation history.
 
@@ -427,3 +429,33 @@ about 34×. Restricted non-join reads still show new visibility overhead; full
 owned scans and contention medians did not improve. Durable sequential writes
 remain synchronization-bound. These remain explicit performance work, alongside
 broader query planning and memory/transport limits above.
+
+## Restricted reads and contention follow-up — 2026-10-25
+
+Implemented and independently reviewed:
+
+- Compiled reference slots and snapshot-local family read policies preserve ambient visibility, filtered grants, capability scope, and reference closure.
+- Native scans borrow family rows directly; indexed reads look rows up once. Uniform scalar reads can avoid per-row policy work. Restricted output capacity never reveals hidden candidate counts.
+- Capability grants are compiled once; a nonblocking, single-entry session cache reuses only the identical published state, generation, capability and credential. Cache contention falls back to ordinary authorization.
+- Publication generations avoid repeated head-mutex acquisition for unchanged-state read fences. Commits, replication and every failure path invalidate the generation; expiry, attachment, poison and historical transaction checks remain enforced. Saturation disables the shortcut permanently.
+- SQL keeps entry/page/final authorization fences and per-row deadlines without taking the head mutex for every buffered output row.
+
+Against `2dac848`, three alternating SQL process pairs per size show 20k-person
+restricted point/equality/range reads improving 0.783 → 0.404, 91.112 → 57.521,
+and 25.646 → 18.054 µs. Nine native process pairs show finite-reader writer p50
+23.250 → 4.375 µs. Keeping all readers active shows roughly unchanged writer
+latency, reader p99 58.667 → 33.208 µs, and more completed reads during the same
+256 commits. Full owned scans remain effectively flat (649 → 642 µs); payload
+copying and run variation prevent a strong large-scan speedup claim. Projection
+improves 18.916 → 6.334 µs. Sequential durable updates remain near 4 ms.
+
+Verification: 446 Rust tests and 53 SDK tests passed, strict all-target Clippy,
+formatting, independent review, and exact benchmark result checks. One manual
+performance probe remains ignored. The review-found capacity disclosure and a
+second-boundary race in the TLS expiry test are fixed. Full results, SQLite
+controls, cold-handle costs, limitations, raw data and fingerprints are in
+[READ-REGRESSIONS](docs/benchmarks/READ-REGRESSIONS.md).
+
+Remaining performance work includes owned-result payload allocation/copying,
+sustained writer pressure under unlimited readers, cold SQL setup, broader SQL
+plan eligibility, and the previously documented durable synchronization costs.

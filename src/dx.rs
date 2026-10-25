@@ -169,9 +169,19 @@ impl Snapshot {
             )
         };
         let mut rows = Vec::with_capacity(limit + 1);
+        let mut visibility = self
+            .principal
+            .as_ref()
+            .map(|_| self.visibility.lock().map_err(|_| Error::Denied))
+            .transpose()?;
         for id in ids {
-            if self.visible_for_cursor(def.id, *id) {
-                rows.push(self.state.row(def.id, *id).expect("visible").clone());
+            let Some(row) = self.state.row(def.id, *id) else {
+                continue;
+            };
+            if visibility.as_mut().is_none_or(|memo| {
+                memo.visible_row(&self.state, self.principal.as_deref().unwrap(), &def, row)
+            }) {
+                rows.push(row.clone());
                 if rows.len() > limit {
                     break;
                 }
@@ -188,9 +198,19 @@ impl Snapshot {
     }
     pub(crate) fn get_shared(&self, relation: &str, id: Id) -> Result<Option<Arc<Row>>> {
         let def = self.resolve_read(relation)?;
-        let row = self
-            .visible_for_cursor(def.id, id)
-            .then(|| self.state.row(def.id, id).expect("visible").clone());
+        let row = if let Some(row) = self.state.row(def.id, id) {
+            let visible = if let Some(principal) = self.principal.as_deref() {
+                self.visibility
+                    .lock()
+                    .map_err(|_| Error::Denied)?
+                    .visible_row(&self.state, principal, &def, row)
+            } else {
+                true
+            };
+            visible.then(|| row.clone())
+        } else {
+            None
+        };
         self.check_live()?;
         Ok(row)
     }
@@ -274,6 +294,11 @@ impl Snapshot {
             Box::new(buckets)
         };
         let mut rows = Vec::with_capacity(limit + 1);
+        let mut visibility = self
+            .principal
+            .as_ref()
+            .map(|_| self.visibility.lock().map_err(|_| Error::Denied))
+            .transpose()?;
         'buckets: for ((_, _, value), ids) in buckets {
             let ids: Box<dyn Iterator<Item = &Id> + '_> = if range.descending {
                 Box::new(ids.iter().rev())
@@ -286,8 +311,13 @@ impl Snapshot {
                 }) {
                     continue;
                 }
-                if self.visible_for_cursor(def.id, *id) {
-                    rows.push(self.state.row(def.id, *id).expect("visible").clone());
+                let Some(row) = self.state.row(def.id, *id) else {
+                    continue;
+                };
+                if visibility.as_mut().is_none_or(|memo| {
+                    memo.visible_row(&self.state, self.principal.as_deref().unwrap(), &def, row)
+                }) {
+                    rows.push(row.clone());
                     if rows.len() > limit {
                         break 'buckets;
                     }
