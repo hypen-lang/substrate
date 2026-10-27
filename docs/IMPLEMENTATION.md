@@ -1,5 +1,14 @@
 # Implementation report — 2026-10-25
 
+Current status (2026-10-26): the implementation now includes
+[NULL/finite floats and reference actions](NULLABLE-AND-REFERENCES.md),
+[bounded remote SQL writes](SQL-WRITES.md),
+[paged/resident import, paged groups and replication](PAGED-REPLICATION.md),
+and optional [OpenRaft consensus](CONSENSUS.md). The sections below retain
+historical milestone notes; their earlier absence/limitation statements are
+superseded by these guides and the [README matrix](../README.md#implemented-and-planned).
+
+
 The initial engine, checkpointed storage, SQL + DX vertical slice, typed queries,
 batched nested reads, authorized discovery and scoped online schema control are
 implemented and verified. TLS remote access, atomic durable credential rotation,
@@ -129,7 +138,7 @@ They also verify that check/diff do not install while install does.
 - `git diff --check`: clean.
 - `cargo run --offline -- demo` (initial milestone) and `cargo run --offline --example dx`: completed with expected SQL/native results.
 - `cargo bench --offline --bench sqlite`: completed; [results](benchmarks/README.md).
-- `cargo bench --offline --bench recovery`: completed; [results](benchmarks/CHECKPOINTS.md).
+- `cargo bench --offline --bench recovery`: completed; results (historical results removed).
 
 Tests establish evidence for this supported subset, not a formal proof or a mature
 production reliability claim. The Rust oracle does not share production index or
@@ -180,7 +189,7 @@ Checkpointed persistence is now implemented, with automatic tail limits, explici
 maintenance, strict recovery checks, and crash/I/O fault coverage. For a 1,000-row
 current state after 500 update commits, measured median warm open fell from
 174.107 ms to 11.135 ms (15.64×); a checkpoint plus ten commits took 16.803 ms.
-[The report](benchmarks/CHECKPOINTS.md) includes ranges, maintenance cost, and caveats.
+The report (historical results removed) includes ranges, maintenance cost, and caveats.
 
 Remaining storage work includes incremental/background maintenance, larger-than-memory
 scans, deliberate audit/history retention and analytical providers. Bend 2, broader
@@ -193,7 +202,7 @@ DX performance: a 501-relation/11-module generated TypeScript fixture checked in
 bytes of generated TS. Editor latency and bundle size were not measured. The updated
 SQLite comparison measured native lookup at 3.053 µs vs 2.275 µs and prepared point
 join at 2.746 µs vs 1.114 µs. These results are not a throughput/scalability claim.
-See [DX measurements](benchmarks/DX.md) for methodology and regression ceilings.
+See DX measurements (historical results removed) for methodology and regression ceilings.
 
 
 ## Typed query, nested-read and authorized-discovery milestone
@@ -239,7 +248,7 @@ the per-parent baseline used 301. The measured socket medians were 10.485 ms and
 1,856.786 ms, strongly influenced by the host's 5 ms idle connection polling. Embedded
 medians were 0.965 ms and 0.918 ms: batching is not automatically faster without
 transport. At 500 parents the embedded medians were 3.597 ms and 4.689 ms.
-See [nested measurements](benchmarks/NESTED.md), [cross-engine results](benchmarks/COMPARISON.md),
+See nested measurements (historical results removed), cross-engine results (historical results removed),
 [query API](QUERY-DX.md) and [discovery/security contract](CATALOG.md).
 
 The next section completes the following requested work: scoped schema proposals
@@ -296,7 +305,7 @@ concurrent pinned readers. At 2,000 people the median complete pipeline was
 was **0.283 ms**, but does not include approval, quotas, grants or receipts. This
 is not an equivalent security-workflow comparison. PostgreSQL installation was not
 measured; the previous eight-workload three-engine query suite remains available.
-See [raw methodology and results](benchmarks/SCHEMA-CONTROL.md).
+See raw methodology and results (historical results removed).
 
 [SCHEMA-CONTROL.md](SCHEMA-CONTROL.md) documents the supported API and trust boundary.
 An operator approval UI, arbitrary ReBAC, broader resource budgets,
@@ -416,8 +425,8 @@ The executable [example](../examples/datafusion_sql.rs) combines a parameterized
 relationship join/aggregate, native indexed lookup and live revocation. The
 [independent review](reviews/DATAFUSION.md) found integer wrapping and OVERLAY
 allocation amplification; both were fixed and re-reviewed. Candidate and final
-production measurements are separate: [raw engine comparison](benchmarks/DATAFUSION-EXPERIMENT.md)
-and [native adapter benchmark](benchmarks/DATAFUSION-NATIVE.md).
+production measurements are separate: raw engine comparison (historical results removed)
+and native adapter benchmark (historical results removed).
 
 
 Integrated verification: **341 Rust tests including the doctest** and **50
@@ -441,7 +450,7 @@ single SQL snapshot; cache hits recharge execution budgets and recheck authority
 The [independent review](reviews/DATAFUSION-INDEXED.md) covered exact predicate
 semantics, authority, parameter/cache isolation and error paths. It identified a
 one-sided range scan that was fixed by intersecting both bounds. The
-[paired benchmark](benchmarks/DATAFUSION-INDEXED.md) compares the eager DataFusion
+paired benchmark (historical results removed) compares the eager DataFusion
 baseline, SQLite compatibility adapter and direct SQLite, and reports first-use
 costs separately. Native query and storage source code is unchanged.
 
@@ -476,7 +485,7 @@ identified an increased cache-key bookkeeping cost; explicit inline sizes and
 dynamic allocations now contribute to the estimate. No actionable finding
 remains. Native query and storage files are unchanged.
 
-The [paired comparison](benchmarks/DATAFUSION-RANGE-EXISTS.md) measures both earlier
+The paired comparison (historical results removed) measures both earlier
 DataFusion adapters, explicit SQLite compatibility and direct indexed SQLite,
 including changed parameters and first-use costs.
 
@@ -521,7 +530,7 @@ DataFusion example passed. Independent [review](reviews/DATAFUSION-EXECUTION.md)
 found and helped fix page-size, key-memory, cache-error and EXPLAIN issues.
 
 Native query/storage implementation is unchanged. The
-[paired benchmark](benchmarks/DATAFUSION-EXECUTION.md) records warm, unseen-binding
+paired benchmark (historical results removed) records warm, unseen-binding
 and fresh-handle execution against both previous adapters and SQLite. The separate
 [beyond-SQL investigation](PERFORMANCE-BEYOND-SQL.md) records follow-up opportunities
 without claiming unmeasured improvements.
@@ -556,6 +565,6 @@ isolation with crash/reopen. Property tests include exact redo sizing, different
 index/version histories, and randomized tiny-join parity against SQLite and
 generic DataFusion. Crash and checkpoint tests run in the full Rust suite.
 
-Final paired measurements and remaining regressions: [tiny joins](benchmarks/TINY-JOINS.md)
-and [native operations](benchmarks/NATIVE-OVERHEADS.md). Raw results include three
+Final paired measurements and remaining regressions: tiny joins (historical results removed)
+and native operations (historical results removed). Raw results include three
 alternating process pairs per workload scale and frozen executable hashes.

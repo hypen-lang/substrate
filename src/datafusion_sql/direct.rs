@@ -52,6 +52,15 @@ struct Shape {
 impl DirectRead {
     pub(super) fn compile(plan: &LogicalPlan) -> Option<Self> {
         let shape = shape(plan)?;
+        // SQL NULL ordering and floating coercions stay in DataFusion.
+        if shape
+            .relation
+            .roles
+            .iter()
+            .any(|r| matches!(r.data_type, DataType::Nullable(_) | DataType::Float))
+        {
+            return None;
+        }
         let [(column, operator, binding), rest @ ..] = shape.predicates.as_slice() else {
             return None;
         };
@@ -521,16 +530,20 @@ fn tighter(candidate: &Bound<Value>, current: &Bound<Value>, lower: bool) -> boo
     }
 }
 
-pub(super) enum Key {
+pub(crate) enum Key {
     Empty,
     Unsupported,
     Value(Value),
 }
-pub(super) fn key(value: &SqlValue, kind: Option<&DataType>) -> Key {
+pub(crate) fn key(value: &SqlValue, kind: Option<&DataType>) -> Key {
     if matches!(value, SqlValue::Null) {
         return Key::Empty;
     }
-    let value = match (kind, value) {
+    let value = match (kind.map(DataType::base_type), value) {
+        (Some(DataType::Float), SqlValue::Real(v)) => match crate::FiniteFloat::new(*v) {
+            Ok(v) => Value::Float(v),
+            Err(_) => return Key::Unsupported,
+        },
         (None | Some(DataType::Ref(_)), SqlValue::Text(text)) => {
             let Ok(uuid) = uuid::Uuid::parse_str(text) else {
                 return Key::Empty;
@@ -599,6 +612,8 @@ pub(super) fn output_value(row: &crate::Row, column: usize) -> SqlValue {
         Value::Bytes(v) => SqlValue::Blob(v.clone()),
         Value::Ref(v) => SqlValue::Text(v.to_string()),
         Value::Bool(v) => SqlValue::Integer(i64::from(*v)),
+        Value::Null => SqlValue::Null,
+        Value::Float(v) => SqlValue::Real(v.get()),
         Value::Int(v) | Value::Timestamp(v) | Value::Decimal(v) => SqlValue::Integer(*v),
     }
 }

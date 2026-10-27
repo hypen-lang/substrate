@@ -1,0 +1,171 @@
+[
+  {
+    "people": 500000,
+    "mode": "paged",
+    "interface": "sql",
+    "storage": "paged",
+    "timing_class": "headline",
+    "reference_order": "ordered",
+    "suite": "aggregates-wide",
+    "native_source_materialization": null,
+    "fixture_version": "fixed-schema-ids-v1",
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "rounds": 1,
+    "queries": [
+      {
+        "case": "point",
+        "iterations_per_round": 5000,
+        "query_us_median": 0.328225,
+        "query_us_min": 0.328225,
+        "query_us_max": 0.328225,
+        "client_cpu_us_median": 0.3283999999997178
+      },
+      {
+        "case": "equality",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.38425,
+        "query_us_min": 0.38425,
+        "query_us_max": 0.38425,
+        "client_cpu_us_median": 0.38450000000000983
+      },
+      {
+        "case": "changing_parameters",
+        "iterations_per_round": 2000,
+        "query_us_median": 4.1346454999999995,
+        "query_us_min": 4.1346454999999995,
+        "query_us_max": 4.1346454999999995,
+        "client_cpu_us_median": 4.135500000000292
+      },
+      {
+        "case": "changing_parameters_warm",
+        "iterations_per_round": 2000,
+        "query_us_median": 1.66325,
+        "query_us_min": 1.66325,
+        "query_us_max": 1.66325,
+        "client_cpu_us_median": 1.6639999999998876
+      },
+      {
+        "case": "selective_join",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.8095414999999999,
+        "query_us_min": 0.8095414999999999,
+        "query_us_max": 0.8095414999999999,
+        "client_cpu_us_median": 0.8100000000013097
+      },
+      {
+        "case": "aggregate",
+        "iterations_per_round": 1,
+        "query_us_median": 31992.125000000004,
+        "query_us_min": 31992.125000000004,
+        "query_us_max": 31992.125000000004,
+        "client_cpu_us_median": 31986.000000001623
+      },
+      {
+        "case": "aggregate_equality",
+        "iterations_per_round": 1000,
+        "query_us_median": 1.1052080000000002,
+        "query_us_min": 1.1052080000000002,
+        "query_us_max": 1.1052080000000002,
+        "client_cpu_us_median": 1.1060000000000514
+      },
+      {
+        "case": "aggregate_range",
+        "iterations_per_round": 20,
+        "query_us_median": 390.01045,
+        "query_us_min": 390.01045,
+        "query_us_max": 390.01045,
+        "client_cpu_us_median": 389.9500000000167
+      },
+      {
+        "case": "aggregate_broad",
+        "iterations_per_round": 3,
+        "query_us_median": 32959.236,
+        "query_us_min": 32959.236,
+        "query_us_max": 32959.236,
+        "client_cpu_us_median": 32946.66666666639
+      },
+      {
+        "case": "aggregate_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 46123.708333333336,
+        "query_us_min": 46123.708333333336,
+        "query_us_max": 46123.708333333336,
+        "client_cpu_us_median": 46104.33333333337
+      },
+      {
+        "case": "aggregate_filtered_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 41731.94466666667,
+        "query_us_min": 41731.94466666667,
+        "query_us_max": 41731.94466666667,
+        "client_cpu_us_median": 41711.333333333656
+      }
+    ],
+    "load_seconds_median": 39.229754917,
+    "client_peak_rss_bytes_max": 39714816
+  }
+]

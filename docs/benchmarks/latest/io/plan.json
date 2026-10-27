@@ -1,0 +1,73 @@
+{
+  "description": "Sequential same-runner comparison; no overlapping builds or tests. People plus the same number of scores. Medians are round means, not latency percentiles.",
+  "people": 500000,
+  "total_rows": 1000000,
+  "reference_order": "ordered",
+  "expected_formats": {
+    "before": "LPG3",
+    "after": "LPG3"
+  },
+  "comparison_runner_sha256": "630b6e9034f1e391391acf46d0a902984a6ec7c0a662e5ba794dbb975e562850",
+  "binaries": {
+    "before": {
+      "path": "<workspace>/target/performance-work/before-v4",
+      "sha256": "e7e07b6da92fef23a1fed508ffdac3d710c7b7687588858e17d5f57482d88c4f"
+    },
+    "after": {
+      "path": "<workspace>/target/performance-work/after-key",
+      "sha256": "0ed70904c5b6ab6f9bc922148a684f2db26a5b0bee80ef9d5cc788e6922246ec"
+    }
+  },
+  "orders": [
+    [
+      "before",
+      "after"
+    ]
+  ],
+  "invocations": [
+    [
+      "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "<workspace>/experiments/paged_sql/run.py",
+      "--suite",
+      "aggregates",
+      "--rows",
+      "500000",
+      "--rounds",
+      "1",
+      "--modes",
+      "paged",
+      "--binary",
+      "<workspace>/target/performance-work/before-v4",
+      "--pg-config",
+      "/opt/homebrew/opt/postgresql@18/bin/pg_config",
+      "--output",
+      "<workspace>/target/performance-work/io/round-1-before",
+      "--reference-order",
+      "ordered",
+      "--io-diagnostics"
+    ],
+    [
+      "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "<workspace>/experiments/paged_sql/run.py",
+      "--suite",
+      "aggregates",
+      "--rows",
+      "500000",
+      "--rounds",
+      "1",
+      "--modes",
+      "paged",
+      "--binary",
+      "<workspace>/target/performance-work/after-key",
+      "--pg-config",
+      "/opt/homebrew/opt/postgresql@18/bin/pg_config",
+      "--output",
+      "<workspace>/target/performance-work/io/round-1-after",
+      "--reference-order",
+      "ordered",
+      "--io-diagnostics"
+    ]
+  ],
+  "runner_sha256": "3f0ca58e6dfc262b20e0e32f28142789a77aac80d99e0d80734ba54a7c7f89ed",
+  "timing_class": "instrumented-diagnostic"
+}

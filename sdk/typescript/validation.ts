@@ -34,10 +34,10 @@ export function validator<T>(check: (input: unknown) => ParseResult<T>): Validat
     "~standard": { version: 1 as const, vendor: "substrate", validate(input: unknown) { const r = check(input); return r.success === true ? { value: r.data } : { issues: r.issues }; } }
   });
 }
-export type ScalarKind = "Bool" | "Int" | "Text" | "Ref" | "Decimal" | "Timestamp" | "Bytes";
+export type ScalarKind = "Bool" | "Int" | "Text" | "Ref" | "Decimal" | "Timestamp" | "Bytes" | "Float";
 export type FieldCheck = { readonly kind: "IntRange"; readonly min: bigint; readonly max: bigint } | { readonly kind: "ByteLength"; readonly min: number; readonly max: number };
 export type RoleCheck = FieldCheck & { readonly role: string };
-export interface FieldSpec { readonly kind: ScalarKind; readonly target?: string; readonly scale?: number; readonly checks?: readonly FieldCheck[] }
+export interface FieldSpec { readonly kind: ScalarKind; readonly nullable?: boolean; readonly onDelete?: "restrict" | "cascade"; readonly deferrable?: boolean; readonly target?: string; readonly scale?: number; readonly checks?: readonly FieldCheck[] }
 export function checkAccepts(check: FieldCheck, value: unknown): boolean {
   switch (check.kind) {
     case "IntRange": return typeof value === "bigint" && value >= check.min && value <= check.max;
@@ -49,6 +49,7 @@ export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 function scalarAccepts(kind: ScalarKind, v: unknown, aliases: boolean): boolean {
   switch (kind) {
     case "Bool": return typeof v === "boolean";
+    case "Float": return typeof v === "number" && Number.isFinite(v);
     case "Text": return typeof v === "string" && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(v);
     case "Bytes": return v instanceof Uint8Array;
     case "Ref": return typeof v === "string" && (uuidPattern.test(v) || (aliases && /^\$[A-Za-z_][A-Za-z0-9_]*$/.test(v)));
@@ -66,6 +67,7 @@ export function objectValidator<T>(fields: Readonly<Record<string, FieldSpec>>, 
     for (const key of Object.keys(obj)) if (!Object.hasOwn(fields, key)) issues.push({ code: "unknown_field", path: [key], expected: "declared field", message: "unknown field" });
     for (const [key, spec] of entries) {
       if (!Object.hasOwn(obj, key)) { if (!partial) issues.push({ code: "missing", path: [key], expected: spec.kind, message: "required field is missing" }); }
+      else if (spec.nullable && obj[key] === null) { /* Null values do not run scalar checks. */ }
       else if (!scalarAccepts(spec.kind, obj[key], aliases)) issues.push({ code: "type", path: [key], expected: spec.kind, message: `expected ${spec.kind}${["Int", "Decimal", "Timestamp"].includes(spec.kind) ? " signed 64-bit bigint" : ""}` });
       else for (const check of spec.checks ?? []) if (!checkAccepts(check, obj[key])) issues.push({ code: "constraint", path: [key], expected: check.kind, message: `failed ${check.kind} check` });
     }

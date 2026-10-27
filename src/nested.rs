@@ -119,6 +119,8 @@ fn scalar(v: Value) -> S {
         Value::Ref(v) => S::Text(v.to_string()),
         Value::Text(v) => S::Text(v),
         Value::Bytes(v) => S::Blob(v),
+        Value::Null => S::Null,
+        Value::Float(v) => S::Real(v.get()),
     }
 }
 fn predicate(
@@ -147,6 +149,18 @@ fn predicate(
                 && matches!(kind, DataType::Bool | DataType::Ref(_) | DataType::Bytes)
             {
                 return Err(error("ordered comparison requires text or numeric scalar"));
+            }
+            if matches!(value, Value::Null) {
+                let op = match comparison {
+                    Comparison::Eq => "IS NULL",
+                    Comparison::Ne => "IS NOT NULL",
+                    _ => {
+                        return Err(error(
+                            "NULL supports only equality or inequality in the query builder",
+                        ));
+                    }
+                };
+                return Ok(format!("{} {op}", quote(field)));
             }
             params.push(scalar(value));
             let op = match comparison {
@@ -246,7 +260,7 @@ fn prepare(
             (&def, &child.def)
         };
         if edge.role == "id"
-            || field_type(source, &edge.role)? != DataType::Ref(target.name.clone())
+            || field_type(source, &edge.role)?.base_type() != &DataType::Ref(target.name.clone())
         {
             return Err(error(
                 "relationship role does not reference the selected family",
@@ -307,7 +321,12 @@ fn decode(def: &Relation, values: Vec<S>) -> Result<Row> {
     };
     let mut decoded = Vec::new();
     for (role, value) in def.roles.iter().zip(values.by_ref()) {
-        decoded.push(match (&role.data_type, value) {
+        if role.data_type.is_nullable() && matches!(value, S::Null) {
+            decoded.push(Value::Null);
+            continue;
+        }
+        decoded.push(match (role.data_type.base_type(), value) {
+            (DataType::Float, S::Real(v)) => Value::Float(crate::FiniteFloat::new(v)?),
             (DataType::Bool, S::Integer(v @ 0..=1)) => Value::Bool(v == 1),
             (DataType::Int, S::Integer(v)) => Value::Int(v),
             (DataType::Decimal { .. }, S::Integer(v)) => Value::Decimal(v),
@@ -334,8 +353,16 @@ fn reference(row: &Row, def: &Relation, role: &str) -> Id {
     };
     id
 }
+pub(crate) trait NestedSql {
+    fn query_with_limits(&self, sql: &str, params: &[S], limits: QueryLimits) -> Result<SqlTable>;
+}
+impl NestedSql for SqlSnapshot {
+    fn query_with_limits(&self, sql: &str, params: &[S], limits: QueryLimits) -> Result<SqlTable> {
+        SqlSnapshot::query_with_limits(self, sql, params, limits)
+    }
+}
 fn load(
-    sql: &SqlSnapshot,
+    sql: &dyn NestedSql,
     p: &Prepared,
     restriction: Option<(&str, BTreeSet<Id>, bool)>,
     budget: &mut Budget,
@@ -517,46 +544,63 @@ fn assemble(
         related,
     })
 }
+/// Shared bounded nested execution. Metadata validates contracts; the supplied
+/// SQL provider reads the actual storage backend, one statement per plan node.
+pub(crate) fn read_nested_with<S: NestedSql>(
+    metadata: &Snapshot,
+    plan: &ReadPlan,
+    revision: u64,
+    make_sql: impl FnOnce(&BTreeSet<Id>) -> Result<S>,
+    check_live: impl Fn() -> Result<()>,
+) -> Result<NestedResult> {
+    check_live()?;
+    let prepared = prepare(metadata, plan, 0, &mut 0, &mut 256)?;
+    fn families(p: &Prepared, ids: &mut BTreeSet<Id>) {
+        ids.insert(p.def.id);
+        for (_, _, child) in p.children.values() {
+            families(child, ids);
+        }
+    }
+    let mut selected = BTreeSet::new();
+    families(&prepared, &mut selected);
+    let sql = make_sql(&selected)?;
+    let mut stats = ReadStats::default();
+    let loaded = load(
+        &sql,
+        &prepared,
+        None,
+        &mut Budget {
+            rows: MAX_ROWS,
+            bytes: MAX_BYTES,
+        },
+        &mut stats,
+    )?;
+    let mut output = Budget {
+        rows: MAX_ROWS,
+        bytes: MAX_BYTES,
+    };
+    let rows = loaded
+        .rows
+        .iter()
+        .map(|r| assemble(&prepared, &loaded, r, &mut output, &mut stats))
+        .collect::<Result<Vec<_>>>()?;
+    check_live()?;
+    Ok(NestedResult {
+        revision: revision.to_string(),
+        rows,
+        stats,
+    })
+}
 impl Snapshot {
     /// Validate every branch up front, then execute a bounded batch of SELECTs
     /// over this one immutable data AND authorization snapshot.
     pub fn read_nested(&self, plan: &ReadPlan) -> Result<NestedResult> {
-        self.check_live()?;
-        let prepared = prepare(self, plan, 0, &mut 0, &mut 256)?;
-        fn families(p: &Prepared, ids: &mut BTreeSet<Id>) {
-            ids.insert(p.def.id);
-            for (_, _, child) in p.children.values() {
-                families(child, ids);
-            }
-        }
-        let mut selected = BTreeSet::new();
-        families(&prepared, &mut selected);
-        let sql = self.sql_for_relations(&selected)?;
-        let mut stats = ReadStats::default();
-        let loaded = load(
-            &sql,
-            &prepared,
-            None,
-            &mut Budget {
-                rows: MAX_ROWS,
-                bytes: MAX_BYTES,
-            },
-            &mut stats,
-        )?;
-        let mut output = Budget {
-            rows: MAX_ROWS,
-            bytes: MAX_BYTES,
-        };
-        let rows = loaded
-            .rows
-            .iter()
-            .map(|r| assemble(&prepared, &loaded, r, &mut output, &mut stats))
-            .collect::<Result<Vec<_>>>()?;
-        self.check_live()?;
-        Ok(NestedResult {
-            revision: self.revision().to_string(),
-            rows,
-            stats,
-        })
+        read_nested_with(
+            self,
+            plan,
+            self.revision(),
+            |ids| self.sql_for_relations(ids),
+            || self.check_live(),
+        )
     }
 }

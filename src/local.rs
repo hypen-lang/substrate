@@ -28,7 +28,11 @@ pub struct LocalServer {
     gateway: Gateway,
 }
 impl LocalServer {
-    pub fn bind(db: Database, path: impl AsRef<Path>, config: ServerConfig) -> Result<Self> {
+    pub fn bind(
+        db: impl Into<ServiceDatabase>,
+        path: impl AsRef<Path>,
+        config: ServerConfig,
+    ) -> Result<Self> {
         let parent = path
             .as_ref()
             .parent()
@@ -233,6 +237,18 @@ pub struct LocalClient {
     token: String,
 }
 impl LocalClient {
+    /// Executes one bounded SQL mutation atomically. Transport errors are never retried.
+    pub fn execute(
+        &self,
+        sql: &str,
+        params: Vec<crate::service::SqlWireValue>,
+    ) -> Result<crate::service::SqlWriteResult> {
+        crate::service::sql_write_result(self.request(Command::Execute {
+            sql: sql.to_owned(),
+            params,
+        })?)
+    }
+
     /// Read public schemas without an application credential.
     pub fn anonymous(path: impl AsRef<Path>) -> Self {
         Self::new(path, "")
@@ -297,6 +313,18 @@ pub struct LocalSession {
     failed: bool,
 }
 impl LocalSession {
+    /// Executes one bounded SQL mutation atomically. Transport errors are never retried.
+    pub fn execute(
+        &mut self,
+        sql: &str,
+        params: Vec<crate::service::SqlWireValue>,
+    ) -> Result<crate::service::SqlWriteResult> {
+        crate::service::sql_write_result(self.request(Command::Execute {
+            sql: sql.to_owned(),
+            params,
+        })?)
+    }
+
     pub fn request(&mut self, command: Command) -> Result<Response> {
         if self.failed {
             return Err(io(

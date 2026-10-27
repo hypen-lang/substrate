@@ -50,7 +50,18 @@ impl Clock {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(u64::MAX);
-        self.last.fetch_max(now, Ordering::SeqCst).max(now)
+        self.observe(now)
+    }
+    fn observe(&self, now: u64) -> u64 {
+        // Most fences observe the same Unix second. A read preserves the same
+        // monotonic linearization without taking write ownership of the clock's
+        // cache line on every concurrent credential check.
+        let last = self.last.load(Ordering::SeqCst);
+        if now <= last {
+            last
+        } else {
+            self.last.fetch_max(now, Ordering::SeqCst).max(now)
+        }
     }
     #[cfg(test)]
     pub(crate) fn set(&self, now: u64) {
@@ -71,7 +82,7 @@ pub struct IssuedCredential {
     pub token: String,
     pub expires_at: u64,
 }
-fn module() -> &'static Module {
+pub(crate) fn module() -> &'static Module {
     static MODULE: OnceLock<Module> = OnceLock::new();
     MODULE.get_or_init(|| {
         Module::new(
@@ -270,6 +281,42 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn observed_clock_never_rewinds_or_recovers_from_failed_time() {
+        let clock = Clock::default();
+        assert_eq!(clock.observe(100), 100);
+        assert_eq!(clock.observe(99), 100);
+        assert_eq!(clock.observe(100), 100);
+        assert_eq!(clock.observe(101), 101);
+        assert_eq!(clock.observe(u64::MAX), u64::MAX);
+        assert_eq!(clock.observe(102), u64::MAX);
+    }
+    #[test]
+    fn concurrent_clock_observations_preserve_completed_advances() {
+        let clock = std::sync::Arc::new(Clock::default());
+        let ready = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let workers: Vec<_> = (0..8)
+            .map(|worker| {
+                let clock = clock.clone();
+                let ready = ready.clone();
+                std::thread::spawn(move || {
+                    ready.wait();
+                    let mut previous = 0;
+                    for step in 0..1000 {
+                        let supplied = worker * 1000 + step;
+                        let observed = clock.observe(supplied);
+                        assert!(observed >= supplied && observed >= previous);
+                        previous = clock.observe(supplied / 2);
+                        assert!(previous >= observed);
+                    }
+                })
+            })
+            .collect();
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        assert_eq!(clock.observe(0), 7999);
+    }
     use crate::{
         capability::{CapabilityScope, DelegatedCapability, RelationCapability},
         schema_control::*,

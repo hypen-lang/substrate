@@ -1,0 +1,517 @@
+[
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 1048576,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 712642560,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 1325404160,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 712642560,
+      "total_logical_bytes": 1325404160
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "sql",
+    "load_backend_io_counts": null,
+    "load_seconds": 39.229754917,
+    "mode": "paged",
+    "namespaces": 2,
+    "native_setup_us": null,
+    "native_source_materialization": null,
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": {
+      "cache": {
+        "configured_cache_bytes": 8388608,
+        "decoded_cache_bytes": 428446,
+        "decoded_cache_entries": 2002,
+        "revision": 3908
+      },
+      "commit_method": "completed engine durable groups since open, including fixture setup; not filesystem synchronization call counts or a concurrent TPS measurement",
+      "commits": {
+        "committed_writes": 3908,
+        "durable_groups": 3908,
+        "largest_group": 1
+      },
+      "counter_scope": "logical instrumented operations, not physical I/O or redb page-cache misses",
+      "read_counts": [
+        {
+          "backend_io_counts": null,
+          "case": "point",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "changing_parameters",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "changing_parameters_warm",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "selective_join",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 1,
+            "reference_checks": 1,
+            "root_scan_rows": 1,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_range",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 5000,
+            "reference_checks": 5000,
+            "root_scan_rows": 5000,
+            "row_table_gets": 8,
+            "validated_packed_rows": 10000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_broad",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_grouped",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_filtered_grouped",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 250000,
+            "reference_checks": 250000,
+            "root_scan_rows": 250000,
+            "row_table_gets": 8,
+            "validated_packed_rows": 500000,
+            "visibility_nodes": 0
+          }
+        }
+      ],
+      "read_method": "one untimed instrumented reader execution per case after all timed queries; preparation excluded; cache state follows the timed suite",
+      "storage": {
+        "format": "LPG3",
+        "revision": 3908,
+        "tables": [
+          {
+            "branch_pages": 587,
+            "entries": 20033,
+            "fragmented_bytes": 12876572,
+            "leaf_pages": 20033,
+            "metadata_bytes": 1461100,
+            "name": "paged_rows_v1",
+            "stored_bytes": 70121848,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1424,
+            "entries": 1500000,
+            "fragmented_bytes": 82534298,
+            "leaf_pages": 40315,
+            "metadata_bytes": 9428646,
+            "name": "paged_index_v1",
+            "stored_bytes": 79000000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 958,
+            "entries": 1000000,
+            "fragmented_bytes": 60705772,
+            "leaf_pages": 29513,
+            "metadata_bytes": 10103444,
+            "name": "paged_unique_v1",
+            "stored_bytes": 54000000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 923,
+            "entries": 500000,
+            "fragmented_bytes": 39175028,
+            "leaf_pages": 18518,
+            "metadata_bytes": 3955308,
+            "name": "paged_incoming_v1",
+            "stored_bytes": 36500000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 221,
+            "entries": 1000005,
+            "fragmented_bytes": 21199827,
+            "leaf_pages": 10203,
+            "metadata_bytes": 4496792,
+            "name": "paged_ids_v1",
+            "stored_bytes": 17000085,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1462,
+            "entries": 2500007,
+            "fragmented_bytes": 102541538,
+            "leaf_pages": 49375,
+            "metadata_bytes": 13186662,
+            "name": "paged_versions_v1",
+            "stored_bytes": 92500152,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 0,
+            "entries": 4,
+            "fragmented_bytes": 2803,
+            "leaf_pages": 1,
+            "metadata_bytes": 36,
+            "name": "liquid_paged_control_v1",
+            "stored_bytes": 1257,
+            "tree_height": 1
+          }
+        ]
+      },
+      "storage_method": "host-admin pinned table accounting collected after all queries; excludes file headers, allocators, free and historical pages"
+    },
+    "peak_rss_phases": {
+      "after_diagnostics": 39370752,
+      "after_load": 24805376,
+      "after_queries": 38944768,
+      "after_setup": 28868608,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.3283999999997178,
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 34766848,
+        "prepare_us": 3390.5,
+        "query_us": 0.328225
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.38450000000000983,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 34816000,
+        "prepare_us": 92.292,
+        "query_us": 0.38425
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 4.135500000000292,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 35340288,
+        "prepare_us": 78.334,
+        "query_us": 4.1346454999999995
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.6639999999998876,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 35340288,
+        "prepare_us": 134.916,
+        "query_us": 1.66325
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 0.8100000000013097,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 35749888,
+        "prepare_us": 350.958,
+        "query_us": 0.8095414999999999
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 31986.000000001623,
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 37928960,
+        "prepare_us": 1260.2920000000001,
+        "query_us": 31992.125000000004
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 1.1060000000000514,
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 37978112,
+        "prepare_us": 249.70800000000003,
+        "query_us": 1.1052080000000002
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 389.9500000000167,
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 37994496,
+        "prepare_us": 113.542,
+        "query_us": 390.01045
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 32946.66666666639,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 38010880,
+        "prepare_us": 99.16699999999999,
+        "query_us": 32959.236
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 46104.33333333337,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 38912000,
+        "prepare_us": 336.0,
+        "query_us": 46123.708333333336
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 41711.333333333656,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 38944768,
+        "prepare_us": 271.66700000000003,
+        "query_us": 41731.94466666667
+      }
+    ],
+    "read_setup_us": 2592.042,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": 2592.042,
+    "sqlite_query_plans": null,
+    "storage": "paged",
+    "suite": "aggregates-wide",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 1,
+    "order_index": 0,
+    "resources": {
+      "wall_seconds": 40.281373625000015,
+      "user_cpu_seconds": 8.203754,
+      "system_cpu_seconds": 8.100196,
+      "peak_rss_bytes": 39714816,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 40.281373625000015,
+      "user_cpu_seconds": 8.203754,
+      "system_cpu_seconds": 8.100196,
+      "peak_rss_bytes": 39714816,
+      "returncode": 0
+    }
+  }
+]

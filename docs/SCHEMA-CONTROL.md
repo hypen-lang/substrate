@@ -208,7 +208,7 @@ data-volume quotas, ownership transfer and destructive schema retirement remain
 unimplemented. This explicitly provisioned local workflow is not a claim that those
 prerequisites for hostile public self-service have been solved.
 
-See [verification](IMPLEMENTATION.md), [measured installation costs](benchmarks/SCHEMA-CONTROL.md)
+See [verification](IMPLEMENTATION.md), measured installation costs (historical results removed)
 and [design decision](adr/008-schema-control.md).
 
 

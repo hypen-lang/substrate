@@ -145,7 +145,8 @@ fn sql_error(error: Error) -> rusqlite::Error {
     rusqlite::Error::ModuleError(error.to_string())
 }
 fn sql_type(data_type: &DataType) -> &'static str {
-    match data_type {
+    match data_type.base_type() {
+        DataType::Float => "REAL",
         DataType::Text | DataType::Ref(_) => "TEXT",
         DataType::Bytes => "BLOB",
         _ => "INTEGER",
@@ -154,7 +155,8 @@ fn sql_type(data_type: &DataType) -> &'static str {
 /// Only lossless conversions are pushed. Otherwise scan and let SQLite apply its
 /// affinity/coercion rules. SQLite always rechecks pushed predicates (omit=false).
 fn liquid_value(value: SqlValue, data_type: &DataType) -> Option<Value> {
-    match (value, data_type) {
+    match (value, data_type.base_type()) {
+        (SqlValue::Real(v), DataType::Float) => crate::FiniteFloat::new(v).ok().map(Value::Float),
         (SqlValue::Integer(v), DataType::Int) => Some(Value::Int(v)),
         (SqlValue::Integer(v), DataType::Timestamp) => Some(Value::Timestamp(v)),
         (SqlValue::Integer(v), DataType::Decimal { .. }) => Some(Value::Decimal(v)),
@@ -186,13 +188,18 @@ unsafe impl<'vtab> VTab<'vtab> for LiquidTab {
             .ok_or_else(|| rusqlite::Error::ModuleError("missing snapshot".into()))?
             .clone();
         let columns = std::iter::once("id TEXT PRIMARY KEY NOT NULL".to_string())
-            .chain(
-                source
-                    .relation
-                    .roles
-                    .iter()
-                    .map(|r| format!("{} {} NOT NULL", quote(&r.name), sql_type(&r.data_type))),
-            )
+            .chain(source.relation.roles.iter().map(|r| {
+                format!(
+                    "{} {}{}",
+                    quote(&r.name),
+                    sql_type(&r.data_type),
+                    if r.data_type.is_nullable() {
+                        ""
+                    } else {
+                        " NOT NULL"
+                    }
+                )
+            }))
             .collect::<Vec<_>>()
             .join(",");
         Ok((
@@ -488,6 +495,8 @@ unsafe impl VTabCursor for LiquidCursor {
             Value::Text(v) => context.set_result(v),
             Value::Ref(v) => context.set_result(&v.to_string()),
             Value::Bytes(v) => context.set_result(v),
+            Value::Null => context.set_result(&SqlValue::Null),
+            Value::Float(v) => context.set_result(&v.get()),
         }
     }
     fn rowid(&self) -> rusqlite::Result<i64> {

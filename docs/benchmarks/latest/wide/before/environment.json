@@ -1,0 +1,23 @@
+{
+  "platform": "Darwin-25.2.0-arm64-arm-64bit-Mach-O",
+  "cpu_count": 10,
+  "time_unix": 1793057585.577794,
+  "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+  "binary_sha256": "e7e07b6da92fef23a1fed508ffdac3d710c7b7687588858e17d5f57482d88c4f",
+  "runner_sha256": "3f0ca58e6dfc262b20e0e32f28142789a77aac80d99e0d80734ba54a7c7f89ed",
+  "rows": [
+    500000
+  ],
+  "rounds": 1,
+  "modes": [
+    "paged"
+  ],
+  "postgres_tools": null,
+  "reference_order": "ordered",
+  "suite": "aggregates-wide",
+  "io_diagnostics": false,
+  "timing_class": "headline",
+  "min_free_gib": 5.0,
+  "fixture_identity_policy": "Schema manifests and fixture versions must match across engines and rounds. Legacy binaries without fixed IDs remain diagnostic only.",
+  "method": "Sequential fresh process/database per mode/size/round, mode order rotated across rounds and sizes. One warmup per query, identical fixed iteration counts and checked results. Local retained-snapshot authorized reads; SQLite/PostgreSQL have no equivalent row authorization. OS caches are not dropped. PostgreSQL uses per-row prepared protocol calls over a local Unix socket (including IPC and decoding), not a bulk loader. Each case has a fresh PG18 cluster; setup is outside load timing and recorded separately. Client resources include loading, and exclude the PostgreSQL server. Server resources are separately labeled; 250 ms process sampling adds monitoring overhead to PostgreSQL cases only. Native modes use public point/lookup/page APIs; aggregate operations are explicit client folds, not engine aggregate plans. Resident public scans eagerly copy rows; paged scans use 256-row pages. Native range folds scan and filter; SQL can use indexed ranges. Untimed diagnostic reruns/storage accounting are included in whole-process resources but excluded from per-query measurements."
+}

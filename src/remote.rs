@@ -4,7 +4,7 @@
 mod admission;
 use crate::session_frame::Frames;
 use crate::{
-    service::{Command, Gateway, Request, Response},
+    service::{Command, Gateway, Request, Response, ServiceDatabase},
     *,
 };
 use admission::Admission;
@@ -182,7 +182,7 @@ pub struct RemoteServer {
 }
 impl RemoteServer {
     pub fn bind(
-        db: Database,
+        db: impl Into<ServiceDatabase>,
         address: SocketAddr,
         certificate_pem: &[u8],
         private_key_pem: &[u8],
@@ -196,7 +196,7 @@ impl RemoteServer {
         )
     }
     pub fn bind_with_options(
-        db: Database,
+        db: impl Into<ServiceDatabase>,
         address: SocketAddr,
         certificate_pem: &[u8],
         private_key_pem: &[u8],
@@ -379,6 +379,18 @@ pub struct RemoteClient {
     token: String,
 }
 impl RemoteClient {
+    /// Executes one bounded SQL mutation atomically. Transport errors are never retried.
+    pub fn execute(
+        &self,
+        sql: &str,
+        params: Vec<crate::service::SqlWireValue>,
+    ) -> Result<crate::service::SqlWriteResult> {
+        crate::service::sql_write_result(self.request(Command::Execute {
+            sql: sql.to_owned(),
+            params,
+        })?)
+    }
+
     /// Read public schemas without a credential; TLS verification remains mandatory.
     pub fn anonymous(address: SocketAddr, server_name: &str, ca_pem: &[u8]) -> Result<Self> {
         Self::new(address, server_name, ca_pem, "")
@@ -425,6 +437,18 @@ pub struct RemoteSession {
     failed: bool,
 }
 impl RemoteSession {
+    /// Executes one bounded SQL mutation atomically. Transport errors are never retried.
+    pub fn execute(
+        &mut self,
+        sql: &str,
+        params: Vec<crate::service::SqlWireValue>,
+    ) -> Result<crate::service::SqlWriteResult> {
+        crate::service::sql_write_result(self.request(Command::Execute {
+            sql: sql.to_owned(),
+            params,
+        })?)
+    }
+
     pub fn request(&mut self, command: Command) -> Result<Response> {
         if self.failed {
             return Err(io(

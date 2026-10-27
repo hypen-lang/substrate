@@ -3,6 +3,57 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+mod paged;
+mod sql_dml;
+
+/// Storage selected by the host; the authenticated client protocol is identical.
+#[derive(Clone)]
+pub enum ServiceDatabase {
+    Resident(Database),
+    Paged(crate::paged::PagedDatabase),
+}
+impl From<Database> for ServiceDatabase {
+    fn from(db: Database) -> Self {
+        Self::Resident(db)
+    }
+}
+impl From<crate::paged::PagedDatabase> for ServiceDatabase {
+    fn from(db: crate::paged::PagedDatabase) -> Self {
+        Self::Paged(db)
+    }
+}
+enum ServiceSession {
+    Resident(Session),
+    Paged(crate::paged::PagedSession),
+}
+impl ServiceDatabase {
+    fn session(&self, principal: &str) -> Result<ServiceSession> {
+        match self {
+            Self::Resident(db) => Ok(ServiceSession::Resident(db.session(principal))),
+            Self::Paged(db) => Ok(ServiceSession::Paged(db.session(principal)?)),
+        }
+    }
+    fn anonymous(&self) -> ServiceSession {
+        match self {
+            Self::Resident(db) => ServiceSession::Resident(db.anonymous()),
+            Self::Paged(db) => ServiceSession::Paged(db.anonymous()),
+        }
+    }
+    fn authenticate(&self, token: &str) -> Result<ServiceSession> {
+        match self {
+            Self::Resident(db) => Ok(ServiceSession::Resident(db.authenticate(token)?)),
+            Self::Paged(db) => Ok(ServiceSession::Paged(db.authenticate(token)?)),
+        }
+    }
+}
+impl ServiceSession {
+    fn check_live(&self) -> Result<()> {
+        match self {
+            Self::Resident(s) => s.snapshot().check_live(),
+            Self::Paged(s) => s.snapshot()?.check_live(),
+        }
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -37,6 +88,8 @@ impl ServerConfig {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub enum WireValue {
+    Null,
+    Float(f64),
     Bool(bool),
     Int(String),
     Text(String),
@@ -48,6 +101,8 @@ pub enum WireValue {
 impl From<Value> for WireValue {
     fn from(v: Value) -> Self {
         match v {
+            Value::Null => Self::Null,
+            Value::Float(v) => Self::Float(v.get()),
             Value::Bool(v) => Self::Bool(v),
             Value::Int(v) => Self::Int(v.to_string()),
             Value::Text(v) => Self::Text(v),
@@ -65,6 +120,8 @@ impl WireValue {
                 .map_err(|_| Error::Constraint("expected signed 64-bit decimal string".into()))
         };
         Ok(match self {
+            Self::Null => Value::Null,
+            Self::Float(v) => Value::Float(FiniteFloat::new(*v)?),
             Self::Bool(v) => Value::Bool(*v),
             Self::Int(v) => Value::Int(integer(v)?),
             Self::Text(v) => Value::Text(v.clone()),
@@ -215,6 +272,12 @@ pub enum Command {
         #[serde(default)]
         params: Vec<SqlWireValue>,
     },
+    /// Controlled SQL mutations; ordinary Query remains read-only.
+    Execute {
+        sql: String,
+        #[serde(default)]
+        params: Vec<SqlWireValue>,
+    },
     Page {
         relation: String,
         schema_id: Id,
@@ -245,6 +308,33 @@ pub struct Request {
 pub struct NamedRow {
     pub id: Id,
     pub fields: BTreeMap<String, WireValue>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SqlWriteResult {
+    pub affected_rows: usize,
+    pub ids: Vec<Id>,
+}
+pub(crate) fn sql_write_result(response: Response) -> Result<SqlWriteResult> {
+    match response {
+        Response::Ok(Output::Execute { affected_rows, ids })
+            if affected_rows <= 100
+                && affected_rows == ids.len()
+                && ids.iter().collect::<std::collections::BTreeSet<_>>().len() == ids.len() =>
+        {
+            Ok(SqlWriteResult { affected_rows, ids })
+        }
+        Response::Error(error) => Err(match error.code.as_str() {
+            "denied" => Error::Denied,
+            "conflict" => Error::Conflict,
+            "aborted" => Error::Aborted,
+            "not_found" => Error::NotFound,
+            "schema" => Error::Schema(error.message),
+            "constraint" => Error::Constraint(error.message),
+            "storage" => Error::Storage(error.message),
+            _ => Error::Query(format!("{}: {}", error.code, error.message)),
+        }),
+        _ => Err(Error::Query("invalid SQL execute response".into())),
+    }
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Capability {
@@ -279,6 +369,8 @@ pub enum Output {
         max_batch: usize,
         max_page: usize,
         sql_writes: bool,
+        #[serde(default)]
+        sql_write_features: Vec<String>,
     },
     Batch {
         ids: Vec<Id>,
@@ -286,6 +378,10 @@ pub enum Output {
     Query {
         columns: Vec<String>,
         rows: Vec<Vec<SqlWireValue>>,
+    },
+    Execute {
+        affected_rows: usize,
+        ids: Vec<Id>,
     },
     Page {
         revision: String,
@@ -341,13 +437,16 @@ impl Response {
 }
 #[derive(Clone)]
 pub struct Gateway {
-    db: Database,
+    db: ServiceDatabase,
     config: ServerConfig,
 }
 impl Gateway {
-    pub fn new(db: Database, config: ServerConfig) -> Result<Self> {
+    pub fn new(db: impl Into<ServiceDatabase>, config: ServerConfig) -> Result<Self> {
         config.validate()?;
-        Ok(Self { db, config })
+        Ok(Self {
+            db: db.into(),
+            config,
+        })
     }
     pub fn handle(&self, request: Request) -> Response {
         if request.token.is_empty() {
@@ -366,11 +465,15 @@ impl Gateway {
             return Response::error("protocol", "unsupported protocol version");
         }
         // Even a principal literally named "admin" is a restricted session.
-        Response::result(self.dispatch(self.db.session(principal), request.command))
+        Response::result(
+            self.db
+                .session(principal)
+                .and_then(|session| self.dispatch(session, request.command)),
+        )
     }
-    pub(crate) fn authenticated(db: Database) -> Self {
+    pub(crate) fn authenticated(db: impl Into<ServiceDatabase>) -> Self {
         Self {
-            db,
+            db: db.into(),
             config: ServerConfig {
                 version: 1,
                 clients: vec![],
@@ -395,8 +498,7 @@ impl Gateway {
                 if request.version != 1 {
                     return Err(Error::Query("unsupported protocol version".into()));
                 }
-                let fence = session.snapshot();
-                fence.check_live()?;
+                session.check_live()?;
                 // Each operation has its own result/commit gate. A second check here
                 // would falsely report failure after a successful self-revocation.
                 self.dispatch(session, request.command)
@@ -431,7 +533,13 @@ impl Gateway {
         }
         Response::result(self.dispatch(self.db.anonymous(), request.command))
     }
-    fn dispatch(&self, session: Session, command: Command) -> Result<Output> {
+    fn dispatch(&self, session: ServiceSession, command: Command) -> Result<Output> {
+        match session {
+            ServiceSession::Resident(session) => self.dispatch_resident(session, command),
+            ServiceSession::Paged(session) => self.dispatch_paged(session, command),
+        }
+    }
+    fn dispatch_resident(&self, session: Session, command: Command) -> Result<Output> {
         match command {
             Command::UsingCapability {
                 capability,
@@ -442,7 +550,7 @@ impl Gateway {
                 {
                     return Err(Error::Denied);
                 }
-                self.dispatch(session.with_capability(capability)?, *command)
+                self.dispatch_resident(session.with_capability(capability)?, *command)
             }
             Command::DelegateCapability {
                 parent,
@@ -533,7 +641,7 @@ impl Gateway {
                     let principal = snapshot.principal.as_deref().expect("restricted");
                     if !snapshot.state.can_discover(Some(principal), schema.id)
                         || schema.roles.iter().any(|role| {
-                            matches!(&role.data_type, DataType::Ref(name)
+                            matches!(role.data_type.base_type(), DataType::Ref(name)
                                 if !snapshot.can_discover(snapshot.state.names[name]))
                         })
                     {
@@ -554,7 +662,7 @@ impl Gateway {
                 if let Command::Query { sql, params } = *command {
                     query_output(snapshot.sql_for_relations(&selected)?, sql, params)
                 } else {
-                    self.dispatch(session, *command)
+                    self.dispatch_resident(session, *command)
                 }
             }
             Command::Capabilities => {
@@ -568,7 +676,7 @@ impl Gateway {
                     // The legacy full-declaration shape cannot redact reference
                     // domains. Omit such families; Catalog exposes safe opaque roles.
                     .filter(|def| snapshot.can_discover(def.id) && def.roles.iter().all(|r| {
-                        !matches!(&r.data_type, DataType::Ref(name) if !snapshot.can_discover(snapshot.state.names[name]))
+                        !matches!(r.data_type.base_type(), DataType::Ref(name) if !snapshot.can_discover(snapshot.state.names[name]))
                     }))
                     .map(|def| {
                         let grant = snapshot.state.grant(p, def.id);
@@ -586,7 +694,8 @@ impl Gateway {
                     relations,
                     max_batch: 100,
                     max_page: 1000,
-                    sql_writes: false,
+                    sql_writes: true,
+                    sql_write_features: sql_dml::FEATURES.iter().map(|s| (*s).to_owned()).collect(),
                 })
             }
             Command::Batch { operations } => {
@@ -648,6 +757,7 @@ impl Gateway {
                 Ok(Output::Batch { ids })
             }
             Command::Query { sql, params } => query_output(session.snapshot().sql()?, sql, params),
+            Command::Execute { sql, params } => sql_dml::resident(&session, &sql, &params),
             Command::Page {
                 relation,
                 schema_id,

@@ -1,18 +1,24 @@
 /** Authoring syntax only. The Rust compiler validates imports, references and installation. */
 import { objectValidator, type Validator, type FieldSpec, type RoleCheck } from "./validation.js";
 export type EntityId<R extends string> = string & { readonly __relation: R };
-export type DataType = "Bool" | "Int" | "Text" | "Timestamp" | "Bytes" | { Ref: string } | { Decimal: { scale: number } };
+export type DataType = "Bool" | "Int" | "Text" | "Timestamp" | "Bytes" | "Float" | { Nullable: DataType } | { Ref: string } | { Decimal: { scale: number } };
 export interface Scalar<T> extends FieldSpec { readonly dataType: DataType; readonly _type?: T }
 function scalar<T>(kind: Scalar<T>["kind"], dataType: DataType): Scalar<T> { return Object.freeze({ kind, dataType }); }
 export const s = {
   bool: () => scalar<boolean>("Bool", "Bool"),
+  float: () => scalar<number>("Float", "Float"),
+  nullable<T>(inner: Scalar<T>): Scalar<T | null> { if (inner.nullable) throw new Error("nested nullable type"); return Object.freeze({...inner, nullable:true, dataType:{Nullable:inner.dataType}}); },
   string: () => scalar<string>("Text", "Text"),
   int64: () => scalar<bigint>("Int", "Int"),
   timestamp: () => scalar<bigint>("Timestamp", "Timestamp"),
   bytes: () => scalar<Uint8Array>("Bytes", "Bytes"),
   decimal(scale: number) { if (!Number.isInteger(scale) || scale < 0 || scale > 18) throw new Error("decimal scale must be 0..18"); return scalar<bigint>("Decimal", { Decimal: { scale } }); }
 };
-export function ref<R extends string>(name: R): Scalar<EntityId<R>> { return scalar("Ref", { Ref: name }); }
+export interface ReferenceOptions { readonly onDelete?: "restrict" | "cascade"; readonly deferrable?: boolean }
+export function ref<R extends string>(name: R, options: ReferenceOptions = {}): Scalar<EntityId<R>> {
+  if (!options || typeof options !== "object" || Object.keys(options).some(k => !["onDelete", "deferrable"].includes(k)) || (options.onDelete !== undefined && !["restrict", "cascade"].includes(options.onDelete)) || (options.deferrable !== undefined && typeof options.deferrable !== "boolean")) throw new Error("invalid reference options");
+  return Object.freeze({...scalar<EntityId<R>>("Ref", {Ref:name}), ...options});
+}
 type Shape = Readonly<Record<string, Scalar<unknown>>>;
 type Data<F extends Shape> = { [K in keyof F]: F[K] extends Scalar<infer T> ? T : never };
 export interface Definition<T> {
@@ -78,8 +84,10 @@ export function compileModules(modules: readonly Module[]) {
         if (names.has(local)) throw new Error(`duplicate relation ${local}`); names.add(local);
         const roles = Object.keys(def.fields).sort().map(name => {
           const field = def.fields[name];
-          if (!field || !["Bool", "Int", "Text", "Ref", "Decimal", "Timestamp", "Bytes"].includes(field.kind) || Object.keys(field).some(k => !["kind", "dataType"].includes(k))) throw new Error(`unsupported field declaration ${local}.${name}`);
-          return { name, data_type: field.dataType };
+          if (!field || !["Bool", "Int", "Text", "Ref", "Decimal", "Timestamp", "Bytes", "Float"].includes(field.kind) || Object.keys(field).some(k => !["kind", "dataType", "nullable", "onDelete", "deferrable"].includes(k))) throw new Error(`unsupported field declaration ${local}.${name}`);
+          if ((field.onDelete !== undefined || field.deferrable !== undefined) && field.kind !== "Ref") throw new Error("reference options require a reference field");
+          if ((field.onDelete !== undefined && !["restrict", "cascade"].includes(field.onDelete)) || (field.deferrable !== undefined && typeof field.deferrable !== "boolean")) throw new Error("invalid reference options");
+          return { name, data_type: field.dataType, ...(field.onDelete === "cascade" ? {on_delete:"Cascade" as const} : {}), ...(field.deferrable ? {deferrable:true} : {}) };
         });
         const checks = def.checks.map(c => c.kind === "IntRange" ? {IntRange:{role:c.role,min:c.min.toString(),max:c.max.toString()}} : {ByteLength:{role:c.role,min:c.min,max:c.max}});
         return { name: `${m.namespace}.${local}`, roles, unique: def.uniqueKeys, ...(checks.length ? {checks} : {}) };

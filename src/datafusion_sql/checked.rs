@@ -22,7 +22,7 @@ fn overflow() -> DataFusionError {
     DataFusionError::Execution("signed 64-bit SQL arithmetic overflow or division by zero".into())
 }
 
-pub(super) fn rewrite(plan: LogicalPlan) -> Result<LogicalPlan> {
+pub(crate) fn rewrite(plan: LogicalPlan) -> Result<LogicalPlan> {
     plan.transform_up_with_subqueries(|plan| {
         let schema = merge_schema(&plan.inputs());
         let names = NamePreserver::new(&plan);
@@ -212,7 +212,7 @@ fn checked_sum() -> Arc<AggregateUDF> {
 
 /// Only our static, audited factory is eligible for physical template reuse.
 /// A user-defined aggregate with the same name/signature is not sufficient.
-pub(super) fn reusable_sum(function: &AggregateUDF) -> bool {
+pub(crate) fn reusable_sum(function: &AggregateUDF) -> bool {
     Arc::ptr_eq(function.inner(), checked_sum().inner())
 }
 

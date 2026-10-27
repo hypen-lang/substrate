@@ -541,6 +541,9 @@ mod tests {
         for text in queries {
             let expected = sqlite.query(text, &[]).unwrap().rows;
             let mut query = sql.prepare(text).unwrap();
+            // Exercise generic window-template isolation even when the bounded
+            // partition-top probe executor also recognizes this SQL shape.
+            query.partition_top = None;
             for _ in 0..3 {
                 assert_eq!(
                     query.query(&[], QueryLimits::default()).unwrap().rows,

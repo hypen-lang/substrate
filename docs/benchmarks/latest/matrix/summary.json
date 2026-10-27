@@ -1,0 +1,531 @@
+[
+  {
+    "people": 500000,
+    "mode": "native-paged",
+    "interface": "native",
+    "storage": "paged",
+    "timing_class": "headline",
+    "reference_order": "ordered",
+    "suite": "aggregates",
+    "native_source_materialization": "256-row public pages; client fold at most fixture bucket count",
+    "fixture_version": "fixed-schema-ids-v1",
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "rounds": 3,
+    "queries": [
+      {
+        "case": "point",
+        "iterations_per_round": 5000,
+        "query_us_median": 0.2933416,
+        "query_us_min": 0.28988339999999996,
+        "query_us_max": 0.3196582,
+        "execution_path": "native public get",
+        "client_cpu_us_median": 0.2934000000003323
+      },
+      {
+        "case": "equality",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.7502085,
+        "query_us_min": 0.6737085,
+        "query_us_max": 0.761729,
+        "execution_path": "native public equality lookup",
+        "client_cpu_us_median": 0.7504999999996541
+      },
+      {
+        "case": "changing_parameters",
+        "iterations_per_round": 2000,
+        "query_us_median": 32.203229,
+        "query_us_min": 8.024895500000001,
+        "query_us_max": 176.71372900000003,
+        "execution_path": "native public equality lookup",
+        "client_cpu_us_median": 10.315999999999548
+      },
+      {
+        "case": "changing_parameters_warm",
+        "iterations_per_round": 2000,
+        "query_us_median": 1.9524795,
+        "query_us_min": 1.8903125,
+        "query_us_max": 2.176896,
+        "execution_path": "native public equality lookup",
+        "client_cpu_us_median": 1.9525000000006898
+      },
+      {
+        "case": "selective_join",
+        "iterations_per_round": 2000,
+        "query_us_median": 1.0192705,
+        "query_us_min": 0.999458,
+        "query_us_max": 1.1980625,
+        "execution_path": "native public equality lookups + client join",
+        "client_cpu_us_median": 1.018999999999437
+      },
+      {
+        "case": "aggregate",
+        "iterations_per_round": 1,
+        "query_us_median": 433967.125,
+        "query_us_min": 432043.54099999997,
+        "query_us_max": 443038.667,
+        "execution_path": "native public scan + client fold",
+        "client_cpu_us_median": 431798.9999999998
+      },
+      {
+        "case": "aggregate_equality",
+        "iterations_per_round": 1000,
+        "query_us_median": 0.7817090000000001,
+        "query_us_min": 0.7694590000000001,
+        "query_us_max": 0.8005829999999999,
+        "execution_path": "native public equality lookup + client fold",
+        "client_cpu_us_median": 0.7840000000012282
+      },
+      {
+        "case": "aggregate_range",
+        "iterations_per_round": 20,
+        "query_us_median": 444960.21875,
+        "query_us_min": 437319.1375,
+        "query_us_max": 466734.13960000005,
+        "execution_path": "native public scan + client filter and fold",
+        "client_cpu_us_median": 436829.4000000002
+      },
+      {
+        "case": "aggregate_broad",
+        "iterations_per_round": 3,
+        "query_us_median": 460374.9723333333,
+        "query_us_min": 436520.5416666667,
+        "query_us_max": 461188.19433333335,
+        "execution_path": "native public scan + client filter and fold",
+        "client_cpu_us_median": 436302.99999999994
+      },
+      {
+        "case": "aggregate_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 434825.8333333333,
+        "query_us_min": 431931.7776666667,
+        "query_us_max": 465907.4583333333,
+        "execution_path": "native public scan + client fold",
+        "client_cpu_us_median": 431706.6666666669
+      },
+      {
+        "case": "aggregate_filtered_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 434369.847,
+        "query_us_min": 432079.51399999997,
+        "query_us_max": 454624.9583333333,
+        "execution_path": "native public scan + client filter and fold",
+        "client_cpu_us_median": 434020.0000000003
+      }
+    ],
+    "load_seconds_median": 34.59542125,
+    "client_peak_rss_bytes_max": 34717696
+  },
+  {
+    "people": 500000,
+    "mode": "native-resident",
+    "interface": "native",
+    "storage": "resident",
+    "timing_class": "headline",
+    "reference_order": "ordered",
+    "suite": "aggregates",
+    "native_source_materialization": "public eager scan/lookup Vec<Row>; client fold at most fixture bucket count",
+    "fixture_version": "fixed-schema-ids-v1",
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "rounds": 3,
+    "queries": [
+      {
+        "case": "point",
+        "iterations_per_round": 5000,
+        "query_us_median": 0.4624666,
+        "query_us_min": 0.452575,
+        "query_us_max": 0.4834834,
+        "execution_path": "native public get",
+        "client_cpu_us_median": 0.46259999999982426
+      },
+      {
+        "case": "equality",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.6028125,
+        "query_us_min": 0.5998334999999999,
+        "query_us_max": 0.6242914999999999,
+        "execution_path": "native public equality lookup",
+        "client_cpu_us_median": 0.6034999999995351
+      },
+      {
+        "case": "changing_parameters",
+        "iterations_per_round": 2000,
+        "query_us_median": 5.620271,
+        "query_us_min": 5.0066665,
+        "query_us_max": 6.8831875,
+        "execution_path": "native public equality lookup",
+        "client_cpu_us_median": 5.620500000000028
+      },
+      {
+        "case": "changing_parameters_warm",
+        "iterations_per_round": 2000,
+        "query_us_median": 1.3993335,
+        "query_us_min": 1.1175625,
+        "query_us_max": 1.474625,
+        "execution_path": "native public equality lookup",
+        "client_cpu_us_median": 1.3994999999988877
+      },
+      {
+        "case": "selective_join",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.8652084999999999,
+        "query_us_min": 0.851,
+        "query_us_max": 0.879229,
+        "execution_path": "native public equality lookups + client join",
+        "client_cpu_us_median": 0.8649999999992275
+      },
+      {
+        "case": "aggregate",
+        "iterations_per_round": 1,
+        "query_us_median": 49356.125,
+        "query_us_min": 48150.25,
+        "query_us_max": 51604.791,
+        "execution_path": "native public scan + client fold",
+        "client_cpu_us_median": 49335.00000000102
+      },
+      {
+        "case": "aggregate_equality",
+        "iterations_per_round": 1000,
+        "query_us_median": 0.28195800000000004,
+        "query_us_min": 0.280791,
+        "query_us_max": 0.28879200000000005,
+        "execution_path": "native public equality lookup + client fold",
+        "client_cpu_us_median": 0.28299999999958914
+      },
+      {
+        "case": "aggregate_range",
+        "iterations_per_round": 20,
+        "query_us_median": 46156.89165,
+        "query_us_min": 45231.4625,
+        "query_us_max": 47072.741649999996,
+        "execution_path": "native public scan + client filter and fold",
+        "client_cpu_us_median": 45930.80000000009
+      },
+      {
+        "case": "aggregate_broad",
+        "iterations_per_round": 3,
+        "query_us_median": 45661.22233333334,
+        "query_us_min": 45614.263999999996,
+        "query_us_max": 47744.041666666664,
+        "execution_path": "native public scan + client filter and fold",
+        "client_cpu_us_median": 45641.66666666717
+      },
+      {
+        "case": "aggregate_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 46957.22233333334,
+        "query_us_min": 46915.694333333326,
+        "query_us_max": 49652.513999999996,
+        "execution_path": "native public scan + client fold",
+        "client_cpu_us_median": 46939.66666666623
+      },
+      {
+        "case": "aggregate_filtered_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 45941.139,
+        "query_us_min": 45466.763666666666,
+        "query_us_max": 48004.513999999996,
+        "execution_path": "native public scan + client filter and fold",
+        "client_cpu_us_median": 45923.99999999941
+      }
+    ],
+    "load_seconds_median": 29.081257292,
+    "client_peak_rss_bytes_max": 2317582336
+  },
+  {
+    "people": 500000,
+    "mode": "resident",
+    "interface": "sql",
+    "storage": "resident",
+    "timing_class": "headline",
+    "reference_order": "ordered",
+    "suite": "aggregates",
+    "native_source_materialization": null,
+    "fixture_version": "fixed-schema-ids-v1",
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "rounds": 3,
+    "queries": [
+      {
+        "case": "point",
+        "iterations_per_round": 5000,
+        "query_us_median": 0.9011165999999999,
+        "query_us_min": 0.554325,
+        "query_us_max": 0.9043834000000001,
+        "client_cpu_us_median": 0.9014000000000522
+      },
+      {
+        "case": "equality",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.8695835,
+        "query_us_min": 0.5839165000000001,
+        "query_us_max": 0.940521,
+        "client_cpu_us_median": 0.8699999999999263
+      },
+      {
+        "case": "changing_parameters",
+        "iterations_per_round": 2000,
+        "query_us_median": 5.7797705,
+        "query_us_min": 3.9751250000000002,
+        "query_us_max": 10.3422915,
+        "client_cpu_us_median": 5.7800000000005625
+      },
+      {
+        "case": "changing_parameters_warm",
+        "iterations_per_round": 2000,
+        "query_us_median": 1.5081875,
+        "query_us_min": 0.9153125,
+        "query_us_max": 1.9650204999999998,
+        "client_cpu_us_median": 1.5084999999999127
+      },
+      {
+        "case": "selective_join",
+        "iterations_per_round": 2000,
+        "query_us_median": 1.2354580000000002,
+        "query_us_min": 0.9866670000000002,
+        "query_us_max": 1.304375,
+        "client_cpu_us_median": 1.235499999999945
+      },
+      {
+        "case": "aggregate",
+        "iterations_per_round": 1,
+        "query_us_median": 1675.709,
+        "query_us_min": 1579.416,
+        "query_us_max": 1680.666,
+        "client_cpu_us_median": 2191.9999999990837
+      },
+      {
+        "case": "aggregate_equality",
+        "iterations_per_round": 1000,
+        "query_us_median": 22.241875,
+        "query_us_min": 21.495,
+        "query_us_max": 22.363375,
+        "client_cpu_us_median": 24.998999999999327
+      },
+      {
+        "case": "aggregate_range",
+        "iterations_per_round": 20,
+        "query_us_median": 42.14165,
+        "query_us_min": 40.17295,
+        "query_us_max": 42.8917,
+        "client_cpu_us_median": 51.54999999996689
+      },
+      {
+        "case": "aggregate_broad",
+        "iterations_per_round": 3,
+        "query_us_median": 1347.847,
+        "query_us_min": 1276.2083333333333,
+        "query_us_max": 1363.375,
+        "client_cpu_us_median": 1760.3333333327716
+      },
+      {
+        "case": "aggregate_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 4335.277666666667,
+        "query_us_min": 4306.805333333334,
+        "query_us_max": 4336.041666666667,
+        "client_cpu_us_median": 5291.3333333333885
+      },
+      {
+        "case": "aggregate_filtered_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 2208.6806666666666,
+        "query_us_min": 2205.3056666666666,
+        "query_us_max": 2239.653,
+        "client_cpu_us_median": 2674.6666666663073
+      }
+    ],
+    "load_seconds_median": 30.543348458,
+    "client_peak_rss_bytes_max": 1753071616
+  }
+]

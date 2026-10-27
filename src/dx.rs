@@ -146,6 +146,19 @@ impl Snapshot {
         after: Option<Id>,
         limit: usize,
     ) -> Result<SharedRowPage> {
+        self.page_shared_checked(relation, predicate, after, limit, &mut || Ok(()))
+    }
+    /// Internal cancellable paging. The callback runs for every candidate,
+    /// including denied rows, and after traversal before results are returned.
+    /// One candidate's reference-closure authorization remains indivisible.
+    pub(crate) fn page_shared_checked(
+        &self,
+        relation: &str,
+        predicate: Option<(&str, &Value)>,
+        after: Option<Id>,
+        limit: usize,
+        check: &mut dyn FnMut() -> Result<()>,
+    ) -> Result<SharedRowPage> {
         use std::ops::Bound::{Excluded, Unbounded};
         if !(1..=1000).contains(&limit) {
             return Err(Error::Query("page limit must be 1..=1000".into()));
@@ -175,6 +188,7 @@ impl Snapshot {
             .map(|_| self.visibility.lock().map_err(|_| Error::Denied))
             .transpose()?;
         for id in ids {
+            check()?;
             let Some(row) = self.state.row(def.id, *id) else {
                 continue;
             };
@@ -193,6 +207,7 @@ impl Snapshot {
         } else {
             None
         };
+        check()?;
         self.check_live()?;
         Ok(SharedRowPage { rows, next })
     }

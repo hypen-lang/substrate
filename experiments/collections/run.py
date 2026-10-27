@@ -12,6 +12,9 @@ parser.add_argument("prepared", type=Path)
 parser.add_argument("output", type=Path)
 parser.add_argument("--repeats", type=int, default=3)
 args = parser.parse_args()
+if args.output.exists():
+    parser.error("output already exists; choose a fresh comparison destination")
+args.output.parent.mkdir(parents=True, exist_ok=True)
 assert args.repeats >= 3
 records = []
 for repeat in range(args.repeats):

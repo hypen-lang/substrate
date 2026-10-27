@@ -1,0 +1,233 @@
+--- a/src/paged/packed_range.rs
++++ b/src/paged/packed_range.rs
+@@ -7,6 +7,70 @@
+ pub(super) trait PackedRangeVisitor {
+     fn owned(&mut self, row: &Row) -> Result<()>;
+     fn packed(&mut self, id: Id, row: FixedPackedRow<'_, '_>) -> Result<()>;
++}
++
++#[derive(Clone, Copy)]
++enum IndexPayload {
++    Bool,
++    Number,
++    Reference,
++}
++
++/// Validate the complete canonical fixed-width key in place. The prefix is
++/// query-local; no row-sized allocation or table-sized validation cache is used.
++struct FixedIndexCheck {
++    prefix: [u8; 25],
++    role: usize,
++    payload: IndexPayload,
++    payload_end: usize,
++    unique: bool,
++}
++impl FixedIndexCheck {
++    fn compile(def: &CompiledRelation, role: usize, unique: Option<usize>) -> Option<Self> {
++        let (tag, payload, width) = match def.roles[role].data_type {
++            DataType::Bool => (1, IndexPayload::Bool, 1),
++            DataType::Int => (2, IndexPayload::Number, 8),
++            DataType::Ref(_) => (4, IndexPayload::Reference, 16),
++            DataType::Decimal { .. } => (5, IndexPayload::Number, 8),
++            DataType::Timestamp => (6, IndexPayload::Number, 8),
++            _ => return None,
++        };
++        let mut prefix = [0; 25];
++        prefix[..16].copy_from_slice(def.id.0.as_bytes());
++        prefix[16..24].copy_from_slice(&(unique.unwrap_or(role) as u64).to_be_bytes());
++        prefix[24] = tag;
++        Some(Self {
++            prefix,
++            role,
++            payload,
++            payload_end: 25 + width,
++            unique: unique.is_some(),
++        })
++    }
++
++    #[inline]
++    fn matches(&self, key: &[u8], id: Id, row: FixedPackedRow<'_, '_>) -> bool {
++        if key.len() != self.payload_end + if self.unique { 1 } else { 16 }
++            || key[..25] != self.prefix
++        {
++            return false;
++        }
++        let payload_matches = match self.payload {
++            IndexPayload::Bool => row.number(self.role).is_some_and(|n| key[25] == n as u8),
++            IndexPayload::Number => row.number(self.role).is_some_and(|n| {
++                key[25..self.payload_end] == ((n as u64) ^ (1 << 63)).to_be_bytes()
++            }),
++            IndexPayload::Reference => row
++                .reference(self.role)
++                .is_some_and(|value| &key[25..self.payload_end] == value.0.as_bytes()),
++        };
++        payload_matches
++            && if self.unique {
++                key[self.payload_end] == 0
++            } else {
++                &key[self.payload_end..] == id.0.as_bytes()
++            }
++    }
+ }
+ 
+ #[derive(Default)]
+@@ -82,6 +146,7 @@
+             .iter()
+             .position(|key| key.len() == 1 && key[0] == role);
+         let index_slot = unique.unwrap_or(slot);
++        let fixed_index = FixedIndexCheck::compile(&def, slot, unique);
+         let mut prefix = def.id.0.as_bytes().to_vec();
+         prefix.extend_from_slice(&(index_slot as u64).to_be_bytes());
+         let start = lower.map_or_else(
+@@ -175,18 +240,25 @@
+             if row.revision() == 0 || row.revision() > self.view.revision {
+                 return Err(err("row revision is outside snapshot history"));
+             }
+-            let value = row.value(slot).expect("compiled fixed role").into_owned();
+-            if let Some(constraint) = unique {
+-                unique_key_into(
+-                    &mut expected,
+-                    def.id,
+-                    constraint,
+-                    std::slice::from_ref(&value),
+-                );
++            let key_matches = if let Some(index) = &fixed_index {
++                index.matches(key, id, row)
+             } else {
+-                index_key_into(&mut expected, def.id, slot, &value, id);
+-            }
+-            if key != expected {
++                // Future fixed layouts retain canonical validation until their
++                // index representation is explicitly supported here.
++                let value = row.value(slot).expect("compiled fixed role").into_owned();
++                if let Some(constraint) = unique {
++                    unique_key_into(
++                        &mut expected,
++                        def.id,
++                        constraint,
++                        std::slice::from_ref(&value),
++                    );
++                } else {
++                    index_key_into(&mut expected, def.id, slot, &value, id);
++                }
++                key == expected
++            };
++            if !key_matches {
+                 return Err(err("index value mismatch"));
+             }
+             let visible = if let Some(target) = &terminal {
+@@ -293,3 +365,114 @@
+     )
+     .ok_or_else(|| err("short index key"))
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::{Relation, Role};
++    use proptest::prelude::*;
++
++    fn verify_index_check(value: Value, id: Id, unique_slot: usize) {
++        let data_type = match value {
++            Value::Bool(_) => DataType::Bool,
++            Value::Int(_) => DataType::Int,
++            Value::Ref(_) => DataType::Ref("check.Target".into()),
++            Value::Decimal(_) => DataType::Decimal { scale: 2 },
++            Value::Timestamp(_) => DataType::Timestamp,
++            _ => unreachable!(),
++        };
++        let def = CompiledRelation::new(Relation::new(
++            "check.Record",
++            vec![
++                Role::new("other", DataType::Bool),
++                Role::new("value", data_type),
++            ],
++        ));
++        let row = Row {
++            id,
++            values: vec![Value::Bool(true), value.clone()].into_boxed_slice(),
++        };
++        let bytes = encode_row(&def, &row, 1).unwrap();
++        let layout = FixedPackedLayout::compile(&def).unwrap();
++        let packed = layout.read(&bytes).unwrap();
++        for unique in [None, Some(unique_slot)] {
++            let check = FixedIndexCheck::compile(&def, 1, unique).unwrap();
++            let canonical = if let Some(slot) = unique {
++                unique_key(def.id, slot, std::slice::from_ref(&value))
++            } else {
++                index_key(def.id, 1, &value, id)
++            };
++            assert!(check.matches(&canonical, id, packed));
++            // Every prefix/tag/payload/suffix byte must be checked. This also
++            // includes the unique tuple terminator and full occurrence ID.
++            for index in 0..canonical.len() {
++                let mut changed = canonical.clone();
++                changed[index] ^= 0x80;
++                assert_eq!(check.matches(&changed, id, packed), changed == canonical);
++            }
++            for length in 0..canonical.len() {
++                assert!(!check.matches(&canonical[..length], id, packed));
++            }
++            let mut extended = canonical.clone();
++            extended.push(0);
++            assert!(!check.matches(&extended, id, packed));
++            let different_id = Id::from_u128(id.0.as_u128() ^ 1);
++            assert_eq!(
++                check.matches(&canonical, different_id, packed),
++                unique.is_some()
++            );
++        }
++    }
++
++    #[test]
++    fn compiled_index_validation_matches_canonical_extrema_and_rejects_malformed_keys() {
++        for value in [
++            Value::Bool(false),
++            Value::Bool(true),
++            Value::Ref(Id::from_u128(0)),
++            Value::Ref(Id::from_u128(u128::MAX)),
++        ] {
++            verify_index_check(value, Id::from_u128(0), usize::MAX);
++        }
++        for number in [i64::MIN, -1, 0, 1, i64::MAX] {
++            for value in [
++                Value::Int(number),
++                Value::Decimal(number),
++                Value::Timestamp(number),
++            ] {
++                verify_index_check(value, Id::from_u128(u128::MAX), 7);
++            }
++        }
++        for data_type in [
++            DataType::Text,
++            DataType::Bytes,
++            DataType::Float,
++            DataType::Int.nullable(),
++        ] {
++            let def = CompiledRelation::new(Relation::new(
++                "check.Unsupported",
++                vec![Role::new("value", data_type)],
++            ));
++            assert!(FixedIndexCheck::compile(&def, 0, None).is_none());
++        }
++    }
++
++    proptest! {
++        #[test]
++        fn compiled_index_validation_matches_canonical_random_values(
++            number in any::<i64>(),
++            reference in any::<u128>(),
++            occurrence in any::<u128>(),
++            constraint in any::<usize>(),
++        ) {
++            for value in [
++                Value::Int(number),
++                Value::Decimal(number),
++                Value::Timestamp(number),
++                Value::Ref(Id::from_u128(reference)),
++            ] {
++                verify_index_check(value, Id::from_u128(occurrence), constraint);
++            }
++        }
++    }
++}

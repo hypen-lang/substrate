@@ -27,6 +27,7 @@ pub use dx::{Fields, Record, RetryPolicy, RowPage, TypedId};
 pub use manifest::{SchemaManifest, SchemaPlan};
 mod model;
 pub mod nested;
+pub mod paged;
 pub mod partition;
 pub mod profiling;
 mod query;
@@ -37,7 +38,10 @@ mod sql;
 mod storage;
 mod wire;
 
-pub use durable::{CheckpointInfo, CheckpointPolicy, DatabaseOptions, RecoveryInfo, StorageInfo};
+pub use durable::{
+    CheckpointInfo, CheckpointPolicy, DatabaseOptions, PersistenceStats, RecoveryInfo, StorageInfo,
+    StorageOptions,
+};
 pub use engine::{
     CheckpointCompletion, Checkpointer, CheckpointerOptions, CheckpointerStats, Database,
     GroupCommitOptions, GroupCommitStats, Session, Snapshot, Stats, Transaction,
@@ -47,3 +51,6 @@ pub use query::Table;
 pub use sql::{
     QueryLimits, SqlQuery, SqlSnapshot, SqlTable, SqlTransaction, SqliteQuery, SqliteSnapshot,
 };
+
+#[cfg(feature = "consensus")]
+pub mod consensus;

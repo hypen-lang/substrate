@@ -137,7 +137,7 @@ fn boolean(row: &Row, i: usize) -> bool {
     };
     b
 }
-fn control_module() -> &'static Module {
+pub(crate) fn control_module() -> &'static Module {
     static MODULE: std::sync::OnceLock<Module> = std::sync::OnceLock::new();
     MODULE.get_or_init(|| {
         let specs = [
@@ -465,13 +465,14 @@ fn build_plan(
             reference_index_entries_per_row: r
                 .roles
                 .iter()
-                .filter(|r| matches!(r.data_type, DataType::Ref(_)))
+                .filter(|r| r.data_type.reference_target().is_some())
                 .count(),
             unique_index_entries_per_row: r.unique.len(),
             minimum_packed_put_bytes: 33
                 + r.roles
                     .iter()
                     .map(|r| match r.data_type {
+                        DataType::Nullable(_) => 1,
                         DataType::Bool => 1,
                         DataType::Ref(_) => 16,
                         DataType::Text | DataType::Bytes => 4,

@@ -12,6 +12,7 @@ export class LocalClient {
   close(): void;
   request(command: unknown): Promise<unknown>;
   capabilities(): Promise<unknown>;
+  execute(sql: string, params?: SqlParameter[]): Promise<{ affectedRows: number; ids: string[] }>;
   batch(operations: Mutation[]): Promise<string[]>;
   insert<T, R extends string>(descriptor: Descriptor<T,R>, value: NoInfer<T>): Promise<EntityId<R>>;
   update<T, R extends string>(descriptor: Descriptor<T,R>, id: EntityId<NoInfer<R>>, value: Partial<NoInfer<T>>): Promise<void>;

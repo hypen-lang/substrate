@@ -64,10 +64,16 @@ pub struct CatalogRole {
     pub data_type: CatalogType,
     pub required: bool,
     pub equality_index: bool,
+    /// Foreign-key actions; default values preserve older catalog responses.
+    #[serde(default)]
+    pub on_delete: OnDelete,
+    #[serde(default)]
+    pub deferrable: bool,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum CatalogType {
+    Float,
     Bool,
     Int,
     Text,
@@ -151,7 +157,9 @@ impl Snapshot {
                 .iter()
                 .enumerate()
                 .map(|(slot, role)| {
-                    let data_type = match &role.data_type {
+                    let data_type = match role.data_type.base_type() {
+                        DataType::Float => CatalogType::Float,
+                        DataType::Nullable(_) => unreachable!("base type excludes nullable"),
                         DataType::Bool => CatalogType::Bool,
                         DataType::Int => CatalogType::Int,
                         DataType::Text => CatalogType::Text,
@@ -177,8 +185,10 @@ impl Snapshot {
                         },
                         name: role.name.clone(),
                         data_type,
-                        required: true,
+                        required: !role.data_type.is_nullable(),
                         equality_index: true,
+                        on_delete: role.on_delete,
+                        deferrable: role.deferrable,
                     }
                 })
                 .collect();

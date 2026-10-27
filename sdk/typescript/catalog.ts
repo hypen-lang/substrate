@@ -4,10 +4,10 @@ import type { Visibility } from "./schema-control.js";
 
 export interface CatalogOptions { after?: string; expectedRevision?: string; relation?: string; limit?: number }
 export interface RoleId { relation: string; slot: number }
-export type CatalogType = {kind:"bool"|"int"|"text"|"timestamp"|"bytes"} | {kind:"decimal";scale:number} | {kind:"ref";target:{id:string;name:string}|null};
+export type CatalogType = {kind:"bool"|"int"|"text"|"timestamp"|"bytes"|"float"} | {kind:"decimal";scale:number} | {kind:"ref";target:{id:string;name:string}|null};
 export interface CatalogRelation {
   id:string; name:string; fingerprint:string|null; module:{name:string;version:string};
-  roles:Array<{id:RoleId;name:string;data_type:CatalogType;required:boolean;equality_index:boolean}>;
+  roles:Array<{id:RoleId;name:string;data_type:CatalogType;required:boolean;equality_index:boolean;on_delete?:"Restrict"|"Cascade";deferrable?:boolean}>;
   unique:RoleId[][];
   checks?:readonly RoleCheck[];
   operations:{read:boolean;insert:boolean;update:boolean;delete:boolean;reference:boolean};
@@ -31,7 +31,7 @@ function visibility(value:unknown):Visibility|null {return value===undefined||va
 function dataType(value:unknown):CatalogType {
   const v=object(value);
   switch(v.kind) {
-    case "bool":case "int":case "text":case "timestamp":case "bytes":return {kind:v.kind};
+    case "bool":case "int":case "text":case "timestamp":case "bytes":case "float":return {kind:v.kind};
     case "decimal":return {kind:"decimal",scale:uint(v.scale,18)};
     case "ref":{const t=v.target===null?null:object(v.target);return {kind:"ref",target:t===null?null:{id:id(t.id),name:string(t.name)}};}
     default:return fail();
@@ -71,7 +71,14 @@ export async function introspect(client:QueryClient,options:CatalogOptions={}):P
   const relations=list(page.relations).map(value=>{
     const r=object(value),m=object(r.module),ops=object(r.operations);
     const result:CatalogRelation={id:id(r.id),name:string(r.name),fingerprint:r.fingerprint===null?null:string(r.fingerprint),module:{name:string(m.name),version:revision(m.version)},
-      roles:list(r.roles).map(value=>{const v=object(value);return {id:roleId(v.id),name:string(v.name),data_type:dataType(v.data_type),required:bool(v.required),equality_index:bool(v.equality_index)};}),
+      roles:list(r.roles).map(value=>{
+        const v=object(value),kind=dataType(v.data_type);
+        const action=v.on_delete===undefined?"Restrict":v.on_delete;
+        if (action!=="Restrict" && action!=="Cascade") fail();
+        const deferred=v.deferrable===undefined?false:bool(v.deferrable);
+        if (kind.kind!=="ref" && (action!=="Restrict" || deferred)) fail();
+        return {id:roleId(v.id),name:string(v.name),data_type:kind,required:bool(v.required),equality_index:bool(v.equality_index),...(v.on_delete===undefined?{}:{on_delete:action as "Restrict"|"Cascade"}),...(v.deferrable===undefined?{}:{deferrable:deferred})};
+      }),
       ...(r.checks === undefined ? {} : {checks:schemaChecks(r.checks)}),
       ...(r.visibility === undefined ? {} : {visibility:visibility(r.visibility)}),
       unique:list(r.unique).map(key=>list(key).map(roleId)),operations:{read:bool(ops.read),insert:bool(ops.insert),update:bool(ops.update),delete:bool(ops.delete),reference:bool(ops.reference)},row_restricted:bool(r.row_restricted),lifecycle:lifecycle(r.lifecycle),aliases:list(r.aliases??[]).map(string)};

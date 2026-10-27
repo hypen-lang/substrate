@@ -1,0 +1,15 @@
+   Compiling redb v3.1.3 (<repo>/vendor/redb)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.78s
+   Doc-tests redb
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+
+running 1 test
+test src/table.rs - table::Range<'_,K,V>::visit_borrowed (line 673) - compile fail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+all doctests ran in 0.50s; merged doctests compilation took 0.20s

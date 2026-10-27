@@ -1,0 +1,6 @@
+{
+  "baseline": "compiled v4 intermediate from this task, before borrowed range visitation",
+  "sha256": "e7e07b6da92fef23a1fed508ffdac3d710c7b7687588858e17d5f57482d88c4f",
+  "preservation": "surviving release executable copied before rebuilding; earlier temporary binaries/results are unavailable",
+  "source_manifest": "earlier temporary source manifest unavailable; this baseline is not the initial pre-task implementation"
+}

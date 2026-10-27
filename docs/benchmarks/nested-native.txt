@@ -1,4 +1,0 @@
-authorized=true,warm_cache=true,samples=7,iterations=5,children_per_parent=2,no_network=true
-parents=10,batched_statements=3,naive_statements=31,batched_median_ms=0.330,naive_median_ms=0.212,ratio_naive_over_batched=0.64,returned_nodes=50
-parents=100,batched_statements=3,naive_statements=301,batched_median_ms=0.965,naive_median_ms=0.918,ratio_naive_over_batched=0.95,returned_nodes=500
-parents=500,batched_statements=3,naive_statements=1501,batched_median_ms=3.597,naive_median_ms=4.689,ratio_naive_over_batched=1.30,returned_nodes=2500

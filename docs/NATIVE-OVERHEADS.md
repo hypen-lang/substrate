@@ -102,7 +102,7 @@ The runner refuses existing result files, records executable fingerprints and
 verifies identical workload descriptions. Binary assertions check retained
 snapshots, current values, reopened durable values, indexes and projected output.
 
-Final results and limitations: [paired native benchmark](benchmarks/NATIVE-OVERHEADS.md).
+Final results and limitations: paired native benchmark (historical results removed).
 
 ## Restricted reads and contention follow-up
 
@@ -129,17 +129,101 @@ normal authorization outside the cache lock. Old cached snapshots are dropped
 after unlocking. A new data revision always receives fresh data and authority
 resolution; this is not an authorization cache across revisions.
 
-Live fences use a publication generation captured with the state under the head
-mutex. An unchanged generation permits a read fence to avoid that mutex while
-still checking database attachment, poison, denial, and expiry. Every commit and
-replication publication advances the generation under the same mutex. Failure
-and counter exhaustion permanently disable this shortcut. Changed generations
-use the original locked dependency validation. Historical transaction bases
-explicitly disable the generation shortcut. SQL retains entry, page, and final
-release fences; constructing buffered output needs deadline checks per row but
-does not need another head lock per output row.
+Snapshot capture now loads one immutable atomic publication containing the state,
+failure flag, and authority generation through `arc-swap`. Ordinary readers and
+live fences do not acquire the writer/head mutex, including when the generation
+has changed. Writers still serialize state publication; the atomic replacement is
+the authority linearization point. State and generation are never captured from
+separate publications.
 
-The [follow-up measurements](benchmarks/READ-REGRESSIONS.md) compare against
+An unchanged generation skips dependency traversal while retaining attachment,
+poison, denial, and expiry checks. Changed generations validate dependencies
+against the captured current publication. Failure is published atomically;
+generation exhaustion permanently disables the shortcut. Historical transaction
+bases explicitly disable it. Live guards hold weak references to the publication
+slot and originating state, so they neither keep a detached database alive nor
+retain later row snapshots. SQL retains entry, page, and final release fences.
+
+Fresh snapshots share an immutable live-authority payload through a per-session
+atomic cache keyed by weak state identity, generation, principal, and credential.
+The cache retains no row state. Every snapshot still captures the latest published
+data; a changed source resolves authority again. Transaction-specific expiry
+changes use copy-on-write, so they cannot mutate another snapshot's authority.
+Scalar point reads use the existing compiled row policy directly because they have
+no reference closure to memoize. Reference-bearing rows keep the memoized closure.
+
+`Session::get(relation, id)` returns an owned row from a fresh committed publication.
+On a warmed scalar read it borrows both the publication and matching cached
+authority. The session already owns the database handles, so its entry and release
+fences can borrow those handles without incrementing global reference counts.
+Live revocation, expiry, poisoning, and fail-stop checks remain in both fences.
+Compiled grants use persistent nested maps keyed first by principal, then relation.
+Permission checks borrow `&str` and allocate no temporary principal key. The same
+representation serves capability overlays; canonical iteration remains ordered by
+principal and relation, so log/checkpoint/replication declarations are unchanged.
+The ordinary scalar owned path resolves its compiled grant once and reuses it for
+relation and row permission checks. Filtered grants still combine with ambient
+visibility; anonymous callers cannot acquire explicit-grant authority.
+Capability-scoped scalar reads cache only the compiled capability metadata and
+the same weak source key, including the capability ID in cache matching. They
+apply the scope's compiled read grant and row filter without ambient visibility.
+Reference-bearing reads use the existing snapshot path; a changed publication
+first resolves authority through that path as well.
+Use a retained `Snapshot` when several operations must observe the same revision.
+Retained snapshot reads keep their original attachment fence and relation lookup.
+Transaction construction moves the temporary snapshot's state and
+authority handles instead of immediately cloning and dropping them.
+
+`Session::get_shared` uses the same fresh-data and authorization path and returns
+`Arc<Row>` without copying Text/Bytes payloads. The immutable row remains valid
+across later writes; already released data cannot be recalled by revocation.
+Owned result mapping is followed by a release fence, including on cache misses.
+Credential expiry still reads current system time at both fences. The monotonic
+clock now loads its last observed second first, performing an atomic maximum only
+when time advances, avoiding a shared cache-line write for unchanged seconds.
+
+The focused `read_contention` example compares fresh and retained snapshot reads,
+fresh session reads, snapshot construction, and shared versus per-worker `Arc`
+clone controls. These are distinct APIs/workloads: a faster `Session::get` result
+does not imply the same gain for existing `snapshot().get()` callers. The probe
+reports process CPU and sampled latency; run it alone to avoid CPU interference.
+
+An October 25 code-generation check found that adding the scoped/shared mapping
+helper caused LLVM to inline it into ordinary owned `Session::get`, interleaving
+the implementations. On this arm64 release build, the function's stack allocation
+grew from the preserved baseline's `sub sp, sp, #0x140` (320 bytes) to `#0x1d0`
+(464 bytes). Keeping that helper out of line reduced the final allocation to
+`#0x130` (304 bytes). This restored the separate ordinary path, but did **not**
+eliminate the measured concurrent-read regression; stack size alone does not
+establish its cause. The baseline binary remains unchanged at
+`/tmp/substrate-scale-before-bottlenecks-20261025`. Reproduce the small assembly
+excerpt with the following command, substituting that path for the current binary
+to inspect the baseline:
+
+```sh
+otool -tvV -p __ZN16substrate_liquid6engine7Session3get17h7723acbcbfe56448E target/release/examples/scale_benchmark | head -25
+```
+
+The symbol hash is build-dependent; `nm BINARY | rg 'engine7Session3get'` locates
+it. Matched profiles use `experiments/scale/profile_reads.py --binary BINARY
+--output OUTPUT --point-api session --clients 32` with one million rows. Profiles
+sample execution and add overhead, so their TPS is not an unsampled comparison.
+The matched `bottlenecks-profile-before` and `bottlenecks-profile-after` artifacts
+show allocator-library leaves at about 32% and 31% of collapsed samples,
+respectively; ArcSwap and the borrowed authority guard each account for less than
+1%. The largest deduplicated application symbol resolves via `nm` to two identical
+`imbl::OrdMap::get` instantiations, accounting for approximately 25–26%. These
+profiles include the harness's result validation, formatting, and latency
+measurement. They do not establish that allocator layout caused the regression,
+and do not support attributing it to newly contended authority reference counts.
+
+This removes mutex acquisition and repeated authority construction, not all shared
+reference-count traffic or per-snapshot allocation. Fresh-snapshot scaling must still be benchmarked independently of reads
+within a retained snapshot. Tests cover capture during concurrent publication,
+revocation, credential rotation, expiry, fail-stop, poisoned writers, generation
+exhaustion, and continued read progress while the writer mutex is held.
+
+The follow-up measurements (historical results removed) compare against
 `2dac848` and SQLite. In addition to the original finite-reader workload, the
 native harness keeps four readers running throughout all writes and records
 their progress and latency. This distinguishes faster writer commits from

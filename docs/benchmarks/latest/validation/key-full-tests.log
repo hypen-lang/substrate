@@ -1,0 +1,1166 @@
+   Compiling redb v3.1.3 (<repo>/vendor/redb)
+   Compiling substrate-liquid v0.1.0 (<home>/Workspace/Substrate)
+    Finished `test` profile [unoptimized] target(s) in 1m 20s
+     Running unittests src/lib.rs (target/debug/deps/substrate_liquid-03fa0b994c40a6ca)
+
+running 424 tests
+test auth::tests::credential_crash_child ... ok
+test auth::tests::concurrent_clock_observations_preserve_completed_advances ... ok
+test auth::tests::deadline_validation_rejects_past_zero_and_inexact_js_ranges ... ok
+test auth::tests::credentials_are_scope_bound_and_never_store_secrets ... ok
+test auth::tests::a_shorter_child_expires_without_revoking_parent_or_sibling ... ok
+test auth::tests::credential_expiry_is_exclusive_and_fences_pending_schema_install ... ok
+test auth::tests::malformed_and_wrong_secrets_are_denied_without_panics ... ok
+test auth::tests::authenticated_schema_workflow_rechecks_rotation_and_does_not_expand_scope ... ok
+test auth::tests::concurrent_rotations_have_one_winner_and_no_extra_active_credentials ... ok
+test auth::tests::observed_clock_never_rewinds_or_recovers_from_failed_time ... ok
+test capability::tests::root_issuance_racing_grant_revocation_cannot_escape_invalidation ... ok
+test auth::tests::v1_capability_records_remain_compatible_and_unknown_versions_fail_closed ... ok
+test capability::tests::revocation_after_schema_validation_before_commit_prevents_atomic_install ... ok
+test auth::tests::revoking_parent_or_credential_preserves_live_revocation ... ok
+test auth::tests::arbitrary_tokens_never_authenticate_or_panic ... ok
+test auth::tests::capability_expiry_reaches_retained_handles_and_inherited_children ... ok
+test auth::tests::rotation_fences_retained_native_sql_runtime_and_staged_writes ... ok
+test codec::compatibility_tests::durable_schema_cannot_allocate_an_omitted_identity ... ok
+test codec::compatibility_tests::frozen_v1_schema_fixture_has_deterministic_identity_and_bytes ... ok
+test codec::compatibility_tests::invalid_schema_constraints_and_unknown_permissions_fail_closed ... ok
+test codec::compatibility_tests::constrained_v2_is_explicit_and_recovery_rejects_invalid_values_and_unknown_checks ... ok
+test codec::compatibility_tests::packed_person_bytes_are_identical_after_independent_extensions ... ok
+test codec::nullable_wire_tests::deferred_redo_still_rejects_a_missing_final_target ... ok
+test codec::nullable_wire_tests::new_typed_records_are_versioned_and_reject_noncanonical_scalars ... ok
+test codec::sizing_tests::sizing_rejects_invalid_rows_and_overflow_like_encoding ... ok
+test codec::tests::packed_roundtrip_and_every_truncation_is_rejected ... ok
+test auth::tests::expiry_boundary_never_extends_authority ... ok
+test datafusion_sql::direct::tests::compiled_lookups_rebind_unseen_values_without_planning_or_result_reuse ... ok
+test datafusion_sql::direct::tests::compiled_lookup_coercions_and_plan_barriers_fall_back_without_changing_results ... ok
+test codec::compatibility_tests::arbitrary_and_mutated_log_bytes_never_panic ... ok
+test datafusion_sql::direct::tests::compiled_ranges_preserve_coercion_and_plan_barriers ... ok
+test datafusion_sql::direct::tests::direct_projection_does_not_copy_unselected_large_cells ... ok
+test datafusion_sql::direct::tests::compiled_ranges_rebind_unseen_bounds_with_sqlite_parity ... ok
+test datafusion_sql::direct::tests::direct_reads_preserve_budgets_pinned_data_and_live_grants ... ok
+test datafusion_sql::exists::tests::capability_scope_expiry_and_dropped_database_fail_closed ... ok
+test datafusion_sql::direct::tests::unbounded_ranges_retain_generic_cached_execution ... ok
+test codec::sizing_tests::admission_length_matches_every_wire_variant ... ok
+test datafusion_sql::exists::tests::denied_candidates_are_interruptible_and_charge_source_work ... ok
+test datafusion_sql::exists::tests::filters_aliases_duplicate_matches_limits_and_supported_operators ... ok
+test datafusion_sql::direct::tests::compiled_numeric_ranges_page_ties_and_preserve_reference_visibility ... ok
+test datafusion_sql::exists::tests::rejected_outer_payload_is_not_converted_but_returned_payload_is_bounded ... ok
+test consensus::storage::tests::damaged_log_accounting_cannot_bypass_the_storage_cap ... ok
+test datafusion_sql::exists::tests::correlated_probes_match_generic_sql_and_sqlite_and_rebind ... ok
+test consensus::storage::multimap_test::multimap_only_database_is_not_repurposed ... ok
+test consensus::storage::tests::existing_database_is_not_repurposed_as_a_raft_file ... ok
+test datafusion_sql::exists::tests::row_filters_reference_visibility_and_live_revocation_remain_enforced ... ok
+test datafusion_sql::exists::tests::unsupported_shapes_and_numeric_coercion_use_general_executor ... ok
+test datafusion_sql::exists::top::tests::nullable_window_order_and_equality_use_sql_semantics ... ok
+test datafusion_sql::exists::top::tests::filtered_rows_scopes_and_live_revocation_remain_enforced ... ok
+test consensus::storage::tests::genesis_and_trusted_peers_are_pinned_across_restarts ... ok
+test datafusion_sql::exists::top::tests::reordered_joins_and_aliases_keep_partition_and_order_meaning ... ok
+test datafusion_sql::joins::tests::owned_probe_keys_respect_memory_pool_and_error_releases_reservation ... ok
+test datafusion_sql::planning::analytic::tests::finite_sort_has_fresh_threshold_metrics_and_fetch ... ok
+test datafusion_sql::planning::analytic::tests::hash_join_rebuilds_success_and_failed_build_state_and_preserves_nulls ... ok
+test datafusion_sql::planning::analytic::tests::pushed_dynamic_consumers_are_rejected_but_unused_producers_are_safe ... ok
+test datafusion_sql::planning::analytic::tests::row_number_windows_make_fresh_evaluators_and_reject_other_functions ... ok
+test datafusion_sql::planning::tests::aggregate_templates_rebuild_accumulators_and_recover_from_memory_errors ... ok
+test datafusion_sql::planning::tests::every_template_execution_gets_fresh_nodes_and_unknown_operators_replan ... ok
+test datafusion_sql::planning::tests::single_binding_cache_uses_exact_types_and_replaces_old_binding ... ok
+test datafusion_sql::exists::top::tests::partition_fanout_falls_back_and_budgets_are_enforced ... ok
+test datafusion_sql::planning::tests::unknown_immutable_aggregate_with_builtin_name_is_not_reusable ... ok
+test datafusion_sql::planning::tests::subqueries_are_checked_recursively_before_function_folding ... ok
+test datafusion_sql::provider::tests::cached_page_reads_recharge_budgets_and_isolate_projection_order ... ok
+test datafusion_sql::provider::tests::page_cache_fifo_bounds_duplicate_insert_and_oversized_pages ... ok
+test datafusion_sql::provider::tests::capability_expiry_between_cached_pages_discards_further_reads ... ok
+test datafusion_sql::provider::tests::range_cache_keys_account_for_typed_bounds_direction_and_continuation ... ok
+test datafusion_sql::exists::top::tests::identity_partitions_and_unique_order_are_required ... ok
+test datafusion_sql::provider::tests::range_cache_preserves_candidate_charges_and_empty_page_continuations ... ok
+test datafusion_sql::provider::tests::source_budget_is_shared_across_scans_and_counts_before_allocation ... ok
+test datafusion_sql::provider::tests::range_cache_live_guards_recheck_between_pages ... ok
+test datafusion_sql::provider::tests::revocation_between_cached_pages_discards_further_reads ... ok
+test datafusion_sql::tests::capability_expiry_invalidates_prepared_datafusion_query ... ok
+test auth::tests::rotation_and_expiry_survive_checkpoint_and_log_recovery ... ok
+test datafusion_sql::tests::numeric_result_conversion_never_truncates ... ok
+test datafusion_sql::planning::analytic::tests::benchmark_group_and_window_retain_fresh_templates_and_preserve_authority ... ok
+test datafusion_sql::tests::sql_execution_overhead_probe ... ignored, manual release-mode performance probe
+test datafusion_sql::tests::planning_cache_is_binding_local_and_discards_failed_execution ... ok
+test datafusion_sql::exists::top::tests::ordered_partition_probes_match_both_executors_and_rebind ... ok
+test datafusion_sql::tiny_join::tests::capability_scope_expiry_and_missing_references_cannot_be_bypassed ... ok
+test datafusion_sql::tests::context_dependent_queries_and_views_never_cache_folded_values ... ok
+test datafusion_sql::tiny_join::tests::private_reference_closure_row_filters_and_noncanonical_keys_remain_enforced ... ok
+test datafusion_sql::tiny_join::tests::duplicates_aliases_multiple_keys_reordered_sources_and_order_limits_match ... ok
+test datafusion_sql::tiny_join::tests::rejected_candidate_does_not_convert_unused_oversized_payload ... ok
+test datafusion_sql::tiny_join::tests::tiny_budgets_errors_and_live_revocation_preserve_pinned_rows ... ok
+test datafusion_sql::tests::indexed_join_templates_rebuild_state_and_preserve_binding_budget_and_authority ... ok
+test datafusion_sql::tiny_join::tests::exact_scalar_join_keys_and_selected_payload_budgets_match_generic_execution ... ok
+test datafusion_sql::tests::deterministic_subquery_cache_preserves_bindings_and_live_authority ... ok
+test durable::io_probe::checkpoint_backend_io_probe ... ignored, explicit storage I/O experiment; run alone with --ignored --nocapture
+test datafusion_sql::tiny_join::tests::unsupported_shapes_coercions_and_large_fanout_fall_back ... ok
+test disk_snapshot::tests::lease_does_not_retain_original_state_or_row_arcs ... ok
+test auth::tests::credential_rotation_is_atomic_across_process_crashes ... ok
+test datafusion_sql::exists::tests::randomized_relationship_bags_preserve_exists_multiplicity ... ok
+test disk_snapshot::tests::expiry_rotation_checksums_and_digest_collisions_fail_closed ... ok
+test datafusion_sql::exists::tests::output_limits_and_large_probe_fallback_preserve_semantics ... ok
+test durable::tests::a_gap_in_the_redo_tail_is_rejected ... ok
+test datafusion_sql::exists::top::tests::randomized_tied_partitions_match_sqlite_and_generic ... ok
+test durable::tests::checkpoint_log_pruning_preserves_pinned_redb_readers ... ok
+test durable::tests::crash_child ... ok
+test datafusion_sql::tiny_join::tests::randomized_bags_and_alias_shapes_match_both_executors ... ok
+test datafusion_sql::tiny_join::tests::benchmark_joins_compile_and_rebind_without_executor_or_cached_results ... ok
+test durable::tests::crash_after_checkpoint_catalog ... ok
+test durable::tests::crash_after_checkpoint_clear ... ok
+test durable::tests::crash_inside_redb_sync ... ok
+test durable::tests::crash_after_checkpoint_manifest ... ok
+test durable::tests::crash_after_checkpoint_commit ... ok
+test durable::tests::frozen_v1_checkpoint_upgrades_once_without_changing_rows_or_identities ... ok
+test durable::tests::crash_before_checkpoint ... ok
+test durable::tests::crash_after_checkpoint_prune ... ok
+test durable::tests::crash_before_checkpoint_commit ... ok
+test durable::tests::crash_during_checkpoint_rows ... ok
+test durable::tests::incremental_checkpoint_only_writes_changed_rows_and_metadata_after_reopen ... ok
+test durable::tests::injected_sync_errors_preserve_atomic_state ... ok
+test durable::tests::crash_inside_redb_write ... ok
+test durable::tests::legacy_log_only_database_is_upgraded_without_identity_changes ... ok
+test durable::tests::missing_final_redo_is_detected_by_head ... ok
+test durable::tests::missing_catalog_is_rejected ... ok
+test durable::tests::missing_checkpoint_row_is_rejected ... ok
+test durable::tests::injected_write_errors_preserve_atomic_state ... ok
+test durable::tests::missing_manifest_is_rejected ... ok
+test durable::tests::missing_head_is_rejected ... ok
+test durable::tests::missing_v2_metadata_is_rejected ... ok
+test durable::tests::noop_checkpoint_has_deterministic_manifest_and_zero_entry_writes ... ok
+test durable::tests::overlay::v2_to_v3_upgrade_reuses_unchanged_base_bytes ... ok
+test durable::tests::overlay::byte_cap_and_single_oversized_image_are_compacted_before_acknowledgement ... ok
+test durable::tests::overlay::newest_image_delete_reinsert_and_absent_delete_have_exact_accounting ... ok
+test durable::tests::redo_append_publication_is_atomic ... ok
+test durable::tests::repeated_row_updates_coalesce_and_deleted_new_identity_remains_allocated ... ok
+test durable::tests::overlay::key_cap_compacts_atomically_and_preserves_pinned_base_and_overlay ... ok
+test durable::tests::overlay::partial_merge_preserves_pending_delete_reinsert_and_new_keys ... ok
+test durable::tests::truncated_manifest_is_rejected ... ok
+test durable::tests::torn_redb_write_recovers_atomic_state ... ok
+test durable::tests::storage_errors_fail_stop_the_live_engine_until_reopen ... ok
+test durable::tests::unsupported_storage_format_is_rejected ... ok
+test durable::tests::truncated_v2_metadata_is_rejected ... ok
+test dx::cursor_tests::internal_cursor_pages_share_stored_rows_instead_of_cloning_payloads ... ok
+test engine::commit::tests::byte_caps_split_groups_and_reject_queue_overload ... ok
+test durable::tests::truncated_checkpoint_row_is_rejected ... ok
+test durable::tests::wrong_checkpoint_row_key_is_rejected ... ok
+test engine::commit::tests::checkpoint_boundary_covers_every_accepted_revision_in_one_group ... ok
+test engine::commit::tests::blocked_group_sync_keeps_readers_running_and_no_acknowledgements_escape ... ok
+test engine::commit::tests::collection_window_does_not_delay_an_isolated_writer ... ok
+test engine::commit::tests::earlier_revocation_rejects_later_write_and_read_only_transaction ... ok
+test engine::commit::tests::expired_queued_authority_cannot_commit_or_install_schema ... ok
+test durable::tests::wrong_manifest_counts_are_rejected ... ok
+test engine::commit::tests::group_crash_child ... ok
+test engine::commit::tests::checkpoint_group_sync_keeps_authorized_readers_running_and_fences_acknowledgements ... ok
+test engine::commit::tests::grouped_updates_match_ordered_reference_model ... ok
+test durable::tests::wrong_v2_metadata_key_is_rejected ... ok
+test engine::commit::tests::partial_collection_completes_on_deadline_without_an_enqueue_notification ... ok
+test engine::commit::tests::queue_and_group_bounds_are_enforced_without_consuming_revisions ... ok
+test engine::legacy_visibility_tests::explicit_visibility_change_adopts_legacy_namespace_owner_only_when_requested ... ok
+test engine::commit::tests::failed_group_sync_fails_all_accepted_requests_and_stops_future_writes ... ok
+test engine::commit::tests::ordered_group_keeps_individual_revisions_conflicts_and_read_fences ... ok
+test engine::maintenance::tests::background_crash_child ... ok
+test engine::legacy_visibility_tests::pre_visibility_redo_and_checkpoint_preserve_grant_only_rows ... ok
+test engine::commit::tests::concurrent_submitters_and_checkpoints_complete_and_reopen ... ok
+test engine::maintenance::tests::blocked_background_sync_keeps_authorized_readers_running_and_receipt_waiting ... ok
+test engine::maintenance::tests::coalesced_requests_cover_current_head_and_noop_without_rewriting ... ok
+test engine::commit::tests::collection_wakes_at_count_or_byte_fill_without_per_arrival_broadcasts ... ok
+test durable::tests::overlay::actual_backend_write_and_sync_crashes_during_compaction_recover_atomically ... ok
+test engine::maintenance::tests::periodic_early_threshold_runs_without_an_explicit_request ... ok
+test engine::publication_tests::authority_cache_does_not_retain_old_row_state ... ok
+test engine::publication_tests::borrowed_authority_release_fence_rejects_concurrent_revocation ... ok
+test engine::publication_tests::capture_before_revocation_cannot_use_the_new_publication_generation ... ok
+test engine::maintenance::tests::failed_background_sync_stops_writes_until_recovery ... ok
+test engine::maintenance::tests::idle_handle_does_not_retain_database_file_and_options_are_validated ... ok
+test engine::publication_tests::changed_generation_keeps_data_snapshots_but_fences_authority_changes ... ok
+test engine::publication_tests::credential_expiry_during_result_copy_denies_cold_and_cached_point_reads ... ok
+test engine::publication_tests::concurrent_snapshot_capture_keeps_state_and_authority_generation_together ... ok
+test engine::publication_tests::fresh_snapshot_authority_is_shared_only_for_the_exact_source_and_principal ... ok
+test engine::publication_tests::fresh_snapshots_and_changed_generation_fences_do_not_wait_for_writer_mutex ... ok
+test engine::publication_tests::generation_exhaustion_permanently_checks_current_authority ... ok
+test engine::publication_tests::ordinary_scalar_reads_reuse_grants_without_narrowing_ambient_visibility ... ok
+test engine::publication_tests::public_visibility_changes_fence_anonymous_snapshots ... ok
+test engine::publication_tests::poisoned_writer_makes_fresh_unprivileged_snapshots_fail_closed ... ok
+test engine::publication_tests::poison_and_fail_stop_deny_even_unchanged_snapshot_generations ... ok
+test engine::publication_tests::replication_publication_advances_generation_even_at_the_same_revision ... ok
+test engine::maintenance::tests::background_and_manual_checkpoints_preserve_concurrent_commits_and_hard_bounds ... ok
+test engine::publication_tests::scoped_shared_reads_cannot_expose_private_referenced_rows ... ok
+test engine::publication_tests::scoped_scalar_cache_keeps_scope_keys_and_retains_no_row_state ... ok
+test engine::publication_tests::scoped_point_result_mapping_is_fenced_after_revocation_on_cold_and_warm_paths ... ok
+test engine::publication_tests::session_point_reads_are_fresh_and_preserve_retained_snapshot_semantics ... ok
+test engine::maintenance::tests::stop_cancels_unstarted_requests_without_waiting_on_busy_writer ... ok
+test engine::publication_tests::session_point_reads_keep_anonymous_visibility_and_fail_closed ... ok
+test engine::publication_tests::transaction_expiry_mutation_cannot_change_shared_snapshot_authority ... ok
+test engine::publication_tests::unchanged_generation_fences_do_not_wait_for_the_head_mutex ... ok
+test engine::publication_tests::shared_point_results_do_not_copy_payload_or_mutate_after_publication ... ok
+test engine::publication_tests::session_point_reads_preserve_filters_and_private_reference_closures ... ok
+test engine::publication_tests::session_point_reads_keep_credential_scope_rotation_and_expiry ... ok
+test engine::publication_tests::unchanged_generation_still_requires_attachment_and_expiry_checks ... ok
+test engine::scoped_snapshot_tests::cached_scope_still_checks_expiry_and_fail_stop ... ok
+test engine::scoped_snapshot_tests::contended_scope_cache_falls_back_without_waiting_or_reusing_stale_authority ... ok
+test engine::scoped_snapshot_tests::cached_scope_cannot_survive_revocation_or_credential_rotation ... ok
+test engine::visibility_tests::cache_is_bound_to_effective_state_and_principal_even_when_snapshot_is_rebound ... ok
+test engine::scoped_snapshot_tests::scoped_snapshot_reuses_only_the_same_published_revision ... ok
+test engine::tests::installing_a_module_shares_old_physical_rows ... ok
+test engine::visibility_tests::cached_scalar_policies_match_reference_across_modes_principals_and_rebinding ... ok
+test engine::scoped_snapshot_tests::sibling_capability_selections_do_not_share_authority ... ok
+test engine::visibility_tests::completed_cycle_results_do_not_hide_a_denied_exit_or_poison_unrelated_branch ... ok
+test engine::visibility_tests::memo_does_not_replace_live_revocation_or_expand_selected_capability ... ok
+test engine::visibility_tests::quota_counts_preserve_family_phantom_dependency_without_copying_rows ... ok
+test engine::visibility_tests::transaction_reads_still_track_reachable_rows_after_snapshot_cache_warmup ... ok
+test paged::authority::tests::control_crash_child ... ignored
+test engine::visibility_tests::memo_matches_fresh_reference_traversal_for_arbitrary_cyclic_graphs ... ok
+test engine::visibility_tests::shared_chain_expands_each_node_once_per_snapshot_including_negative_results ... ok
+test paged::authority::tests::control_budget_failure_does_not_partially_issue_authority ... ok
+
+running 1 test
+test durable::tests::overlay::overlay_corruption_and_invalid_bounds_fail_closed ... ok
+test paged::authority::tests::credential_expiry_fences_native_sql_and_pending_commit ... ok
+test paged::authority::tests::control_does_not_persist_implicit_owner_grants_or_transfer_ownership ... ok
+test paged::authority::tests::delegation_attenuation_rotation_and_reopen_preserve_scope ... ok
+test paged::authority::tests::typed_write_denial_hides_shape_and_global_allocations ... ok
+test paged::authority::tests::empty_module_ownership_survives_control_changes ... ok
+test paged::authority::tests::read_only_control_does_not_commit_and_malformed_control_rolls_back ... ok
+
+running 1 test
+test paged::commit::tests::concurrent_independent_writes_share_durability_keep_revisions_and_recover ... ok
+test paged::commit::tests::conflicting_request_fails_individually_without_aborting_independent_request ... ok
+test paged::authority::tests::control_revocation_crash_is_atomic_with_durable_authority ... ok
+test paged::commit::tests::prepared_index_versions_cover_old_new_and_deleted_keys ... ok
+test paged::commit::tests::group_preparation_budget_rejects_individually_and_preserves_later_small_write ... ok
+test paged::commit::tests::preparation_rejects_large_old_rows_before_retaining_an_unbounded_update ... ok
+test paged::dense::scan::tests::adjacent_cursor_hits_never_cross_family_boundaries ... ok
+test paged::commit::tests::prior_policy_change_fences_later_transaction_in_same_group ... ok
+test paged::dense::scan::tests::borrowed_scan_preserves_callback_and_source_budget_error_precedence ... ok
+test paged::dense::scan::tests::borrowed_scan_and_cursor_match_ranges_for_arbitrary_and_reversed_references ... ok
+test paged::commit::tests::unchanged_serial_commit_skips_occ_reads_and_overlay_but_stale_views_validate ... ok
+test paged::dense::tests::directory_validation_matches_scalar_reference_for_mutations ... ok
+test engine::maintenance::tests::process_crashes_during_background_checkpoint_recover_same_durable_head ... ok
+test paged::dense::tests::arbitrary_ids_mutations_oversized_rows_and_pinned_guards ... ok
+test paged::dense::tests::malformed_envelopes_and_overlaps_fail_closed ... ok
+test paged::dense::tests::mixed_direction_ranges_preserve_all_bounds_and_max_family ... ok
+test paged::dense::tests::neighboring_corrupt_family_does_not_break_scoped_range ... ok
+test paged::dense::scan::tests::borrowed_cursor_rejects_selected_corrupt_blocks_in_both_directions ... ok
+test paged::dense::tests::stored_oversized_singleton_rejected_before_writer_copy ... ok
+test paged::dense_tests::dense_crash_child ... ignored
+test paged::dense::scan::tests::borrowed_scan_rejects_malformed_envelopes_and_overlaps_before_exposing_rows ... ok
+test paged::dense::tests::variable_rows_stay_inside_byte_target_or_singleton ... ok
+
+running 1 test
+test paged::dense::tests::point_and_scan_validate_complete_directory_equally ... ok
+test paged::dense::tests::owned_insert_moves_payload_and_streamed_merges_match_model ... ok
+test paged::dense_tests::oversized_update_aborts_all_staged_block_changes ... ok
+test paged::dense_tests::dense_reference_reads_filter_join_aggregate_and_revoke_live ... ok
+test paged::dense_tests::arbitrary_ids_growth_shrink_delete_and_reopen_preserve_pinned_rows ... ok
+test engine::commit::tests::process_crashes_recover_whole_groups_across_persistence_and_publication ... ok
+test paged::encoding::tests::compiled_validation_bounds_and_extended_types_fall_back ... ok
+test paged::encoding::tests::composite_keys_separate_roles_relations_occurrences_and_references ... ok
+test paged::encoding::tests::extended_rows_reject_noncanonical_floats_presence_and_version_confusion ... ok
+test paged::dense_tests::physical_neighbors_do_not_create_logical_write_conflicts ... ok
+test paged::encoding::tests::fixed_layout_bounds_and_unselected_field_validation ... ok
+test paged::encoding::tests::borrowed_values_preserve_owned_order ... ok
+test paged::encoding::tests::borrowed_projection_preserves_variable_validation ... ok
+test paged::encoding::tests::packed_rejects_truncation_trailing_bytes_versions_counts_and_bad_values ... ok
+
+running 1 test
+test paged::encoding::tests::keys_preserve_value_order ... ok
+test paged::dense_tests::schema_extension_keeps_original_ids_values_and_snapshot ... ok
+test paged::encoding::tests::packed_validator_checks_all_fields_and_framing_without_owned_rows ... ok
+test paged::encoding::tests::prefix_bounds_select_exact_prefix ... ok
+test paged::encoding::tests::packed_roundtrip ... ok
+test paged::encoding::tests::reusable_decode_drops_old_variable_capacities_and_rejects_wrong_arity ... ok
+test paged::encoding::tests::scalar_probe_keys_match_canonical_encoding ... ok
+test paged::encoding::tests::packed_validation_matches_decode_after_mutations ... ok
+test paged::encoding::tests::zero_bytes_utf8_integer_limits_and_prefix_order ... ok
+test paged::encoding::tests::fixed_projection_matches_complete_decoder ... ok
+test paged::metrics::tests::counters_share_clones_and_report_quiescent_deltas ... ok
+test paged::encoding::tests::fixed_projection_rejects_exactly_the_same_malformed_records ... ok
+test paged::encoding::tests::reusable_index_keys_match_canonical_keys ... ok
+test paged::encoding::tests::unique_keys_preserve_tuple_order ... ok
+
+running 1 test
+test paged::metrics::tests::measured_backend_preserves_all_errors_and_partial_read_buffers ... ok
+test paged::metrics::tests::measured_file_backend_forwards_bytes_eof_resize_sync_and_close ... ok
+test paged::packed_range::tests::compiled_index_validation_matches_canonical_extrema_and_rejects_malformed_keys ... ok
+test paged::metrics::tests::cache_metrics_distinguish_hits_absence_and_fifo_eviction ... ok
+test paged::encoding::tests::compiled_validation_matches_full_decoder ... ok
+test paged::packed_range::tests::compiled_index_validation_matches_canonical_random_values ... ok
+test paged::dense_tests::dense_crash_atomicity_covers_multiple_rows_indexes_references_and_visibility ... ok
+test paged::metrics::tests::storage_accounting_is_pinned_read_only_and_host_only ... ok
+test paged::metrics::tests::diagnostic_open_preserves_locking_durable_reopen_and_invalid_limits ... ok
+test paged::metrics::tests::host_metrics_preserve_capability_scope_revocation_and_database_identity ... ok
+test paged::packed_scan_tests::fixed_batches_match_general_rows_and_source_work_across_batch_boundaries ... ok
+test paged::packed_scan_tests::fixed_scan_declines_unsupported_shapes_before_any_callback ... ok
+test paged::packed_scan_tests::fixed_scan_declines_row_filters_and_capability_filters_before_callbacks ... ok
+test paged::packed_scan_tests::fixed_scan_denied_references_remain_hidden_and_discovery_denials_fail ... ok
+test paged::packed_scan::tests::compiled_terminal_validation_keeps_filtered_rows_and_callback_error_order ... ok
+test paged::packed_scan_tests::fixed_scan_propagates_budget_visitor_errors_and_checks_live_revocation ... ok
+test paged::packed_scan_tests::aggregate_routes_half_selectivity_to_packed_index_and_broad_to_scan ... ok
+test paged::packed_scan_tests::fixed_scan_preserves_page_reference_and_row_byte_budgets ... ok
+test paged::packed_scan_tests::dense_scan_cost_hint_requires_the_actual_compiled_authorized_source ... ok
+test paged::packed_scan_tests::malformed_batch_shape_does_not_preempt_prior_callback_errors ... ok
+test paged::packed_scan_tests::packed_range_declines_unsupported_schemas_and_attenuated_policies ... ok
+test paged::packed_scan_tests::same_snapshot_general_and_fixed_scan_control ... ignored, opt-in release same-snapshot scan control; do not overlap timed work
+test paged::packed_scan_tests::packed_range_preserves_budget_errors_and_live_revocation ... ok
+test paged::packed_scan_tests::packed_range_matches_general_bounds_checks_and_singletons ... ok
+test paged::probe::tests::poisoned_publication_still_fails_closed_with_atomic_fences ... ok
+test paged::packed_scan_tests::packed_range_unique_index_reversals_and_extended_type_fallbacks ... ok
+test paged::probe::tests::prepared_probes_keep_row_reference_and_transitive_filters_live ... ok
+test paged::probe::tests::prepared_probe_scope_attenuates_public_owner_reads_and_rotation_invalidates_it ... ok
+test paged::probe::tests::cached_packed_lengths_stay_bound_to_their_snapshot ... ok
+test paged::probe::tests::prepared_probes_share_rows_and_do_not_copy_unprojected_values ... ok
+test paged::probe::tests::singleton_probes_preserve_page_and_reference_bounds ... ok
+test paged::packed_scan_tests::packed_range_borrowed_unique_values_preserve_error_and_callback_order ... ok
+test paged::probe::tests::singleton_probe_rechecks_authority_before_releasing_data ... ok
+test paged::probe::tests::unique_probe_rejects_mismatched_and_dangling_indexes ... ok
+test paged::range::tests::adaptive_root_lookup_matches_random_uuid_index_order_and_counts_point_reads ... ok
+test paged::probe::tests::singleton_probe_validates_even_unrestricted_reference_targets ... ok
+test paged::range::tests::cached_singleton_preserves_checked_work_errors_and_final_authority_fence ... ok
+test paged::range::tests::range_policy_and_live_revocation_are_checked_even_for_empty_bounds ... ok
+test paged::range::tests::range_bounds_match_reference_for_unique_and_duplicate_indexes ... ok
+test paged::range::tests::range_text_prefixes_and_embedded_nuls_match_typed_order ... ok
+test paged::range::tests::numeric_range_estimates_handle_extremes_shapes_and_hidden_references ... ok
+test paged::range::tests::range_does_not_ignore_bad_types_or_inconsistent_index_entries ... ok
+test paged::range::tests::singleton_ranges_use_cache_but_multi_candidate_ranges_stream ... ok
+test paged::range::tests::streaming_range_preserves_reference_page_and_source_work_bounds ... ok
+test paged::replication::crash_tests::replica_child ... ignored
+test paged::packed_scan_tests::fixed_scan_rejects_corruption_even_in_hidden_referenced_rows ... ok
+test paged::range::tests::streaming_range_scopes_attenuate_public_owner_reads_and_revocation_stays_live ... ok
+test paged::range::tests::streaming_range_cursors_preserve_reference_filters_without_decoded_cache_churn ... ok
+test paged::dense_tests::dense_mutation_sequences_match_relational_model ... ok
+test paged::replication::tests::replica_bootstrap_requires_enabled_stream_and_never_overwrites ... ok
+
+running 1 test
+
+running 1 test
+test paged::replication::tests::paged_replication_preserves_transactions_catalog_indexes_and_live_revocation ... ok
+test paged::resident_import::tests::import_child ... ignored
+
+running 1 test
+test paged::resident_import::tests::corrupt_redo_and_budget_errors_never_publish_or_overwrite ... ok
+test paged::replication::validation_tests::rehashed_semantic_errors_cannot_publish_a_valid_prefix_or_remove_auth_fences ... ok
+test durable::tests::overlay::compaction_crash_boundaries_keep_rows_schema_and_grants_atomic ... ok
+
+running 1 test
+
+running 1 test
+test paged::resident_import::tests::imported_policy_occurrence_ids_survive_reopen_visibility_edits_and_extensions ... ok
+test paged::replication::crash_tests::applied_state_and_consensus_marker_recover_atomically ... ok
+test paged::scan_profile::broad_scan_phases ... ignored, opt-in release scan phase diagnostic; do not overlap benchmark runs
+test paged::sql::aggregate::tests::generic_aggregate_records_match_filters_groups_and_overflow ... ok
+test paged::resident_import::tests::log_only_import_preserves_deferred_refs_deleted_ids_and_authenticated_visibility ... ok
+test paged::resident_import::tests::imports_credentials_capabilities_and_preserves_live_revocation ... ok
+test paged::sql::aggregate::tests::grouped_state_budget_is_bounded_before_allocating_a_new_group ... ok
+test paged::sql::aggregate::tests::local_aggregate_checks_deadline_before_first_work_and_final_release ... ok
+test paged::sql::aggregate::tests::local_aggregate_source_budget_has_an_exact_limit_without_underflow ... ok
+test paged::sql::aggregate::tests::numeric_group_cache_collisions_and_extremes_never_alias ... ok
+test paged::sql::aggregate::tests::grouped_hot_hits_match_collisions_and_non_numeric_fallback ... ok
+test paged::sql::aggregate::tests::repeated_large_bindings_are_charged_before_copying_payloads ... ok
+test paged::resident_import::tests::crashes_publish_only_a_complete_verified_resident_import ... ok
+test paged::sql::aggregate::tests::predicated_shared_fold_matches_filtered_kernel_for_empty_extreme_and_overflow_cases ... ok
+test paged::sql::aggregate::tests::scalar_compiler_and_live_credential_fences ... ok
+test paged::sql::join::tests::compiler_selects_only_anchored_typed_equijoins ... ok
+test paged::resident_import::tests::rejects_nondeferrable_forward_refs_and_out_of_order_imports_in_v3_redo ... ok
+test durable::tests::overlay::partial_compaction_crashes_preserve_remainder_and_atomic_authority ... ok
+test paged::sql::aggregate::tests::packed_range_crossover_indexes_half_and_streams_broad_selections ... ok
+test paged::tests::aggregate_terminal_cursor_matches_native_reads_across_reference_orders ... ok
+test paged::sql::aggregate::tests::shared_groups_match_filtered_states_and_retain_overflow_and_null_filter_semantics ... ok
+test paged::tests::aggregate_visitor_byte_rollover_retains_denied_candidate_work ... ok
+test paged::tests::aggregate_visitor_revocation_during_callback_fails_final_release ... ok
+test paged::tests::aggregate_terminal_cursor_dangling_gaps_and_unrelated_corruption ... ok
+test paged::tests::all_ff_relation_id_scan_works ... ok
+test paged::replication::tests::journal_rejects_corruption_gaps_divergence_and_retention_overflow ... ok
+test paged::tests::aggregate_visitor_terminal_reference_respects_visibility_bound_and_cache_budget ... ok
+test paged::tests::aggregate_visitor_cycle_fallback_preserves_node_and_edge_limits ... ok
+test paged::tests::cancellable_paging_checks_denied_candidates_and_reference_traversal ... ok
+test paged::tests::crash_child ... ignored
+
+running 1 test
+test paged::tests::default_host_owner_is_not_an_application_principal ... ok
+test paged::tests::compact_layout_audit_rejects_redundant_unique_role_entries ... ok
+test paged::tests::decoded_cache_isolates_pinned_revisions_updates_and_deletes ... ok
+
+running 1 test
+test paged::tests::corrupt_row_is_error_and_reopen_does_not_materialize_rows ... ok
+test paged::tests::commit_crash_boundaries_preserve_rows_indexes_and_authority ... ok
+test paged::tests::deleted_identity_cannot_be_reallocated_and_absent_read_conflicts ... ok
+test paged::range::tests::streaming_range_rejects_missing_or_corrupt_roots_and_referenced_rows ... ok
+test paged::tests::fresh_insert_uses_global_allocation_occ_without_redundant_row_read ... ok
+test paged::tests::expiry_after_staging_disk_changes_aborts_before_persistence ... ok
+test paged::tests::aggregate_visitor_validates_corrupt_and_missing_referenced_rows ... ok
+test paged::resident_import::tests::streams_all_resident_checkpoint_versions_and_redo_with_visibility_and_types ... ok
+test paged::tests::inaccessible_present_and_absent_writes_have_same_error ... ok
+test paged::tests::grant_replacement_never_resurrects_capabilities_or_credentials ... ok
+test paged::tests::legacy_bucket_family_and_redundant_row_versions_remain_readable ... ok
+test paged::tests::legacy_catalog_without_control_reservations_opens_and_seals_on_install ... ok
+test paged::tests::long_aggregate_visitor_preserves_page_visibility_work_limits ... ok
+test paged::tests::managed_namespace_owner_cannot_bypass_proposals_with_native_install ... ok
+test paged::tests::catalog_ownership_corruption_is_rejected ... ok
+test paged::tests::staged_unique_keys_follow_updates_deletes_and_atomic_reassignment ... ok
+test paged::tests::synthesized_policy_and_control_type_ids_cannot_alias_application_identities ... ok
+test paged::tests::unique_probe_applies_row_grants_and_snapshot_revocation ... ok
+test paged::tests::version_coalescing_is_bounded_and_deduplicates_identical_keys ... ok
+test paged::tests::packed_row_revisions_preserve_occ_for_present_absent_deleted_and_reextended_rows ... ok
+test paged::transfer::crash_tests::import_child ... ignored
+test paged::tests::impossible_authorization_epoch_and_zero_row_revision_are_rejected ... ok
+test paged::tests::writer_poison_denies_fresh_and_retained_reads ... ok
+test paged::tests::unrelated_multimap_database_is_not_initialized ... ok
+test paged::tests::long_aggregate_visitor_fences_live_revocation_across_storage_pages ... ok
+
+running 1 test
+test paged::tests::long_aggregate_visitor_recovers_after_callback_errors_and_panics ... ok
+test paged::tests::long_aggregate_visitor_preserves_error_order_across_storage_pages ... ok
+test paged::verify::tests::audit_checks_mixed_writes_historical_ids_and_pinned_snapshots ... ok
+test paged::tests::unknown_format_and_missing_table_fail_closed ... ok
+test profiling::tests::percentiles_are_individual_nearest_rank_samples ... ok
+test remote::admission::tests::concurrency_caps_release_on_drop_and_preserve_other_peers ... ok
+test remote::admission::tests::failures_block_across_rate_windows ... ok
+test remote::admission::tests::full_audit_channel_is_nonblocking_and_counted ... ok
+test remote::admission::tests::invalid_limits_are_rejected ... ok
+test remote::admission::tests::peer_table_has_hard_bound_and_only_expired_entries_are_evicted ... ok
+test remote::admission::tests::rate_window_is_not_reset_by_reconnect ... ok
+test paged::transfer::tests::rejects_corrupt_source_before_publishing ... 
+running 1 test
+ok
+test paged::transfer::tests::rejects_existing_destination_missing_source_and_too_small_batch ... ok
+test paged::tests::unique_role_layouts_preserve_pages_references_writes_and_reopen ... ok
+test replication::tests::crash_child ... ok
+test replication::tests::applied_revocation_invalidates_retained_reads_but_lag_is_explicit ... ok
+test replication::tests::barrier_requires_exact_digest_and_revision_and_empty_seed_roundtrips ... ok
+
+running 1 test
+test paged::verify::tests::audit_detects_lost_historical_allocations_and_invalid_versions ... ok
+test replication::tests::duplicates_gaps_divergence_and_wrong_source_rejected ... ok
+test replication::tests::packet_validation_is_atomic_even_after_valid_prefix ... ok
+test paged::verify::tests::audit_detects_wrong_unique_owner_malformed_keys_and_missing_schema_id ... ok
+test replication::tests::seed_versions_checksums_and_truncation_rejected_before_file_creation ... ok
+test replication::tests::replicated_credentials_scope_rotation_and_recovery ... ok
+
+running 1 test
+test replication::tests::seed_incremental_queries_ids_and_restart ... ok
+test schema_control::tests::alias_reservation_and_retirement_are_transaction_dependencies ... ok
+test schema_control::tests::approved_install_preserves_old_arcs_and_exact_packed_bytes ... ok
+test schema_control::tests::reference_revocation_racing_validated_plan_conflicts_at_commit ... ok
+test sql::live_revocation_tests::revocation_during_sql_execution_discards_even_buffered_aggregate_results ... ok
+test storage::ambient_read_tests::grant_fast_path_preserves_ambient_union_and_scope_limits ... ok
+test storage::grants::tests::borrowed_lookup_replacement_removal_and_snapshot_isolation ... ok
+test storage::grants::tests::canonical_iteration_matches_flat_tuple_order_and_duplicate_collection ... ok
+test replication::tests::uncertain_storage_failure_stops_apply_and_denies_retained_reads ... ok
+test schema_control::legacy_visibility_proposals::format_one_pending_proposal_keeps_old_digest_and_private_install ... ok
+test paged::verify::tests::audit_detects_missing_and_extra_entries_in_every_secondary_index ... ok
+test storage::posting::tests::promotes_demotes_and_preserves_snapshots ... ok
+test replication::tests::typed_checks_v2_install_seed_and_invalid_delta_validation ... ok
+test storage::update_index_tests::unchanged_indexes_share_storage_but_keep_occ_invalidation ... ok
+test storage::version::tests::domains_roles_and_relations_do_not_alias ... ok
+test views::tests::capability_and_credential_deadlines_fence_retained_views ... ok
+test paged::transfer::crash_tests::import_crashes_never_publish_an_incomplete_destination ... ok
+test storage::grants::tests::mixed_grant_updates_match_flat_reference ... ok
+test storage::version::tests::timestamps_and_retained_snapshots_match_flat_map ... ok
+test storage::update_index_tests::differential_updates_match_remove_and_reinsert_including_versions ... ok
+test storage::posting::tests::matches_sorted_reference_with_retained_snapshots ... ok
+test replication::tests::checkpoint_bounds_recovery_and_missing_source_history ... ok
+test paged::transfer::tests::converts_all_paged_formats_without_changing_logical_state_or_permissions ... ok
+test replication::tests::process_crash_recovers_atomic_packet_and_cursor_including_checkpoint ... ok
+test paged::packed_scan_tests::packed_range_checks_index_and_unprojected_target_bytes_before_delivery ... ok
+
+test result: ok. 414 passed; 0 failed; 10 ignored; 0 measured; 0 filtered out; finished in 23.84s
+
+     Running unittests src/main.rs (target/debug/deps/substrate_liquid-52e2ec12d439845c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/catalog.rs (target/debug/deps/catalog-997734dd3dd764d0)
+
+running 9 tests
+test missing_and_denied_names_are_indistinguishable_and_do_not_expand_imports ... ok
+test scalar_metadata_preserves_exact_types_without_data_values ... ok
+test pagination_uses_visible_ids_and_revision_guard_without_global_counts ... ok
+test reference_only_write_only_and_empty_grants_have_explicit_semantics ... ok
+test catalog_redacts_hidden_targets_imports_and_policy_values ... ok
+test invalid_options_and_unknown_wire_fields_fail_closed ... ok
+test namespace_install_permission_does_not_disclose_existing_families ... ok
+test online_addition_does_not_change_old_descriptor_or_pinned_catalog ... ok
+test paged_discovery_matches_explicit_capabilities_without_hidden_targets ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/checkpoint_properties.rs (target/debug/deps/checkpoint_properties-62fe025298854d6f)
+
+running 1 test
+test histories_survive_checkpoints_restarts_and_policy_changes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.98s
+
+     Running tests/checkpoint_replacements.rs (target/debug/deps/checkpoint_replacements-0ca86b1c9360b966)
+
+running 3 tests
+test disk_snapshot_survives_repeated_source_checkpoints ... ok
+test variable_sized_replacements_preserve_manifest_and_reopen ... ok
+test grant_replacements_and_absent_deletions_keep_exact_checkpoint_counts ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.09s
+
+     Running tests/checkpoints.rs (target/debug/deps/checkpoints-ffa0d89594e2efd3)
+
+running 14 tests
+test checkpoint_key_order_can_precede_import_and_reference_targets ... ok
+test invalid_policy_is_rejected_without_creating_a_file ... ok
+test checkpoint_does_not_reset_live_conflict_dependencies ... ok
+test count_bound_checkpoints_do_not_encode_discarded_redo ... ok
+test empty_checkpoint_and_repeated_checkpoint_are_valid ... ok
+test checkpoint_preserves_retired_ids_memberships_and_revocations ... ok
+test checkpoint_and_tail_recover_the_same_state ... ok
+test explicit_small_storage_cache_preserves_recovery_and_validates_before_creation ... ok
+test indexes_and_restrict_deletion_still_work_after_checkpoint ... ok
+test checkpoint_can_overlap_threaded_writes_without_losing_them ... ok
+test oversized_commit_goes_directly_to_checkpoint ... ok
+test persistence_diagnostics_distinguish_redo_and_coalesced_checkpoint_work ... ok
+test lower_budget_on_open_compacts_preexisting_tail_once ... ok
+test automatic_commit_threshold_is_strict_and_reopen_preserves_budget ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.14s
+
+     Running tests/cli.rs (target/debug/deps/cli-cc42dbd9439106f2)
+
+running 2 tests
+test schema_check_diff_and_install_are_distinct ... ok
+test durable_demo_query_and_inspect_work_from_cli ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.41s
+
+     Running tests/concurrency.rs (target/debug/deps/concurrency-90913030ebb1d3f7)
+
+running 9 tests
+test concurrent_module_installs_retry_without_partial_catalog ... ok
+test missing_schema_reads_are_predicates_too ... ok
+test write_skew_is_rejected ... ok
+test conflicting_updates_and_unique_keys_serialize ... ok
+test distinct_occurrences_in_same_family_do_not_conflict ... ok
+test empty_index_predicates_and_scans_detect_phantoms ... ok
+test independent_threads_share_person_without_write_conflict ... ok
+test allocated_ids_cannot_collide_with_concurrent_schema_ids ... ok
+test delete_vs_reference_race_is_safe_in_both_commit_orders ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/consensus.rs (target/debug/deps/consensus-ef9b5d459a692c5f)
+
+running 9 tests
+test consensus_crash_writer ... ok
+
+running 1 test
+test majority_loss_never_acknowledges_and_peer_auth_fails_closed ... ok
+test final_read_barrier_rejects_a_mid_read_partition ... ok
+test mismatched_bootstrap_cursor_is_rejected_before_voting ... ok
+test acknowledged_quorum_write_survives_abrupt_process_exit ... ok
+test configured_log_capacity_fails_closed_without_unbounded_growth ... ok
+test committed_revocation_is_preserved_after_election ... ok
+test quorum_partition_stale_leader_rejoin_and_durable_restart ... ok
+test large_committed_backlog_replays_in_bounded_recovery_chunks ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.36s
+
+     Running tests/constraints.rs (target/debug/deps/constraints-d2560a7cacd21ea6)
+
+running 6 tests
+test invalid_declarations_fail_before_install_and_poison_transaction ... ok
+test constraints_do_not_bypass_authorization_or_referential_integrity ... ok
+test inclusive_checks_cover_inserts_updates_named_dynamic_and_sql_writes ... ok
+test manifest_v2_is_conservative_and_old_contracts_remain_stable ... ok
+test typed_execution_agrees_with_reference_checks ... ok
+test durable_redo_and_incremental_checkpoint_preserve_compiled_checks ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/datafusion.rs (target/debug/deps/datafusion-c24f43ddaf3758ce)
+
+running 16 tests
+test datafusion_credential_rotation_invalidates_cached_batches ... ok
+test datafusion_rejects_expanding_functions_and_oversized_source_cells ... ok
+test datafusion_filters_rows_and_relationships_before_aggregates ... ok
+test datafusion_parameter_tokenization_preserves_literals_and_comments ... ok
+test datafusion_retained_handles_fail_after_revocation_and_host_drop ... ok
+test datafusion_rejects_mutations_external_access_and_bad_statements ... ok
+test datafusion_repeated_sorted_limits_and_parameter_rebinding_are_stable ... ok
+test datafusion_snapshot_pins_rows_across_native_updates ... ok
+test datafusion_null_order_and_outer_join_results_are_explicit ... ok
+test synchronous_datafusion_api_works_inside_a_tokio_runtime ... ok
+test datafusion_checked_sum_handles_nulls_cancellation_groups_and_sliding_windows ... ok
+test datafusion_views_and_selected_schemas_remain_restricted ... ok
+test datafusion_exact_types_nulls_and_overflow_are_explicit ... ok
+test datafusion_output_budgets_fail_without_partial_results_or_poisoning ... ok
+test datafusion_integer_overflow_is_an_error_before_and_after_optimization ... ok
+test datafusion_deadline_failure_does_not_poison_reusable_snapshot ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/datafusion_indexed.rs (target/debug/deps/datafusion_indexed-ae22ef78e2c1af5b)
+
+running 12 tests
+test noncanonical_uuid_text_cannot_be_treated_as_native_identity_equality ... ok
+test pushdown_keeps_row_filters_and_live_revocation ... ok
+test projection_does_not_convert_unused_large_values_and_execution_errors_are_recoverable ... ok
+test cached_pages_remain_pinned_and_revocation_denies_warm_scans ... ok
+test reference_equality_indexes_preserve_reference_visibility_and_text_semantics ... ok
+test typed_predicates_and_coercion_fallback_match_sqlite ... ok
+test concurrent_full_scans_share_pages_without_sharing_execution_state ... ok
+test full_scan_cache_reuses_authorized_pages_and_isolates_projections ... ok
+test identity_and_role_indexes_are_used_and_only_candidates_are_read ... ok
+test repeated_parameter_binding_and_missing_identity_do_not_reuse_index_candidates ... ok
+test indexed_range_conjunctions_match_reference ... ok
+test ranges_residual_predicates_limits_and_paging_match_sqlite ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/datafusion_integration.rs (target/debug/deps/datafusion_integration-4958ec7a8b6edeb1)
+
+running 3 tests
+test default_sql_and_explicit_compatibility_do_not_change_native_queries ... ok
+test sql_transaction_reads_staged_writes_through_datafusion ... ok
+test sql_transaction_batch_reads_track_phantoms_and_fail_closed ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/datafusion_join_probes.rs (target/debug/deps/datafusion_join_probes-dfc2dde549767b5e)
+
+running 5 tests
+test reference_probe_closure_hides_inaccessible_targets ... ok
+test identity_probes_reject_noncanonical_keys_and_keep_row_policies_live ... ok
+test selective_join_probes_deduplicate_keys_without_deduplicating_matches ... ok
+test relationship_and_five_way_probes_restore_ordered_join_contracts ... ok
+test probe_filters_limits_nulls_and_unsupported_join_types_match_sqlite ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/datafusion_range_cache.rs (target/debug/deps/datafusion_range_cache-7f44c2d0be74f8ad)
+
+running 3 tests
+test range_pages_remain_scoped_to_principal_revision_and_live_grants ... ok
+test cached_ranges_preserve_residual_filters_limits_and_window_results ... ok
+test warm_ranges_keep_bindings_projection_and_tied_cursor_pages_independent ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/datafusion_topk.rs (target/debug/deps/datafusion_topk-987cf5179a6a04b0)
+
+running 3 tests
+test ordered_fetch_handles_new_bindings_and_live_revocation ... ok
+test ordered_range_topk_stops_at_fetch_and_offset_without_sort ... ok
+test ordering_claims_respect_projection_direction_and_filter_barriers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/delegation.rs (target/debug/deps/delegation-41dbdca76abb4d70)
+
+running 21 tests
+test capability_crash_child ... ok
+test cannot_amplify_filters_rights_namespace_or_delegation_depth ... ok
+test capability_protocol_keeps_i64_filters_exact_and_rejects_principal_injection ... ok
+test direct_revocation_invalidates_cached_queries_and_regrant_cannot_resurrect_capabilities ... ok
+test delegated_proposal_redacts_reference_hashes_and_host_can_review_opaque_requirements ... ok
+test delegated_schema_install_preserves_approval_reference_scope_and_owner_only_grants ... ok
+test malformed_and_oversized_scopes_fail_before_persistence ... ok
+test host_root_must_fit_current_grants_and_cannot_name_internal_families ... ok
+test retained_restricted_snapshot_fails_closed_after_host_handle_is_dropped ... ok
+test namespace_policy_generation_invalidates_existing_schema_capability ... ok
+test reference_closure_never_falls_back_to_authority_or_ambient_grants ... ok
+test revocation_is_scoped_and_does_not_invalidate_sibling_capabilities_or_data_snapshots ... ok
+test ancestor_revocation_fences_retained_native_runtime_sql_catalog_and_writes ... ok
+test scope_is_selected_not_union_with_ambient_authority_and_is_subject_bound ... ok
+test schema_only_scope_cannot_borrow_owners_unrelated_reference_grants ... ok
+test delegated_runtime_operations_enforce_row_attenuation_on_old_and_new_values ... ok
+test capability_ledger_bounds_collisions_and_reserved_namespace_are_enforced ... ok
+test arbitrary_delegated_row_reads_match_independent_filter_model ... ok
+test revocation_tree_matches_independent_ancestor_model ... ok
+test active_and_revoked_capabilities_survive_checkpoint_and_tail_recovery ... ok
+test abrupt_process_recovery_preserves_issuance_and_cascading_revocation ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/disk_snapshot.rs (target/debug/deps/disk_snapshot-efc979cdf803de57)
+
+running 6 tests
+test reference_closure_filters_rows_and_hidden_reference_metadata_is_not_spilled ... ok
+test packed_points_pages_and_indexed_equality_match_native_snapshot ... ok
+test materialized_rows_are_scoped_and_revocation_invalidates_every_endpoint ... ok
+test historical_rows_remain_pinned_without_retaining_source_state ... ok
+test output_bounds_options_and_cleanup_are_enforced_without_overwriting_files ... ok
+test source_drop_invalidates_admin_lease_and_reopen_does_not_restore_authority ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests/dx.rs (target/debug/deps/dx-2045f33970efd20e)
+
+running 18 tests
+test companion_and_preamble_collisions_suppress_short_alias_groups ... ok
+test ambiguous_short_names_require_qualified_imports ... ok
+test locked_manifests_require_ids_and_immutable_history ... ok
+test clean_typescript_names_keep_qualified_exports_and_identity ... ok
+test clean_name_selection_is_independent_of_manifest_order ... ok
+test qualified_companion_collisions_fail_instead_of_emitting_invalid_typescript ... ok
+test generated_contract_detects_same_id_with_different_layout ... ok
+test named_patches_preserve_unspecified_fields_and_apply_policy_to_old_and_new_rows ... ok
+test retry_conflicts_use_fresh_state_without_duplicating_attempts ... ok
+test short_names_do_not_shadow_qualified_compatibility_exports ... ok
+test retry_exhaustion_nonconflict_errors_and_zero_attempts_are_explicit ... ok
+test install_manifest_is_idempotent_and_detects_identity_drift ... ok
+test rust_builders_install_export_and_regenerate_the_same_contract ... ok
+test canonical_fingerprints_and_selected_contracts_ignore_unrelated_modules ... ok
+test additive_versions_preserve_generated_ids_and_existing_results ... ok
+test relocking_and_generation_are_reproducible ... ok
+test named_fields_reject_unknown_duplicate_missing_and_bad_types_atomically ... ok
+test generated_records_roundtrip_through_named_writes_and_sql ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/dx_properties.rs (target/debug/deps/dx_properties-d4ac669ce8b3ae56)
+
+running 2 tests
+test keyset_pages_match_reference_under_duplicate_values ... ok
+test sql_mutation_histories_match_native_rows_and_rebuilt_indexes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/kernel.rs (target/debug/deps/kernel-d9ededb61d2451c3)
+
+running 8 tests
+test additive_install_preserves_rows_schema_indexes_and_snapshot ... ok
+test imports_versions_redefinitions_and_case_collisions_are_rejected ... ok
+test snapshot_is_pinned_and_drop_rolls_back ... ok
+test rejected_mutation_aborts_whole_transaction_and_schema ... ok
+test unique_functional_property_and_index_updates_are_atomic ... ok
+test two_apps_native_join_and_index_lookup ... ok
+test identity_has_explicit_multiple_memberships ... ok
+test typed_nary_occurrences_can_themselves_be_referenced ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/local.rs (target/debug/deps/local-59cb97e8e02dbb0c)
+
+running 5 tests
+test server_requires_private_socket_directory ... ok
+test persistent_unix_rejects_oversized_or_partial_frames_and_shutdown_is_prompt ... ok
+test local_transport_roundtrips_concurrent_batches_and_enforces_authentication ... ok
+test persistent_unix_preserves_coalesced_frames_and_refreshes_policy ... ok
+test malformed_frames_and_stale_socket_paths_fail_closed ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/manifest_ordering.rs (target/debug/deps/manifest_ordering-b87303ce74044203)
+
+running 5 tests
+test dependency_errors_and_duplicate_import_semantics_match_original ... ok
+test local_reference_validation_keeps_case_sensitive_targets_and_forward_cycles ... ok
+test smallest_ready_order_matches_original_and_keeps_immutable_definitions ... ok
+test fixture_manifest_fingerprint_is_byte_compatible ... ok
+test random_graph_order_and_errors_match_frozen_algorithm ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/native_overheads.rs (target/debug/deps/native_overheads-88b1f87124793d37)
+
+running 4 tests
+test unchanged_bucket_reads_still_conflict_with_payload_updates ... ok
+test native_scans_keep_reference_dependencies_even_for_filtered_out_rows ... ok
+test projected_native_reads_preserve_values_order_reference_visibility_and_revocation ... ok
+test restricted_owned_result_capacity_does_not_reveal_hidden_candidates ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/nested.rs (target/debug/deps/nested-9ca8c6ef4ba9efe4)
+
+running 12 tests
+test invalid_roles_predicates_limits_and_depth_fail_before_execution ... ok
+test forbidden_or_invalid_branches_are_rejected_even_when_root_is_empty ... ok
+test ranking_helper_cannot_collide_with_application_role_names ... ok
+test filters_are_parameters_empty_collections_and_nullable_forward_filters_are_explicit ... ok
+test authorization_precedes_limits_and_reference_closure_hides_participants ... ok
+test shared_targets_and_duplicate_relationship_occurrences_preserve_multiplicity ... ok
+test multiple_parents_use_three_statements_and_per_parent_limits ... ok
+test gateway_returns_nested_result_under_bound_principal ... ok
+test unrelated_readable_modules_do_not_expand_the_selected_sql_catalog ... ok
+test nested_snapshot_pins_data_but_fails_after_live_revocation ... ok
+test output_and_depth_budgets_fail_explicitly_without_partial_results ... ok
+test randomized_nested_reads_match_authorized_enumeration ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.98s
+
+     Running tests/nullable_constraints.rs (target/debug/deps/nullable_constraints-12e354d35331bfa4)
+
+running 10 tests
+test finite_float_canonical_zero_total_order_and_json ... ok
+test concurrent_incoming_edge_conflicts_with_cascade ... ok
+test deferred_delete_requires_repair_and_reference_target_changes_conflict ... ok
+test nullable_unique_check_and_index_updates_are_consistent ... ok
+test deferral_cannot_weaken_immediate_roles_or_target_permissions ... ok
+test new_schema_flags_are_conservative_and_generated_types_are_precise ... ok
+test deferral_is_explicit_and_final_references_are_atomic ... ok
+test cascade_requires_each_rows_write_permission_and_keeps_old_snapshots ... ok
+test cascade_cycles_and_deferred_delete_repair_recover ... ok
+test nullable_float_log_checkpoint_and_spill_roundtrip ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+     Running tests/nullable_sql.rs (target/debug/deps/nullable_sql-99f21f2b481cdc8f)
+
+running 2 tests
+test resident_nullable_float_sql_matches_sqlite_and_preserves_live_authority ... ok
+test paged_nullable_float_roundtrips_indexes_sql_and_reopen ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/nullable_window.rs (target/debug/deps/nullable_window-01b8170cc0be0230)
+
+running 1 test
+test selective_physical_joins_preserve_nullable_and_float_matches ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/paged_cli.rs (target/debug/deps/paged_cli-d297c3e9e6857fc2)
+
+running 2 tests
+test paged_cli_query_does_not_create_missing_files ... ok
+test cli_installs_queries_inspects_and_exports_the_paged_backend ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests/paged_constraints.rs (target/debug/deps/paged_constraints-fd410bfbd87c0204)
+
+running 6 tests
+test paged_cascade_conflicts_with_new_incoming_reference ... ok
+test paged_cascade_requires_each_write_permission_and_keeps_pinned_snapshot ... ok
+test staged_references_require_reference_grant_without_requiring_read_access ... ok
+test paged_deferral_preserves_reference_permission_and_live_revocation ... ok
+test paged_deferred_forward_refs_commit_atomically_and_reopen ... ok
+test paged_cascade_cycle_is_atomic_and_bounded ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/paged_service.rs (target/debug/deps/paged_service-9fa80e76664a6dae)
+
+running 8 tests
+test existing_generated_rust_record_and_manifest_work_with_paged_transactions ... ok
+test unauthorized_named_and_generated_writes_do_not_disclose_private_fields_or_contracts ... ok
+test scoped_gateway_cannot_use_ambient_visibility_or_change_namespace ... ok
+test existing_gateway_protocol_named_batch_pages_sql_and_rollback ... ok
+test nested_reads_share_bounded_batched_sql_execution ... ok
+test same_catalog_and_schema_proposal_protocol_installs_online ... ok
+test existing_unix_client_uses_generated_records_and_anonymous_visibility ... ok
+test authenticated_tls_preserves_scope_rotation_and_live_revocation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+     Running tests/paged_sql.rs (target/debug/deps/paged_sql-4c3af4f39a63d8d3)
+
+running 29 tests
+test grouped_scans_keep_extreme_sparse_integer_keys_distinct ... ok
+test aggregate_filter_does_not_accumulate_excluded_overflowing_values ... ok
+test aggregate_filter_keeps_source_groups_and_orders_filtered_nulls ... ok
+test filtered_grouped_aggregates_hold_their_data_snapshot ... ok
+test grouped_aggregate_budgets_bound_group_cardinality_and_text_state ... ok
+test filtered_grouped_aggregates_preserve_scoped_reference_visibility_and_revocation ... ok
+test grouped_aggregate_binding_coercions_and_nulls_match_fallback ... ok
+test indexed_join_probes_keep_reference_closure_and_row_permissions ... ok
+test indexed_join_unsupported_binding_types_match_datafusion_fallback ... ok
+test grouped_scans_retain_variable_keys_across_reused_row_buffers ... ok
+test indexed_join_results_match_sqlite_across_aliases_and_bindings ... ok
+test paged_sql_equality_semantics_empty_projection_and_windows ... ok
+test indexed_joins_rebind_preserve_duplicates_filters_and_budgets ... ok
+test paged_sql_hidden_references_and_live_revocation ... ok
+test paged_sql_row_filters_apply_to_join_and_aggregate ... ok
+test paged_sql_streaming_join_aggregate_and_index_probes ... ok
+test paged_sql_snapshot_isolation_limits_and_readonly ... ok
+test reviewed_direct_and_fallback_bounds_and_selected_schema_fences ... ok
+test reviewed_pushdown_preserves_boolean_logic_limits_and_alias_projection ... ok
+test filtered_and_grouped_aggregates_match_sqlite_and_rebind_parameters ... ok
+test scalar_aggregate_snapshot_and_resource_budgets_remain_effective ... ok
+test grouped_aggregate_final_overflow_and_cancellation_are_per_group ... ok
+test scalar_aggregate_retained_plan_fails_after_credential_rotation ... ok
+test scalar_aggregates_enforce_reference_filters_visibility_and_capability_scope ... ok
+test scalar_aggregate_null_output_bytes_and_pruned_overflow_match_fallback ... ok
+test scalar_aggregates_return_sql_empty_values_for_fully_filtered_references ... ok
+test scalar_aggregates_require_every_transitive_reference_to_be_visible ... ok
+test scalar_aggregates_match_sqlite_for_empty_typed_and_fallback_inputs ... ok
+test scalar_sum_checks_final_overflow_without_rejecting_cancellation ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+     Running tests/paged_storage.rs (target/debug/deps/paged_storage-867c2d1a919cb2fd)
+
+running 11 tests
+test crash_child ... ignored
+
+running 1 test
+test failed_write_poison_is_atomic ... ok
+test limits_and_bounds_are_explicit ... ok
+test independent_schema_extensions_preserve_shared_identities_and_old_readers ... ok
+test references_and_concurrent_delete_remain_exact ... ok
+test unique_conflict_and_independent_writes ... ok
+test private_visibility_live_revocation_and_separate_write_permission ... ok
+test acknowledged_data_survives_process_exit_without_drop ... ok
+test eviction_pagination_retained_snapshot_and_reopen ... ok
+test wrong_openers_fail_without_modifying_other_formats ... ok
+test disk_indexes_match_reference_model_after_mixed_writes ... ok
+
+test result: ok. 10 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.79s
+
+     Running tests/partition.rs (target/debug/deps/partition-d21df149f7c9e28e)
+
+running 8 tests
+test invalid_versions_counts_duplicates_bindings_and_changed_topology_fail ... ok
+test ignored_cross_partition_reference_error_aborts_preceding_writes ... ok
+test wrong_partition_updates_deletes_and_reads_are_rejected ... ok
+test host_misplaced_rows_are_not_returned_by_wrapped_reads ... ok
+test wrapper_retains_authorization_and_live_revocation ... ok
+test local_relationships_are_atomic_and_partitions_remain_independent ... ok
+test routing_roundtrip_is_stable_and_allocations_preserve_uuid_v4 ... ok
+test durable_partitions_reopen_with_pinned_map_and_original_identity ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/properties.rs (target/debug/deps/properties-7fc68779534a7f64)
+
+running 2 tests
+test randomized_visible_aggregate_matches_input_filter ... ok
+test operation_sequences_match_reference ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/query_profiling.rs (target/debug/deps/query_profiling-525a7948c6efc226)
+
+running 3 tests
+test rejects_mutations_multiple_statements_denied_access_and_invalid_counts ... ok
+test both_modes_preserve_filters_parameters_and_report_plan ... ok
+test cli_supports_exact_parameters_and_never_overwrites_report ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/recovery.rs (target/debug/deps/recovery-03b9bec67d8daaa8)
+
+running 4 tests
+test recovery_child ... ok
+
+running 1 test
+test durable_file_excludes_other_writers ... ok
+test committed_state_survives_abrupt_process_exit ... ok
+test reopen_restores_catalog_ids_rows_grants_and_indexes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/redb_lower_bound.rs (target/debug/deps/redb_lower_bound-23bda9f473543f47)
+
+running 10 tests
+test borrowed_range_consumes_entry_before_callback_panic ... ok
+test range_guards_preserve_mixed_direction_bounds_and_pinned_values ... ok
+test borrowed_range_propagates_read_errors_after_exact_valid_prefix ... ok
+test borrowed_range_handles_empty_and_variable_key_tables ... ok
+test lower_bound_propagates_backend_read_errors_instead_of_missing_rows ... ok
+test borrowed_range_matches_model_with_bounds_breaks_and_mixed_iteration ... ok
+test lower_bound_handles_empty_trees_variable_keys_and_prefixes ... ok
+test lower_bound_guards_and_snapshot_survive_overwrites_deletes_and_page_reuse ... ok
+test borrowed_range_retains_snapshot_and_owning_guards_across_commits ... ok
+test lower_bound_matches_range_and_model_across_leaf_and_subtree_boundaries ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/remote.rs (target/debug/deps/remote-5c46ed0469de8a47)
+
+running 11 tests
+test no_plaintext_fallback_or_scope_switch ... ok
+test successful_self_revocation_is_acknowledged_then_denied ... ok
+test persistent_tls_connections_cannot_bypass_peer_cooldown ... ok
+test persistent_tls_authenticates_every_frame_across_rotation_and_revocation ... ok
+test tls_authentication_rotation_and_revocation_preserve_scope ... ok
+test a_slow_handshake_cannot_exceed_peer_concurrency_or_io_deadline ... ok
+test invalid_credentials_trigger_cooldown_but_scoped_denials_do_not ... ok
+test tls_rejects_wrong_hostname_and_untrusted_authority ... ok
+test persistent_tls_preserves_pipelined_frames_and_rejects_oversize_or_partial_frames ... ok
+test persistent_tls_request_idle_and_shutdown_bounds ... ok
+test persistent_tls_observes_expiry_without_reconnecting ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.79s
+
+     Running tests/schema_control.rs (target/debug/deps/schema_control-c7d14e399bd229bf)
+
+running 19 tests
+test enrolling_namespace_races_legacy_install_with_a_transaction_conflict ... ok
+test managed_namespaces_cannot_bypass_approval_with_legacy_native_install_grants ... ok
+test gateway_does_not_expose_host_approval_or_control_tables ... ok
+test immutable_aliases_and_monotonic_retirement_preserve_old_reads_and_rows ... ok
+test dynamic_rust_records_need_no_generation_and_keep_contracts_and_auth ... ok
+test competing_same_version_installs_have_one_winner_and_retryable_conflict ... ok
+test every_quota_dimension_is_enforced_before_installation ... ok
+test proposal_requires_exact_host_approval_then_installs_atomically ... ok
+test quota_changes_and_reference_revocation_invalidate_prior_approval ... ok
+test quotas_count_history_and_cancelled_proposals_without_reserving_schema ... ok
+test schema_control_crash_child ... ok
+test repeated_submission_and_apply_are_idempotent_and_not_bearer_authority ... ok
+test terminal_decisions_disabled_namespaces_and_owner_changes_fail_closed ... ok
+test wire_proposals_require_explicit_ids_and_hidden_target_hashes_are_redacted ... ok
+test unknown_private_reference_and_import_guesses_do_not_disclose_catalog ... ok
+test readers_continue_during_online_installation ... ok
+
+running 1 test
+
+running 1 test
+test checkpoint_reopen_preserves_approval_policy_and_install_receipt ... ok
+
+running 1 test
+test abrupt_process_recovery_never_loses_acknowledged_decisions_or_installs_partial_state ... ok
+test install_cancel_histories_match_bounded_catalog_model ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+     Running tests/schema_visibility.rs (target/debug/deps/schema_visibility-1049a04c31df5c11)
+
+running 10 tests
+test malformed_visibility_rows_fail_atomically_even_for_trusted_host ... ok
+test namespace_ownership_and_visibility_conflicts_are_enforced ... ok
+test host_installs_respect_namespace_owner_and_later_provisioning_adopts_policy ... ok
+test policies_do_not_grant_reference_or_write_and_anonymous_cannot_be_elevated ... ok
+test credential_scopes_cap_ambient_reads_and_namespace_authority_updates_visibility ... ok
+test creation_is_atomic_unknown_names_fail_and_additive_install_keeps_old_readers ... ok
+test private_reference_closure_and_catalog_redaction_survive_public_outer_family ... ok
+test default_authenticated_private_owner_recipients_and_anonymous_public ... ok
+test visibility_changes_invalidate_retained_native_sql_joins_and_aggregates ... ok
+test visibility_and_owner_survive_redo_and_checkpoint_without_schema_rewrite ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/security_sql.rs (target/debug/deps/security_sql-49b2e329e6c5024f)
+
+running 7 tests
+test revocation_invalidates_inflight_writes_and_retained_snapshots ... ok
+test visibility_dependency_changes_invalidate_transaction_reads ... ok
+test reference_only_can_attach_but_cannot_read_hidden_participants ... ok
+test sqlite_compat_join_and_index_pushdown_match_native ... ok
+test default_deny_app_isolation_and_read_only_are_enforced ... ok
+test row_policies_apply_before_joins_aggregates_and_both_sides_of_update ... ok
+test sql_nulls_bags_scalars_and_snapshot_semantics ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/service.rs (target/debug/deps/service-0f839853232d862a)
+
+running 8 tests
+test capability_discovery_exposes_only_explicitly_granted_families ... ok
+test authentication_admin_names_and_cross_app_access_fail_closed ... ok
+test invalid_aliases_numeric_payloads_versions_and_batch_sizes_do_not_write ... ok
+test generated_contract_checks_detect_shape_drift_and_allow_write_only_clients ... ok
+test schema_guards_revocation_and_pagination_revision_guards_are_enforced ... ok
+test remote_batches_are_atomic_and_preserve_exact_integers ... ok
+test paged_index_and_family_scans_match_reference_without_skipping_or_duplicating ... ok
+test sql_budgets_stop_work_and_reset_for_the_next_query ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.04s
+
+     Running tests/service_sql_writes.rs (target/debug/deps/service_sql_writes-dc2a0598625f47f4)
+
+running 5 tests
+test write_only_grants_old_and_new_row_filters_and_live_revocation ... ok
+test resident_sql_write_contract ... ok
+test paged_sql_write_contract ... ok
+test multirow_delete_checks_the_whole_statement_and_counts_explicit_cascade_roots ... ok
+test paged_tls_execute_preserves_capability_scope_rotation_and_live_revocation ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests/sql_planning.rs (target/debug/deps/sql_planning-337018348a6fd329)
+
+running 6 tests
+test ordered_limit_filters_authorization_before_counting_rows_and_honors_revocation ... ok
+test range_ordering_is_reported_only_when_supported ... ok
+test identity_selection_ignores_predicate_order_and_broad_buckets ... ok
+test mutable_range_scans_keep_phantom_dependencies ... ok
+test explicit_sql_selection_does_not_register_or_expose_other_families ... ok
+test numeric_ranges_match_sqlite_with_coercions_boundaries_duplicates_and_limits ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/sql_writes.rs (target/debug/deps/sql_writes-6c7bcb5eb00158de)
+
+running 7 tests
+test sqlite_value_allocation_budget_resets_after_errors ... ok
+test sql_error_or_drop_rolls_back_all_previous_statements ... ok
+test sql_delete_respects_incoming_references_and_releases_them_atomically ... ok
+test sql_mutations_cannot_escape_authorization_or_run_ddl ... ok
+test write_only_sql_insert_and_row_filter_updates_use_kernel_permissions ... ok
+test sql_reads_track_conflicts_and_identity_changes_are_rejected ... ok
+test sql_dml_is_transactional_and_reads_its_writes ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/views.rs (target/debug/deps/views-dda8ef0b26c11520)
+
+running 12 tests
+test existing_source_access_does_not_grant_view_access ... ok
+test source_reference_metadata_must_be_visible_to_inspect_a_definition ... ok
+test marker_permission_alone_never_discloses_sql_or_source_contracts ... ok
+test immutable_ids_names_and_protected_namespaces ... ok
+test invoker_rows_and_private_definition_metadata ... ok
+test constant_views_are_explicitly_supported_without_data_authority ... ok
+test credentials_and_capabilities_keep_view_scopes_and_live_rotation ... ok
+test source_and_view_revocation_fence_retained_handles ... ok
+test stored_sql_is_revalidated_before_execution_even_after_host_tampering ... ok
+test views_reject_mutations_multiple_statements_parameters_and_undeclared_sources ... ok
+test malformed_versioned_definitions_fail_closed_on_recovery ... ok
+test definitions_survive_redo_and_checkpoint_without_changing_old_rows ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+
+     Running tests/visibility_review.rs (target/debug/deps/visibility_review-8e36323183106eb2)
+
+running 3 tests
+test internal_host_owner_marker_is_not_an_application_read_capability ... ok
+test opaque_reference_contracts_never_expose_fingerprint_match_oracles ... ok
+test concurrent_visibility_mutations_conflict_and_invalidate_disk_leases ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/visibility_transport.rs (target/debug/deps/visibility_transport-a6a492813fcbdf1a)
+
+running 3 tests
+test explicit_grants_and_checked_contract_reads_preserve_visibility ... ok
+test protocol_public_default_private_and_reference_closure ... ok
+test tls_anonymous_reads_namespace_owner_updates_and_scoped_credentials ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running unittests examples/paged_sql_bench.rs (target/debug/examples/paged_sql_bench-10deaad1aab88323)
+
+running 12 tests
+test tests::benchmark_mode_metadata_never_substitutes_sql_for_native ... ok
+test postgres::tests::explain_uses_named_statement_and_exact_integer_bindings_without_analyze ... ok
+test tests::reversed_reference_fixture_is_bijective_and_join_expectation_inverts_it ... ok
+test postgres::tests::explain_response_requires_a_single_json_plan ... ok
+test tests::fixture_schema_identities_and_fields_are_deterministic ... ok
+test tests::file_footprint_counts_only_owned_files_and_reports_missing_sidecars ... ok
+test tests::aggregate_reference_matches_naive_grouping_and_default_fixture_stays_small ... ok
+test tests::wide_groups_match_independent_row_grouping ... ok
+test tests::sqlite_plan_telemetry_uses_bound_fixture_queries ... ok
+test tests::native_pinned_reader_rejects_reads_after_revocation ... ok
+test tests::backend_io_diagnostics_are_explicit_and_ordinary_open_has_no_handle ... ok
+test tests::native_matrix_uses_public_apis_and_matches_every_fixture_query ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.41s
+
+     Running unittests examples/scan_layout_bench.rs (target/debug/examples/scan_layout_bench-991387b8830a5665)
+
+running 6 tests
+test tests::layout_crash_worker ... ok
+test tests::block_validation_rejects_framing_identity_revision_and_checksum_corruption ... ok
+test tests::structural_blocks_validate_shapes_and_keep_redb_integrity_contract ... ok
+
+running 1 test
+
+running 1 test
+test tests::both_layouts_reject_dangling_reference_and_future_row ... ok
+
+running 1 test
+test tests::layouts_match_updates_deletes_abort_snapshots_and_reopen ... ok
+
+running 1 test
+test tests::process_crash_preserves_committed_blocks_and_discards_uncommitted_changes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+

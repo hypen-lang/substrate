@@ -32,7 +32,9 @@ do not build or run other benchmarks concurrently. Both are optimized builds wit
 the same compiler and flags. Run the copied candidate's full Rust test suite too,
 with local socket permission for its integration tests.
 
-`source-sha256.json` in the prepared directory identifies the exact source fixture.
+`source-sha256.json` in the prepared directory identifies the exact source fixture,
+including the local redb vendor tree when present. Both copies retain that same
+read-path dependency; historical source without a vendor tree remains supported.
 The probe checks retained snapshots, optimistic conflicts, index consistency,
 final row counts and deterministic row digests. Setup and integrity checks are
 outside timed query/write loops. Snapshot construction/cloning, row materialization,
@@ -47,8 +49,11 @@ Cargo's `--message-format=json` output supplies the executable path in a
 `compiler-artifact` record. Then run:
 
 ```sh
-python3 experiments/collections/run_sql.py /tmp/substrate-collections-run docs/benchmarks/collections-sql.json > docs/benchmarks/collections-sql-summary.json
+mkdir docs/benchmarks/latest/collections
+python3 experiments/collections/run_sql.py /tmp/substrate-collections-run docs/benchmarks/latest/collections/results.json > docs/benchmarks/latest/collections/summary.json
 ```
+
+Use a fresh destination for each comparison; the directory creation and runner refuse existing results. After validation, replace the previous retained collection comparison with the completed set rather than combining rounds from different runs.
 
 The default fixture has 2,000 people and 18,000 total occurrences. The runner
 executes three alternating pairs, retains each benchmark's JSON (including

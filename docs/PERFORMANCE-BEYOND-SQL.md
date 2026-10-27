@@ -55,7 +55,7 @@ Measure one-field versus full-row updates, 1/8/32 roles, 16 B–1 MiB payloads,
 single versus 32-operation transactions, and retained versus unretained snapshots.
 Report allocation bytes and CPU separately from durable latency. Existing imbl
 experiments found roughly twofold faster isolated writes but mixed reads; they
-did not remove this structural work. [Collection experiment](benchmarks/COLLECTIONS-EXPERIMENT.md).
+did not remove this structural work. Collection experiment (historical results removed).
 
 ## Concurrency: logical independence is not parallel commit execution
 
@@ -179,5 +179,5 @@ queue/lock wait where relevant; do not judge work from throughput alone.
 The SQL baseline from `ae58e56` was preserved before current builds as
 `/tmp/substrate-range-ae58e56`, SHA-256
 `dfdbb7733f28c08d67afa46f5c0a3d242122cdb5f5a592440837835b5e090584`, matching the
-prior [range/EXISTS report](benchmarks/DATAFUSION-RANGE-EXISTS.md). This investigation
+prior range/EXISTS report (historical results removed). This investigation
 ran no builds, timings or external services.

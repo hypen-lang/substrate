@@ -1,8 +1,0 @@
-running 1 test
-executor_round_trip: 10.433 us/call (median of 9 x 1000)
-prepared_constant: 19.766 us/call (median of 9 x 1000)
-prepared_identity: 25.010 us/call (median of 9 x 1000)
-native_identity: 0.055 us/call (median of 9 x 1000)
-test datafusion_sql::tests::sql_execution_overhead_probe ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 133 filtered out; finished in 0.55s

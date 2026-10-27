@@ -14,6 +14,9 @@ parser.add_argument("output", type=Path)
 parser.add_argument("--rows", type=int, default=2000)
 parser.add_argument("--repeats", type=int, default=3)
 args = parser.parse_args()
+if args.output.exists():
+    parser.error("output already exists; choose a fresh comparison destination")
+args.output.parent.mkdir(parents=True, exist_ok=True)
 assert args.repeats >= 3
 env = dict(os.environ, SUBSTRATE_BENCH_ROWS=str(args.rows))
 # The collection experiment never targets an external database.

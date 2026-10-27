@@ -8,7 +8,7 @@ and redb durability are unchanged. Persistent collections now use imbl 7.0.2.
 The Rust dependency is pinned to DataFusion 55.0.0 with its execution crates
 locked to 55.2.0. The Python 55.0.0 benchmark wheel reports the same 55.2.0 native
 engine. Rust 1.94 is now required. The comparison and its boundaries are in
-[the DataFusion experiment](benchmarks/DATAFUSION-EXPERIMENT.md).
+the DataFusion experiment (historical results removed).
 
 ## Execution and authority
 
@@ -57,6 +57,18 @@ Native reads enforce visibility and reference closure, and every source's live
 guard is checked before execution and final release. No rows or authority
 decisions are cached in the descriptor. Only fields needed for output, join
 keys, predicates or ordering are charged/copied; unrelated payloads stay shared.
+
+Eligible correlated EXISTS and bounded top-one-per-partition queries also use
+authorized index probes. The window path requires `ROW_NUMBER` partitioned by
+the root identity, a rank filter selecting row one, and final root-identity
+ascending order with literal LIMIT/OFFSET no greater than 1,000 each. Every
+non-unique join stage must include its occurrence identity in the window ordering
+to prove deterministic ties. It visits complete authorized partitions (at most
+256 joined tuples per partition) and can stop after the requested roots. Unsupported
+shapes, coercions, or fanout fall back to DataFusion with the remaining deadline
+and shared source budget. Parameters remain typed and reusable. See the
+million-record comparison (historical results removed) for the narrow
+window shape's improvement and unchanged general analytical limitations.
 
 Other prepared queries cache one exact typed parameter binding. Deterministic
 queries reuse an optimized logical plan. A conservative whitelist of audited
@@ -162,19 +174,35 @@ casts and aliases for portable queries.
 adapter explicitly for applications that need its dialect. There is no silent
 fallback after a DataFusion failure. The native query API is unchanged.
 
-`SqlTransaction::execute()` still uses SQLite's mutation adapter to call Liquid's
+The legacy resident `SqlTransaction::execute()` still uses SQLite's mutation adapter to call Liquid's
 typed transactional insert/update/delete operations. SQLite is not canonical
 storage. Transactional SELECTs use DataFusion over the transaction's staged state;
 the adapter conservatively records reads of all visible families before executing
 the query against that pinned state. This preserves conflict detection but can produce
 more conflicts than a future provider that records precise read dependencies.
+The separate local/TLS service [`execute` API](SQL-WRITES.md) compiles a bounded
+INSERT/UPDATE/DELETE subset directly into native resident or paged transactions;
+it does not expose arbitrary DataFusion DML.
 
 
-[Initial index-backed benchmark](benchmarks/DATAFUSION-INDEXED.md) compares that milestone
+Initial index-backed benchmark (historical results removed) compares that milestone
 with the previous eager DataFusion adapter, the explicit SQLite compatibility
 adapter and ordinary indexed SQLite. Native read/write APIs remain unchanged.
 
-The [range/EXISTS/window follow-up](benchmarks/DATAFUSION-RANGE-EXISTS.md) records
-the earlier cache improvements. The [indexed execution benchmark](benchmarks/DATAFUSION-EXECUTION.md)
+The range/EXISTS/window follow-up (historical results removed) records
+the earlier cache improvements. The indexed execution benchmark (historical results removed)
 compares join probes, top-k pushdown and compiled simple reads against both
 earlier adapters and SQLite, including changing parameters and fresh handles.
+
+## Nullable types and remote mutations
+
+Native nullable roles map to Arrow validity bitmaps; finite binary64 roles map to
+Float64. SQL keeps three-valued NULL semantics. Specialized direct, indexed-join,
+window and aggregate paths decline nullable/float shapes they cannot prove safe;
+DataFusion executes those shapes using the same authorized provider. Ordinary
+non-nullable family layouts and indexes retain their prior semantics.
+
+The SQL query endpoint still rejects DML. Remote clients now have an explicit
+[`execute(sql, params)`](SQL-WRITES.md) operation that compiles the supported
+mutation subset into authorized native transactions. This does not enable
+arbitrary DataFusion writes or bypass schema, reference, row-policy or scope checks.

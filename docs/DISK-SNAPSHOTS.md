@@ -9,9 +9,10 @@ engine updates or removes those rows.
 
 This is a bounded read-serving slice. The mutable engine still loads its current
 state and indexes into RAM. Building a spill requires that existing snapshot in
-memory. There is no disk-backed mutable working set, cache eviction for the main
-engine, SQL adapter over disk leases, streaming remote endpoint, or concurrent
-writer engine operating beyond RAM.
+memory. The separate [paged current-state engine](PAGED-STORAGE.md) supports mutable
+data, SQL, SDKs and local/TLS access with bounded storage caches. These historical
+leases remain a separate read-only facility: there is no SQL adapter or streaming
+remote endpoint over the leases themselves.
 
 ```rust,ignore
 use substrate_liquid::disk_snapshot::SpillOptions;
@@ -114,7 +115,7 @@ allocations from the current engine's schema, identity and index-version tombsto
 The redb cache and Rust-side redb allocations are counted. The current engine is
 kept alive throughout so the weak authority guard remains valid.
 
-Raw output: [disk-snapshot-memory.jsonl](benchmarks/disk-snapshot-memory.jsonl).
+Raw output: disk-snapshot-memory.jsonl (historical results removed).
 These local synthetic measurements illustrate the memory/latency tradeoff of a
 historical read lease. They do not demonstrate a mutable database larger than RAM.
 

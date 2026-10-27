@@ -1,0 +1,19 @@
+   Compiling redb v3.1.3 (<repo>/vendor/redb)
+   Compiling substrate-liquid v0.1.0 (<home>/Workspace/Substrate)
+    Finished `test` profile [unoptimized] target(s) in 19.74s
+     Running tests/redb_lower_bound.rs (target/debug/deps/redb_lower_bound-b66afee9deab5ae3)
+
+running 10 tests
+test borrowed_range_consumes_entry_before_callback_panic ... ok
+test range_guards_preserve_mixed_direction_bounds_and_pinned_values ... ok
+test lower_bound_propagates_backend_read_errors_instead_of_missing_rows ... ok
+test borrowed_range_propagates_read_errors_after_exact_valid_prefix ... ok
+test borrowed_range_handles_empty_and_variable_key_tables ... ok
+test lower_bound_handles_empty_trees_variable_keys_and_prefixes ... ok
+test borrowed_range_matches_model_with_bounds_breaks_and_mixed_iteration ... ok
+test lower_bound_guards_and_snapshot_survive_overwrites_deletes_and_page_reuse ... ok
+test borrowed_range_retains_snapshot_and_owning_guards_across_commits ... ok
+test lower_bound_matches_range_and_model_across_leaf_and_subtree_boundaries ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+

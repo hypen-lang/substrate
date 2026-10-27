@@ -61,6 +61,12 @@ export class LocalClient {
     });
   }
   async capabilities() { return this.request({ op: "capabilities" }); }
+  /** One atomic bounded SQL write. Transport failures have an uncertain outcome and are not retried. */
+  async execute(sql, params = []) {
+    const result = await this.request({ op: "execute", sql, params });
+    if (result?.kind !== "execute" || !Number.isSafeInteger(result.affected_rows) || result.affected_rows < 0 || result.affected_rows > 100 || !Array.isArray(result.ids) || result.ids.length !== result.affected_rows || result.ids.some(id => typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) || new Set(result.ids).size !== result.ids.length) throw new SubstrateError("protocol", "invalid SQL execute result");
+    return { affectedRows: result.affected_rows, ids: result.ids };
+  }
   async batch(operations) {
     const contracts = operations.map(op => ({ relation: op.relation, schema_id: op.schema_id, fingerprint: op.fingerprint }));
     const wire = operations.map(({ fingerprint, ...op }) => op);

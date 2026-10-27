@@ -19,3 +19,5 @@ supported subset; physical choices remain replaceable after measurement.
 - [009: Scoped delegation and live revocation](009-delegation-revocation.md)
 
 - [010: Authenticated remote access, credential rotation and expiry](010-authenticated-remote.md)
+
+- [011: Bounded materialized checkpoint overrides](011-bounded-checkpoint-overlay.md)

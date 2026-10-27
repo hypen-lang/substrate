@@ -326,3 +326,114 @@ fn checkpoint_key_order_can_precede_import_and_reference_targets() {
     );
     s.verify_indexes().unwrap();
 }
+
+#[test]
+fn persistence_diagnostics_distinguish_redo_and_coalesced_checkpoint_work() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db");
+    let expected;
+    {
+        let db = Database::open_with_options(&path, manual()).unwrap();
+        let person = seed(&db);
+        db.checkpoint().unwrap();
+        let before = db.storage_info().unwrap().persistence;
+        for name in ["first", "final"] {
+            let mut tx = db.admin().transaction();
+            tx.update("core.Person", person, vec![name.into()]).unwrap();
+            tx.commit().unwrap();
+        }
+        let after = db.storage_info().unwrap().persistence;
+        assert_eq!(after.log_groups - before.log_groups, 2);
+        assert!(after.redo_written_bytes > before.redo_written_bytes);
+        assert_eq!(after.checkpoints, before.checkpoints);
+        let checkpoint = db.checkpoint().unwrap();
+        let final_stats = db.storage_info().unwrap().persistence;
+        assert_eq!(checkpoint.written_rows, 1);
+        assert_eq!(final_stats.checkpoints - before.checkpoints, 1);
+        assert_eq!(
+            final_stats.checkpoint_written_rows - before.checkpoint_written_rows,
+            1
+        );
+        assert_eq!(
+            final_stats.checkpoint_written_bytes - before.checkpoint_written_bytes,
+            checkpoint.written_bytes
+        );
+        expected = db.admin().snapshot().scan("core.Person").unwrap();
+    }
+    let db = Database::open_with_options(&path, manual()).unwrap();
+    assert_eq!(
+        db.storage_info().unwrap().persistence,
+        PersistenceStats::default()
+    );
+    assert_eq!(db.admin().snapshot().scan("core.Person").unwrap(), expected);
+}
+
+#[test]
+fn count_bound_checkpoints_do_not_encode_discarded_redo() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db");
+    let expected;
+    {
+        let db = Database::open_with_options(&path, policy(1, u64::MAX)).unwrap();
+        let person = seed(&db);
+        let mut tx = db.admin().transaction();
+        tx.update("core.Person", person, vec!["final".into()])
+            .unwrap();
+        tx.commit().unwrap();
+        let info = db.storage_info().unwrap();
+        assert_eq!(info.log_commits, 0);
+        assert_eq!(info.persistence.redo_encoded_bytes, 0);
+        assert_eq!(info.persistence.redo_written_bytes, 0);
+        assert!(info.persistence.checkpoint_written_bytes > 0);
+        expected = db.admin().snapshot().scan("core.Person").unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(db.admin().snapshot().scan("core.Person").unwrap(), expected);
+    db.admin().snapshot().verify_indexes().unwrap();
+}
+
+#[test]
+fn explicit_small_storage_cache_preserves_recovery_and_validates_before_creation() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db");
+    assert!(
+        Database::open_with_storage_options(
+            &path,
+            manual(),
+            GroupCommitOptions::default(),
+            StorageOptions { cache_bytes: 0 }
+        )
+        .is_err()
+    );
+    assert!(!path.exists());
+    let person;
+    {
+        let db = Database::open_with_storage_options(
+            &path,
+            manual(),
+            GroupCommitOptions::default(),
+            StorageOptions {
+                cache_bytes: 64 * 1024,
+            },
+        )
+        .unwrap();
+        person = seed(&db);
+        db.checkpoint().unwrap();
+        let mut tx = db.admin().transaction();
+        tx.update("core.Person", person, vec!["tail".into()])
+            .unwrap();
+        tx.commit().unwrap();
+    }
+    let db = Database::open(&path).unwrap();
+    assert_eq!(db.recovery_info().unwrap().replayed_commits, 1);
+    assert_eq!(
+        db.admin()
+            .snapshot()
+            .get("core.Person", person)
+            .unwrap()
+            .unwrap()
+            .values[0],
+        Value::from("tail")
+    );
+    db.admin().snapshot().verify_indexes().unwrap();
+}

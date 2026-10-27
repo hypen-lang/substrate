@@ -84,7 +84,7 @@ head, either from the previous checkpoint plus redo or the new checkpoint.
 
 ## Local measurement
 
-[Raw paired runs](benchmarks/background-checkpoints.jsonl) use 256 sequential durable
+Raw paired runs (historical results removed) use 256 sequential durable
 writes of a 4 KiB payload, requesting maintenance every 16 writes. Foreground waits
 for each explicit checkpoint; background enqueues requests and waits for final
 coverage before measuring total completion. Both reopen with 256 rows and zero redo.

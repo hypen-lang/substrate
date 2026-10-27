@@ -36,7 +36,7 @@ no occurrence, never an implicit NULL or a security redaction.
 For a schema-only installation of A into D, restriction to the old signature
 satisfies restrict_S(extend(D,A)) = D. Schema installation only adds catalog entries and
 empty families; its logical operation does not iterate over old rows. A commit can
-trigger periodic checkpoint maintenance that copies unchanged packed rows. This
+trigger checkpoint maintenance of earlier changes or backend page rewrites. This
 requires no schema backfill or layout alteration. A later data transaction may
 intentionally change old query results.
 
@@ -79,7 +79,11 @@ The working state uses persistent ordered B-trees (`im::OrdMap`):
 - (type ID, role position, typed value) → ordered occurrence IDs;
 - (type ID, unique-key ordinal, typed tuple) → occurrence ID;
 - (target type ID, target identity) → incoming (source type, identity, role) entries;
-- conflict key → last mutation revision, including deleted/empty key tombstones.
+- typed conflict domains → last mutation revision, including deleted/empty key
+  tombstones. Row/incoming timestamps are grouped by relation; bucket/unique
+  timestamps by relation and role. Scalar catalog/visibility timestamps remain
+  separate. This avoids repeated IDs and large enum-key padding without dropping
+  historical conflicts or changing transaction semantics.
 
 Rows are one ordered tuple, not one EAV allocation per scalar. The durable codec
 packs role values without repeated attribute names or per-value type tags. Sparse
@@ -103,14 +107,31 @@ packed rows, and discard the covered redo. The default policy keeps the tail bel
 128 commits and 8 MiB, including when a single transaction exceeds that size. The
 first upgrade of an unbounded file replays once before compaction. Startup work still
 includes current state/index reconstruction, and retired allocated identities remain.
-Checkpoints hold the publication mutex and copy all current rows; incremental and
-background variants are future work. File shrinkage and secure erasure are not promised.
+Incremental checkpoints process coalesced changed rows and metadata. V3 retains
+up to 4,096 materialized row overrides or 8 MiB, flushing sorted subsets into the
+base before exceeding either limit; initial and larger batches write directly to
+the base. The overlay contains latest
+row images/tombstones, not transaction history. Compaction and redo pruning share
+the atomic durable commit. The published snapshot remains readable during disk I/O.
+An optional background worker requests early checkpoints; hard recovery bounds
+still apply on the commit path. File shrinkage and secure erasure are not promised.
 
 The full current state and indexes must fit in memory. Old snapshots retain shared
 trees independently of checkpointing. Historical revision lookup is not implemented.
 Durable files are privileged engine storage; redb protects their page integrity.
-See [ADR 005](adr/005-checkpoints.md) for tables, manifest, atomic publication, recovery
-validation, fail-stop errors, compatibility, and retention semantics.
+See [ADR 005](adr/005-checkpoints.md) and [ADR 011](adr/011-bounded-checkpoint-overlay.md)
+for tables, manifests, atomic publication, recovery validation, fail-stop errors,
+compatibility, and retention semantics. V1/V2 files remain readable; the next
+checkpoint upgrades atomically to V3, which older binaries reject.
+
+The physical backend cache is explicit: `StorageOptions` defaults to a 64 MiB
+redb cache target, configured through `Database::open_with_storage_options` when
+needed. This does not bound the resident logical state or process RSS. Checkpoint
+upserts account for the prior logical row, whether stored in the base or overlay.
+Rows, catalog, manifest, head and pruning still
+commit atomically. Process-local persistence counters distinguish redo, checkpoint,
+compaction and Immediate-commit work; actual backend-write probes measure page
+amplification separately from encoded record sizes.
 
 ### Version-1 redo format
 
@@ -179,9 +200,11 @@ read-your-writes and poisons the whole transaction on SQL failure. Remote SQL is
 read-only; remote atomic batches invoke native writes.
 
 Unrelated transactions can prepare concurrently and commit without logical conflicts.
-Commit publication and durable appends are serialized. This is not parallel-writer
-throughput and is not a distributed concurrency protocol. Snapshot acquisition can
-briefly wait for the publication mutex. Catalog installs conservatively conflict with
+The commit coordinator validates independent transactions in order and groups
+accepted records into one durable redb write. Persistence remains serialized;
+grouping does not provide parallel write execution or distributed transactions.
+Snapshot acquisition captures an atomically published data/authorization/failure
+bundle without the writer mutex. Catalog installs conservatively conflict with
 other installs; grant changes conservatively invalidate all in-flight writes for the
 principal. Range queries currently scan and thus use whole-family conflict tracking.
 

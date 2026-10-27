@@ -7,7 +7,24 @@ fn main() {
     }
 }
 fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    let mut args = std::env::args().skip(1).collect::<Vec<_>>();
+    let paged = if let Some(index) = args.iter().position(|a| a == "--paged") {
+        args.remove(index);
+        if args.iter().any(|a| a == "--paged") {
+            return Err("duplicate --paged flag".into());
+        }
+        true
+    } else {
+        false
+    };
+    if paged
+        && !matches!(
+            args.first().map(String::as_str),
+            Some("serve" | "serve-tls")
+        )
+    {
+        return run_paged(&args);
+    }
     match args.first().map(String::as_str) {
         Some("bench-query") => query_profile_cli::run(&args[1..])?,
         #[cfg(unix)]
@@ -18,8 +35,28 @@ fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
             }
             let config: service::ServerConfig =
                 serde_json::from_str(&std::fs::read_to_string(&args[3])?)?;
-            let server = local::LocalServer::bind(open_existing(&args[1])?, &args[2], config)?;
+            let server =
+                local::LocalServer::bind(open_service(&args[1], paged)?, &args[2], config)?;
             println!("Listening on {}", args[2]);
+            server.run(std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+                false,
+            )))?;
+        }
+        Some("serve-tls") if args.len() == 5 => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if std::fs::metadata(&args[4])?.permissions().mode() & 0o077 != 0 {
+                    return Err("TLS private key must be private (chmod 600)".into());
+                }
+            }
+            let server = remote::RemoteServer::bind(
+                open_service(&args[1], paged)?,
+                args[2].parse()?,
+                &std::fs::read(&args[3])?,
+                &std::fs::read(&args[4])?,
+            )?;
+            println!("Listening with TLS on {}", server.local_addr()?);
             server.run(std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
                 false,
             )))?;
@@ -149,11 +186,66 @@ fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
             }
         }
         _ => println!(
-            "Substrate Liquid SQL prototype\n\n  substrate-liquid serve database.redb socket-path credentials.json\n  substrate-liquid schema-lock declarations.json manifest.json\n  substrate-liquid generate manifest.json output-directory [namespace@version ...]\n  substrate-liquid manifest-plan database.redb manifest.json\n  substrate-liquid manifest-install database.redb manifest.json\n  substrate-liquid manifest-export database.redb manifest.json\n  substrate-liquid demo [new.redb]\n  substrate-liquid query database.redb PRINCIPAL 'SELECT ...'\n  substrate-liquid bench-query database.redb PRINCIPAL query.sql [OPTIONS]\n  substrate-liquid inspect database.redb\n  substrate-liquid checkpoint database.redb\n  substrate-liquid schema-check database.redb module.json\n  substrate-liquid schema-diff database.redb module.json\n  substrate-liquid install database.redb module.json\n\nThis local CLI is a trusted host tool; PRINCIPAL=admin selects administrative access."
+            "Substrate Liquid SQL prototype\n\n  substrate-liquid serve [--paged] database.redb socket-path credentials.json\n  substrate-liquid serve-tls [--paged] database.redb ADDRESS certificate.pem private-key.pem\n  substrate-liquid schema-lock declarations.json manifest.json\n  substrate-liquid generate manifest.json output-directory [namespace@version ...]\n  substrate-liquid manifest-plan database.redb manifest.json\n  substrate-liquid manifest-install database.redb manifest.json\n  substrate-liquid manifest-export database.redb manifest.json\n  substrate-liquid demo [new.redb]\n  substrate-liquid query database.redb PRINCIPAL 'SELECT ...'\n  substrate-liquid bench-query database.redb PRINCIPAL query.sql [OPTIONS]\n  substrate-liquid inspect database.redb\n  substrate-liquid checkpoint database.redb\n  substrate-liquid schema-check database.redb module.json\n  substrate-liquid schema-diff database.redb module.json\n  substrate-liquid install database.redb module.json\n\nUse --paged with serve, serve-tls, query, inspect, install, schema-check, schema-diff or manifest commands for disk-backed current data. TLS credentials must be provisioned by the host API.\n\nThis local CLI is a trusted host tool; PRINCIPAL=admin selects administrative access."
         ),
     }
     Ok(())
 }
+fn open_paged(path: &str, create: bool) -> Result<paged::PagedDatabase> {
+    if !create && !std::path::Path::new(path).is_file() {
+        return Err(Error::Storage("database does not exist".into()));
+    }
+    paged::PagedDatabase::open(path, paged::PagedOptions::default())
+}
+fn open_service(path: &str, paged: bool) -> Result<service::ServiceDatabase> {
+    if paged {
+        Ok(open_paged(path, false)?.into())
+    } else {
+        Ok(open_existing(path)?.into())
+    }
+}
+fn run_paged(args: &[String]) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    match args.first().map(String::as_str) {
+        Some(command @ ("manifest-plan" | "manifest-install" | "manifest-export")) if args.len() == 3 => {
+            let db = open_paged(&args[1], command == "manifest-install")?;
+            if command == "manifest-export" {
+                write_changed(std::path::Path::new(&args[2]), &db.admin().snapshot()?.manifest()?.to_json()?)?;
+            } else {
+                let manifest = SchemaManifest::from_json(&std::fs::read_to_string(&args[2])?)?;
+                let mut tx = db.admin().transaction()?;
+                let plan = tx.install_manifest(&manifest)?;
+                println!("{}", serde_json::to_string_pretty(&plan)?);
+                if command == "manifest-install" { println!("Committed revision {}", tx.commit()?); }
+            }
+        }
+        Some(command @ ("schema-check" | "schema-diff" | "install")) if args.len() == 3 => {
+            let module: Module = serde_json::from_slice(&std::fs::read(&args[2])?)?;
+            let db = open_paged(&args[1], command == "install")?;
+            let mut tx = db.admin().transaction()?;
+            tx.install(module.clone())?;
+            println!("{}@{}: conservative additive extension; existing row rewrites: 0", module.name, module.version);
+            if command == "install" { println!("Committed revision {}", tx.commit()?); }
+        }
+        Some("query") if args.len() == 4 => {
+            let db = open_paged(&args[1], false)?;
+            let session = if args[2] == "admin" { db.admin() } else { db.session(&args[2])? };
+            let table = session.snapshot()?.sql()?.query(&args[3], &[])?;
+            println!("{}", table.columns.join(" | "));
+            for row in table.rows { println!("{row:?}"); }
+        }
+        Some("inspect") if args.len() == 2 => {
+            let db = open_paged(&args[1], false)?;
+            println!("{:?}", db.stats()?);
+            let snapshot = db.admin().snapshot()?;
+            for def in snapshot.schemas()? { println!("{} [{}]: {:?}", def.name, def.id, def.roles); }
+            println!("{:?}", snapshot.verify()?);
+            println!("Indexes verified. Current data stays on disk; no redo replay required.");
+        }
+        _ => return Err("unsupported paged command or arguments; use --paged with serve, serve-tls, query, inspect, install, schema-check, schema-diff, or manifest commands".into()),
+    }
+    Ok(())
+}
+
 fn open_existing(path: &str) -> Result<Database> {
     if !std::path::Path::new(path).is_file() {
         return Err(Error::Storage("database does not exist".into()));

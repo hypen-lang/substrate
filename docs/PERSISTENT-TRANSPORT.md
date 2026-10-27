@@ -39,7 +39,7 @@ These are transport bounds, not preemptive CPU/memory limits inside a running da
 
 `npm run demo:remote` runs the TypeScript persistent client against a real TLS host and proves scoped reads/writes, credential rotation, revocation and expiry. `cargo test --offline --test remote --test local` covers real coalesced/pipelined sockets, partial/oversized frames, idle/count limits, shutdown, cooldown, and live authorization. `tools/persistent-client.test.mjs` covers FIFO queueing, queue bounds, shared capability selection, scope errors, unsolicited frames and no replay after an uncertain write disconnect.
 
-`cargo run --release --offline --example transport_bench` compares the same authenticated `SELECT 1` workload and host with one-shot and persistent connections (5 warmups, 100 measured requests per case). The same-run [raw report](benchmarks/2026-10-25-transport-persistent.json) measured:
+`cargo run --release --offline --example transport_bench` compares the same authenticated `SELECT 1` workload and host with one-shot and persistent connections (5 warmups, 100 measured requests per case). The same-run raw report (historical results removed) measured:
 
 | Transport | One-shot median | Persistent median | One-shot p95 | Persistent p95 |
 |---|---:|---:|---:|---:|

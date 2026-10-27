@@ -1,12 +1,14 @@
 //! Authorized, read-only DataFusion SQL over typed Arrow snapshot batches.
 //! No raw DataFusion context or detached table provider escapes this module.
 use crate::*;
-mod checked;
-mod direct;
+pub(crate) mod checked;
+pub(crate) mod direct;
+mod exists;
 mod joins;
 mod planning;
 mod provider;
 mod tiny_join;
+pub(crate) mod values;
 use datafusion::{
     arrow::{
         array::{
@@ -58,7 +60,7 @@ fn query_error(error: impl std::fmt::Display) -> Error {
 
 /// Runs futures on a separate runtime rather than calling block_on inside a
 /// caller's runtime. Cancels on timeout, and turns a panicked task into an error.
-fn run<T: Send + 'static>(
+pub(crate) fn run<T: Send + 'static>(
     future: impl Future<Output = Result<T>> + Send + 'static,
     timeout_ms: u64,
 ) -> Result<T> {
@@ -108,6 +110,8 @@ pub(crate) struct DfQuery {
     cacheable: bool,
     direct: Option<direct::DirectRead>,
     tiny_join: Option<tiny_join::TinyJoin>,
+    exists: Option<exists::ExistsRead>,
+    partition_top: Option<exists::top::PartitionTop>,
     live: crate::engine::LiveGuard,
 }
 impl DfSnapshot {
@@ -201,6 +205,8 @@ impl DfSnapshot {
             cacheable: planning::cacheable(&plan),
             direct: direct::DirectRead::compile(&plan),
             tiny_join: tiny_join::TinyJoin::compile(&plan),
+            exists: exists::ExistsRead::compile(&plan),
+            partition_top: exists::top::PartitionTop::compile(&plan),
             plan,
             parameter_count,
             cache: planning::PlanCache::default(),
@@ -228,7 +234,7 @@ impl DfSnapshot {
     }
 }
 
-fn read_options() -> SQLOptions {
+pub(crate) fn read_options() -> SQLOptions {
     SQLOptions::new()
         .with_allow_ddl(false)
         .with_allow_dml(false)
@@ -281,6 +287,56 @@ impl DfQuery {
         // The bounded tiny attempt and any generic fallback share the same
         // source budget; fallback cannot reset already charged work.
         let source_budget = Arc::new(provider::SourceBudget::default());
+        if let Some(window) = &self.partition_top {
+            let start = std::time::Instant::now();
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                window.query(params, limits, &source_budget)
+            }));
+            match result {
+                Ok(Ok(Some(table))) => return Ok(table),
+                Ok(Ok(None)) => {
+                    let elapsed = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
+                    limits.timeout_ms = limits.timeout_ms.saturating_sub(elapsed);
+                    if limits.timeout_ms == 0 {
+                        self.cache.clear();
+                        return Err(Error::Query("SQL deadline exceeded".into()));
+                    }
+                }
+                Ok(Err(error)) => {
+                    self.cache.clear();
+                    return Err(error);
+                }
+                Err(_) => {
+                    self.cache.clear();
+                    return Err(Error::Query("SQL partition top execution failed".into()));
+                }
+            }
+        }
+        if let Some(exists) = &self.exists {
+            let start = std::time::Instant::now();
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                exists.query(params, limits, &source_budget)
+            }));
+            match result {
+                Ok(Ok(Some(table))) => return Ok(table),
+                Ok(Ok(None)) => {
+                    let elapsed = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
+                    limits.timeout_ms = limits.timeout_ms.saturating_sub(elapsed);
+                    if limits.timeout_ms == 0 {
+                        self.cache.clear();
+                        return Err(Error::Query("SQL deadline exceeded".into()));
+                    }
+                }
+                Ok(Err(error)) => {
+                    self.cache.clear();
+                    return Err(error);
+                }
+                Err(_) => {
+                    self.cache.clear();
+                    return Err(Error::Query("SQL EXISTS execution failed".into()));
+                }
+            }
+        }
         if let Some(join) = &self.tiny_join {
             let start = std::time::Instant::now();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -432,7 +488,7 @@ impl DfQuery {
 }
 
 /// Check size and supported scalar shape before cloning Arrow-owned buffers.
-fn cell_size(array: &ArrayRef, row: usize) -> Result<usize> {
+pub(crate) fn cell_size(array: &ArrayRef, row: usize) -> Result<usize> {
     if array.is_null(row) {
         return Ok(8);
     }
@@ -474,7 +530,7 @@ fn cell_size(array: &ArrayRef, row: usize) -> Result<usize> {
     })
 }
 
-fn sql_value(value: ScalarValue) -> Result<SqlValue> {
+pub(crate) fn sql_value(value: ScalarValue) -> Result<SqlValue> {
     if value.is_null() {
         return Ok(SqlValue::Null);
     }
@@ -515,7 +571,7 @@ fn sql_value(value: ScalarValue) -> Result<SqlValue> {
 }
 
 /// Token rewriting preserves quoted strings/comments; no interpolation of values.
-fn validated_sql(sql: &str) -> Result<(String, usize)> {
+pub(crate) fn validated_sql(sql: &str) -> Result<(String, usize)> {
     if sql.len() > 1024 * 1024 {
         return Err(Error::Query("SQL text budget exceeded".into()));
     }

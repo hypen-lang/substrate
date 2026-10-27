@@ -11,7 +11,7 @@ costs: applications using this adapter pay them today.
 
 ## Measured comparison
 
-The [cross-engine suite](benchmarks/COMPARISON.md) checks every result cell, identity,
+The cross-engine suite (historical results removed) checks every result cell, identity,
 and row order before timing. SQLite and Substrate both run prepared warm reads in
 one process over in-memory fixtures. The 2,000-person fixture contains 18,000 total
 occurrences. Setup, query preparation, durable storage, socket transport and server
@@ -19,7 +19,7 @@ startup are outside those timed samples. This rules out log serialization, redb'
 single writer, TLS and client connection overhead as explanations for these read
 measurements.
 
-The historical [2026-10-24 report](benchmarks/2026-10-24-comparison-2000.json), before
+The historical 2026-10-24 report (historical results removed), before
 live authorization gates, measured:
 
 | Workload | SQLite | Substrate admin | Ratio |
@@ -40,8 +40,8 @@ a large scan/ordering gap. The results are workload-specific.
 The suite was rerun in release mode during the remote-security milestone, then
 repeated with the same executable because small-query samples showed substantial
 variation. Both runs verified all eight result sets. Both raw reports are retained:
-[first run](benchmarks/2026-10-25-comparison-2000.json) and
-[repeat](benchmarks/2026-10-25-comparison-2000-repeat.json). PostgreSQL was not rerun.
+first run (historical results removed) and
+repeat (historical results removed). PostgreSQL was not rerun.
 These runs occurred on the shared development machine while other implementation
 and test work continued; they are not isolated regression measurements.
 
@@ -105,7 +105,7 @@ to quantify each contribution.
 
 ## Transport is a separate issue
 
-The [nested process report](benchmarks/NESTED.md) measured Unix-client request
+The nested process report (historical results removed) measured Unix-client request
 latencies in milliseconds. The local server polls an idle listener every 5 ms and
 the client opens a connection per request. That explains much of the repeated-request
 penalty in its N+1 baseline; it is unrelated to embedded SQL microsecond results.

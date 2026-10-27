@@ -86,6 +86,8 @@ fn ts_aliases(modules: &BTreeMap<String, Vec<Relation>>) -> Result<BTreeMap<Stri
 }
 fn rust_type(t: &DataType) -> String {
     match t {
+        DataType::Nullable(inner) => format!("Option<{}>", rust_type(inner)),
+        DataType::Float => "substrate_liquid::FiniteFloat".into(),
         DataType::Bool => "bool".into(),
         DataType::Text => "String".into(),
         DataType::Bytes => "Vec<u8>".into(),
@@ -95,6 +97,8 @@ fn rust_type(t: &DataType) -> String {
 }
 fn ts_type(t: &DataType) -> String {
     match t {
+        DataType::Nullable(inner) => format!("{} | null", ts_type(inner)),
+        DataType::Float => "number".into(),
         DataType::Bool => "boolean".into(),
         DataType::Text => "string".into(),
         DataType::Bytes => "Uint8Array".into(),
@@ -104,6 +108,8 @@ fn ts_type(t: &DataType) -> String {
 }
 fn variant(t: &DataType) -> &'static str {
     match t {
+        DataType::Nullable(inner) => variant(inner),
+        DataType::Float => "Float",
         DataType::Bool => "Bool",
         DataType::Int => "Int",
         DataType::Text => "Text",
@@ -111,6 +117,33 @@ fn variant(t: &DataType) -> &'static str {
         DataType::Decimal { .. } => "Decimal",
         DataType::Timestamp => "Timestamp",
         DataType::Bytes => "Bytes",
+    }
+}
+fn rust_encode(t: &DataType, expression: &str) -> String {
+    match t {
+        DataType::Nullable(inner) => format!(
+            "match {expression} {{ Some(value) => {}, None => Value::Null }}",
+            rust_encode(inner, "value")
+        ),
+        DataType::Ref(_) => format!("Value::Ref({expression}.raw())"),
+        _ => format!("Value::{}({expression})", variant(t)),
+    }
+}
+fn rust_decode(t: &DataType, expression: &str, error: &str) -> String {
+    match t {
+        DataType::Nullable(inner) => format!(
+            "match {expression} {{ Some(Value::Null) => None, value => Some({}) }}",
+            rust_decode(inner, "value", error)
+        ),
+        _ => format!(
+            "match {expression} {{Some(Value::{}(value))=>{}, _=>return Err(Error::Constraint({error:?}.into()))}}",
+            variant(t),
+            if matches!(t, DataType::Ref(_)) {
+                "TypedId::from_raw(value)"
+            } else {
+                "value"
+            }
+        ),
     }
 }
 impl SchemaManifest {
@@ -153,8 +186,20 @@ impl SchemaManifest {
                 let rn = rust_name(local);
                 let tn = ts_name(&def.name);
                 if [
-                    "Record", "Fields", "Value", "Row", "Id", "TypedId", "Result", "Error", "Vec",
-                    "String", "i64", "bool",
+                    "Record",
+                    "Fields",
+                    "Value",
+                    "Row",
+                    "Id",
+                    "TypedId",
+                    "Result",
+                    "Error",
+                    "Vec",
+                    "String",
+                    "i64",
+                    "bool",
+                    "FiniteFloat",
+                    "Option",
                 ]
                 .contains(&local)
                     || !rust_symbols.insert(rn.clone())
@@ -190,22 +235,17 @@ impl SchemaManifest {
                 writeln!(rust,"}}\nimpl Record for {rn} {{\nconst RELATION: &'static str = {:?};\nconst TYPE_ID: Id = Id::from_u128({});\nconst FINGERPRINT: Option<&'static str> = Some({:?});\nfn fields(self) -> Fields {{\n[",def.name,def.id.0.as_u128(),def.fingerprint()).unwrap();
                 for role in &def.roles {
                     let field = rust_name(&role.name);
-                    let v = variant(&role.data_type);
-                    let value = if matches!(role.data_type, DataType::Ref(_)) {
-                        format!("self.{field}.raw()")
-                    } else {
-                        format!("self.{field}")
-                    };
-                    writeln!(rust, "({:?}.into(),Value::{v}({value})),", role.name).unwrap();
+                    let value = rust_encode(&role.data_type, &format!("self.{field}"));
+                    writeln!(rust, "({:?}.into(),{value}),", role.name).unwrap();
                 }
                 writeln!(rust,"] .into_iter().collect()\n}}\nfn decode(row:Row)->Result<Self> {{\nif row.values.len()!={} {{return Err(Error::Constraint(\"generated row arity mismatch\".into()));}}\nlet mut values=row.values.into_vec().into_iter();\nOk(Self {{",def.roles.len()).unwrap();
                 for role in &def.roles {
-                    let converted = if matches!(role.data_type, DataType::Ref(_)) {
-                        "TypedId::from_raw(value)"
-                    } else {
-                        "value"
-                    };
-                    writeln!(rust,"{}:match values.next() {{Some(Value::{}(value))=>{converted}, _=>return Err(Error::Constraint({:?}.into()))}},",rust_name(&role.name),variant(&role.data_type),format!("invalid {}.{}",def.name,role.name)).unwrap();
+                    let decoded = rust_decode(
+                        &role.data_type,
+                        "values.next()",
+                        &format!("invalid {}.{}", def.name, role.name),
+                    );
+                    writeln!(rust, "{}:{decoded},", rust_name(&role.name)).unwrap();
                 }
                 rust.push_str("})\n}\n}\n");
                 writeln!(ts,"}}\nexport type {tn}Insert = {tn};\nexport type {tn}Update = Partial<{tn}>;\nexport type {tn}Read = {{ id: EntityId<{:?}>; data: {tn} }};\nexport const {tn}: Descriptor<{tn}, {:?}> = defineRecord({:?}, {:?}, {:?}, {{",def.name,def.name,def.name,def.id.to_string(),def.fingerprint()).unwrap();
@@ -216,11 +256,20 @@ impl SchemaManifest {
                         role.name,
                         variant(&role.data_type),
                         {
-                            let mut details = match &role.data_type {
+                            let mut details = match role.data_type.base_type() {
                                 DataType::Ref(target) => format!(",target: {target:?}"),
                                 DataType::Decimal { scale } => format!(",scale: {scale}"),
                                 _ => String::new(),
                             };
+                            if role.data_type.is_nullable() {
+                                details.push_str(",nullable: true");
+                            }
+                            if role.on_delete == OnDelete::Cascade {
+                                details.push_str(",onDelete: \"cascade\"");
+                            }
+                            if role.deferrable {
+                                details.push_str(",deferrable: true");
+                            }
                             let checks: Vec<_> = def
                                 .checks
                                 .iter()

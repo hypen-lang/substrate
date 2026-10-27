@@ -5,32 +5,45 @@ use crate::{
     storage::{Key, Op, State, VisibilityMemo},
     *,
 };
+use arc_swap::{ArcSwap, ArcSwapOption};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::{Deref, DerefMut},
     path::Path,
-    sync::{
-        Arc, Mutex, Weak,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::{Arc, Mutex, Weak},
 };
 
+/// One atomic publication binds authority generation, failure state, and data.
+/// Readers must never pair a state from one publication with a later generation.
+struct PublishedHead {
+    state: Arc<State>,
+    failed: bool,
+    generation: u64,
+}
 struct Head {
     state: Arc<State>,
     failed: bool,
-    publication: Arc<AtomicU64>,
+    publication: Arc<ArcSwap<PublishedHead>>,
 }
 impl Head {
-    /// Called with the publication mutex held. The release store is the live
-    /// authority publication point; snapshots capture state and generation under
-    /// that same mutex. MAX permanently disables the unlocked fence on overflow.
+    /// The atomic store is the live authority publication point. The writer mutex
+    /// still serializes publication, but ordinary readers never acquire it.
     fn publish(&mut self, state: State) {
         self.state = Arc::new(state);
-        let next = self.publication.load(Ordering::Relaxed).saturating_add(1);
-        self.publication.store(next, Ordering::Release);
+        let generation = self.publication.load().generation.saturating_add(1);
+        self.publication.store(Arc::new(PublishedHead {
+            state: self.state.clone(),
+            failed: self.failed,
+            generation,
+        }));
     }
     fn fail(&mut self) {
         self.failed = true;
-        self.publication.store(u64::MAX, Ordering::Release);
+        self.publication.store(Arc::new(PublishedHead {
+            state: self.state.clone(),
+            failed: true,
+            generation: u64::MAX,
+        }));
     }
 }
 /// Privileged embedding handle. Only trusted host code should hold this value.
@@ -38,7 +51,7 @@ impl Head {
 #[derive(Clone)]
 pub struct Database {
     head: Arc<Mutex<Head>>,
-    publication: Arc<AtomicU64>,
+    publication: Arc<ArcSwap<PublishedHead>>,
     coordinator: Arc<commit::Coordinator>,
     pub(crate) clock: Arc<crate::auth::Clock>,
 }
@@ -82,6 +95,18 @@ impl Database {
             commits,
         ))
     }
+    /// Configure physical cache memory without changing schema, transaction, or
+    /// durability semantics. Existing open methods use StorageOptions::default().
+    pub fn open_with_storage_options(
+        path: impl AsRef<Path>,
+        options: DatabaseOptions,
+        commits: GroupCommitOptions,
+        storage: StorageOptions,
+    ) -> Result<Self> {
+        commits.validate()?;
+        let (durable, state) = Durable::open_with_storage(path.as_ref(), options, storage)?;
+        Ok(Self::from_state_with_commits(state, Some(durable), commits))
+    }
     pub fn group_commit_stats(&self) -> GroupCommitStats {
         self.coordinator.stats()
     }
@@ -93,12 +118,17 @@ impl Database {
         durable: Option<Durable>,
         options: GroupCommitOptions,
     ) -> Self {
-        let publication = Arc::new(AtomicU64::new(0));
+        let state = Arc::new(state);
+        let publication = Arc::new(ArcSwap::from_pointee(PublishedHead {
+            state: state.clone(),
+            failed: false,
+            generation: 0,
+        }));
         Self {
             coordinator: Arc::new(commit::Coordinator::new(durable, options)),
             clock: Arc::new(crate::auth::Clock::default()),
             head: Arc::new(Mutex::new(Head {
-                state: Arc::new(state),
+                state,
                 failed: false,
                 publication: publication.clone(),
             })),
@@ -176,6 +206,7 @@ impl Database {
             capability: None,
             credential: None,
             scoped_snapshot: None,
+            authority_cache: Arc::new(ArcSwapOption::empty()),
         }
     }
     /// An unauthenticated, non-admin session. It can only read public families.
@@ -189,15 +220,33 @@ impl Database {
             capability: None,
             credential: None,
             scoped_snapshot: None,
+            authority_cache: Arc::new(ArcSwapOption::empty()),
         }
     }
 }
 /// A result-release fence. Revocation linearizes at head publication; already
 /// returned values cannot be recalled. No lock is held during query execution.
 #[derive(Clone)]
-pub(crate) struct LiveGuard {
+pub(crate) struct LiveGuard(Arc<LiveAuthority>);
+
+impl Deref for LiveGuard {
+    type Target = LiveAuthority;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for LiveGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        Arc::make_mut(&mut self.0)
+    }
+}
+/// Shared immutable authority avoids rebuilding dependency vectors and touching
+/// global weak-reference counters for every fresh snapshot. Transaction-specific
+/// deadline/authority changes use copy-on-write through LiveGuard.
+#[derive(Clone)]
+pub(crate) struct LiveAuthority {
     head: Weak<Mutex<Head>>,
-    publication: Arc<AtomicU64>,
+    publication: Weak<ArcSwap<PublishedHead>>,
     authorized_generation: u64,
     /// The immutable published state used to resolve this authority. Keeping a
     /// weak reference prevents address reuse without retaining old row data.
@@ -211,15 +260,7 @@ pub(crate) struct LiveGuard {
 impl LiveGuard {
     /// A spilled read lease must remain attached even for host/admin snapshots.
     pub(crate) fn check_attached(&self) -> Result<()> {
-        let authority = self.head.upgrade().ok_or(Error::Denied)?;
-        if self.unchanged_publication(&authority)? {
-            return Ok(());
-        }
-        let head = authority.lock().map_err(|_| Error::Denied)?;
-        if head.failed {
-            return Err(Error::Denied);
-        }
-        self.check_state(&head.state, head.failed)
+        self.check_published()
     }
     fn check_state(&self, state: &State, failed: bool) -> Result<()> {
         if self.privileged {
@@ -243,25 +284,56 @@ impl LiveGuard {
         if self.privileged {
             return Ok(());
         }
-        let authority = self.head.upgrade().ok_or(Error::Denied)?;
-        if self.unchanged_publication(&authority)? {
-            return Ok(());
-        }
-        let head = authority.lock().map_err(|_| Error::Denied)?;
-        self.check_state(&head.state, head.failed)
+        self.check_published()
     }
-    fn unchanged_publication(&self, authority: &Mutex<Head>) -> Result<bool> {
+    fn check_published(&self) -> Result<()> {
+        // Keep attachment and poisoning checks even when authority is unchanged.
+        // Neither upgrade acquires the writer mutex or retains old row snapshots.
+        let authority = self.head.upgrade().ok_or(Error::Denied)?;
         if authority.is_poisoned()
             || (!self.privileged
                 && (self.denied || self.expires_at.is_some_and(|end| self.clock.now() >= end)))
         {
             return Err(Error::Denied);
         }
-        // Only authority captured with this exact published generation may
-        // avoid the mutex. Changed generations use the original dependency
-        // validation, including retained snapshots after unrelated writes.
-        Ok(self.authorized_generation != u64::MAX
-            && self.publication.load(Ordering::Acquire) == self.authorized_generation)
+        let publication = self.publication.upgrade().ok_or(Error::Denied)?;
+        let published = publication.load();
+        if published.failed {
+            return Err(Error::Denied);
+        }
+        // Keep this separate from the borrowed session helper to preserve the
+        // established retained-snapshot hot path and attachment semantics.
+        if self.authorized_generation != u64::MAX
+            && published.generation == self.authorized_generation
+        {
+            return Ok(());
+        }
+        self.check_state(&published.state, published.failed)
+    }
+    /// A live Session already owns these handles for the duration of a read.
+    /// Borrowing them avoids global reference-count updates at both fences.
+    fn check_borrowed(
+        &self,
+        authority: &Mutex<Head>,
+        publication: &ArcSwap<PublishedHead>,
+    ) -> Result<()> {
+        if authority.is_poisoned()
+            || (!self.privileged
+                && (self.denied || self.expires_at.is_some_and(|end| self.clock.now() >= end)))
+        {
+            return Err(Error::Denied);
+        }
+        let published = publication.load();
+        if published.failed {
+            return Err(Error::Denied);
+        }
+        // MAX disables the shortcut permanently, including generation exhaustion.
+        if self.authorized_generation != u64::MAX
+            && published.generation == self.authorized_generation
+        {
+            return Ok(());
+        }
+        self.check_state(&published.state, published.failed)
     }
 }
 impl Database {
@@ -280,10 +352,18 @@ pub struct Session {
     pub(crate) capability: Option<Id>,
     pub(crate) credential: Option<Id>,
     scoped_snapshot: Option<Arc<Mutex<Option<ScopedSnapshot>>>>,
+    authority_cache: Arc<ArcSwapOption<CachedAuthority>>,
 }
 /// A single-entry cache shared by clones of one session. The weak source key
 /// keeps the allocation identity valid without retaining another data snapshot.
 /// A different published state always resolves authority again.
+struct CachedAuthority {
+    principal: Option<String>,
+    credential: Option<Id>,
+    // Compiled scope metadata only: no effective State or canonical row roots.
+    capability: Option<Arc<crate::capability::CompiledCapability>>,
+    guard: LiveGuard,
+}
 struct ScopedSnapshot {
     source: Weak<State>,
     capability: Id,
@@ -298,17 +378,174 @@ impl Session {
         }
         self.capability = Some(id);
     }
+    /// Read one owned row from a fresh committed state. Unlike a retained
+    /// Snapshot, each call observes a fresh publication. Scalar reads borrow the
+    /// published state and cached authority, including compiled capability scope.
+    /// Relationship reads use the snapshot's complete reference visibility checks.
+    /// Both paths fence live authorization before releasing the result.
+    pub fn get(&self, name: &str, id: Id) -> Result<Option<Row>> {
+        if self.capability.is_some() {
+            return self.get_point(name, id, |row| (**row).clone());
+        }
+        // Keep ordinary owned reads independent of scoped/shared result mapping.
+        // This is the established hot path; its two fences also cover the time
+        // spent copying an owned row, including any large scalar payload.
+        {
+            let published = self.db.publication.load();
+            let cached = self.authority_cache.load();
+            if !published.failed
+                && let Some(cached) = cached.as_ref()
+                && cached.matches(self, &published.state, published.generation)
+            {
+                let guard = &cached.guard;
+                if !guard.privileged {
+                    guard.check_borrowed(&self.db.head, &self.db.publication)?;
+                }
+                let principal = self.principal.as_deref();
+                let def = published
+                    .state
+                    .names
+                    .get(name)
+                    .and_then(|id| published.state.relations.get(id))
+                    .ok_or_else(|| {
+                        if principal.is_some() {
+                            Error::Denied
+                        } else {
+                            Error::Schema(format!("unknown relation {name}"))
+                        }
+                    })?;
+                if def.reference_slots.is_empty() {
+                    // Reuse one compiled grant lookup for table and row access.
+                    // The persistent grant map supports borrowed principal
+                    // lookup; reuse its compiled result rather than search twice.
+                    let grant = principal
+                        .filter(|p| *p != crate::visibility::ANONYMOUS)
+                        .and_then(|p| published.state.grant(p, def.id))
+                        .filter(|grant| grant.read);
+                    let ambient = grant.is_none()
+                        && principal.is_none_or(|p| published.state.ambient_read(p, def.id));
+                    if grant.is_none() && !ambient {
+                        return Err(Error::Denied);
+                    }
+                    let result = published
+                        .state
+                        .row(def.id, id)
+                        .filter(|row| {
+                            ambient
+                                || grant.is_some_and(|grant| grant.allows(row))
+                                // A narrow explicit grant must not reduce ambient
+                                // public/authenticated/owner visibility.
+                                || principal
+                                    .is_none_or(|p| published.state.ambient_read(p, def.id))
+                        })
+                        .map(|row| (**row).clone());
+                    if !guard.privileged {
+                        guard.check_borrowed(&self.db.head, &self.db.publication)?;
+                    }
+                    return Ok(result);
+                }
+            }
+        }
+        self.snapshot().get(name, id)
+    }
+    /// Read a shared immutable row from a fresh committed state, without copying
+    /// its Text/Bytes payloads. Authorization is identical to `get`. Later writes
+    /// cannot change this returned row; revocation cannot recall released data.
+    pub fn get_shared(&self, name: &str, id: Id) -> Result<Option<Arc<Row>>> {
+        self.get_point(name, id, Arc::clone)
+    }
+    // Keep scoped/shared mapping out of the ordinary owned-read hot path. Inlining
+    // it into `get` interleaves both implementations and increases stack spills.
+    #[inline(never)]
+    fn get_point<T>(
+        &self,
+        name: &str,
+        id: Id,
+        map: impl FnOnce(&Arc<Row>) -> T,
+    ) -> Result<Option<T>> {
+        {
+            let published = self.db.publication.load();
+            let cached = self.authority_cache.load();
+            if !published.failed
+                && let Some(cached) = cached.as_ref()
+                && cached.matches(self, &published.state, published.generation)
+            {
+                let guard = &cached.guard;
+                if !guard.privileged {
+                    guard.check_borrowed(&self.db.head, &self.db.publication)?;
+                }
+                let (def, scoped_grant) = if let Some(capability) = &cached.capability {
+                    let def = published
+                        .state
+                        .names
+                        .get(name)
+                        .and_then(|tid| published.state.relations.get(tid))
+                        .ok_or(Error::Denied)?;
+                    let grant = capability
+                        .grants
+                        .get(&def.id)
+                        .filter(|grant| grant.read)
+                        .ok_or(Error::Denied)?;
+                    (def, Some(grant))
+                } else {
+                    (
+                        readable_relation(&published.state, self.principal.as_deref(), name)?,
+                        None,
+                    )
+                };
+                if def.reference_slots.is_empty() {
+                    let row = published.state.row(def.id, id);
+                    let result = row
+                        .filter(|row| {
+                            if let Some(grant) = scoped_grant {
+                                // Scoped authority never gains ambient visibility.
+                                grant.allows(row)
+                            } else {
+                                self.principal.as_deref().is_none_or(|principal| {
+                                    published.state.row_read_allowed(principal, def.id, row)
+                                })
+                            }
+                        })
+                        .map(map);
+                    if !guard.privileged {
+                        guard.check_borrowed(&self.db.head, &self.db.publication)?;
+                    }
+                    return Ok(result);
+                }
+            }
+        }
+        // Resolve a changed source through the established snapshot path. Cache
+        // only compiled scope metadata and the validated source's weak identity.
+        let snapshot = self.snapshot();
+        if !snapshot.live.denied
+            && let Some(id) = self.capability
+            && let Some(capability) = snapshot.state.capabilities.get(&id)
+        {
+            self.authority_cache.store(Some(Arc::new(CachedAuthority {
+                principal: self.principal.clone(),
+                credential: self.credential,
+                capability: Some(capability.clone()),
+                guard: snapshot.live.clone(),
+            })));
+        }
+        let row = snapshot.get_shared(name, id)?;
+        let result = row.as_ref().map(map);
+        // Mapping an owned result may copy a large payload. Check again after
+        // that work rather than treating the internal shared row as released.
+        snapshot.check_live()?;
+        Ok(result)
+    }
     pub fn snapshot(&self) -> Snapshot {
         let (state, failed, generation) = {
-            let head = self.db.head.lock().expect("database lock poisoned");
+            let published = self.db.publication.load();
             (
-                head.state.clone(),
-                head.failed,
-                head.publication.load(Ordering::Relaxed),
+                published.state.clone(),
+                published.failed || self.db.head.is_poisoned(),
+                published.generation,
             )
         };
         // Resolve capability ancestry and construct scoped policy state against
-        // the captured immutable revision, outside the publication lock. The
+        // the captured immutable revision, without acquiring the publication lock. The
         // resulting guard still checks live dependencies before every operation.
         let (state, guard) = if let Some((capability, cache)) = self
             .capability
@@ -357,6 +594,8 @@ impl Session {
                 }
                 (state, guard)
             }
+        } else if self.capability.is_none() && !failed {
+            self.authorize_cached(state, generation)
         } else {
             self.authorize_state(state, failed, generation)
         };
@@ -367,15 +606,37 @@ impl Session {
             visibility: Arc::new(Mutex::new(VisibilityMemo::default())),
         }
     }
+    /// A cache of authority only: every call still captures fresh published data.
+    /// Its weak state key prevents pointer reuse without retaining any row data.
+    fn authorize_cached(&self, state: Arc<State>, generation: u64) -> (Arc<State>, LiveGuard) {
+        {
+            let cached = self.authority_cache.load();
+            if let Some(cached) = cached.as_ref()
+                && cached.matches(self, &state, generation)
+            {
+                return (state, cached.guard.clone());
+            }
+        }
+        let (state, guard) = self.authorize_state(state, false, generation);
+        if !guard.denied {
+            self.authority_cache.store(Some(Arc::new(CachedAuthority {
+                principal: self.principal.clone(),
+                credential: self.credential,
+                capability: None,
+                guard: guard.clone(),
+            })));
+        }
+        (state, guard)
+    }
     fn authorize_state(
         &self,
         state: Arc<State>,
         failed: bool,
         generation: u64,
     ) -> (Arc<State>, LiveGuard) {
-        let mut guard = LiveGuard {
+        let mut guard = LiveGuard(Arc::new(LiveAuthority {
             head: Arc::downgrade(&self.db.head),
-            publication: self.db.publication.clone(),
+            publication: Arc::downgrade(&self.db.publication),
             authorized_generation: generation,
             authorized_state: Arc::downgrade(&state),
             dependencies: vec![],
@@ -383,7 +644,7 @@ impl Session {
             privileged: self.principal.is_none(),
             clock: self.db.clock.clone(),
             expires_at: None,
-        };
+        }));
         let Some(principal) = &self.principal else {
             return (state, guard);
         };
@@ -439,16 +700,50 @@ impl Session {
         }
         Transaction {
             db: self.db.clone(),
-            base: snapshot.state.clone(),
             work: (*snapshot.state).clone(),
+            base: snapshot.state,
             principal: self.principal.clone(),
             reads,
             ops: vec![],
             failed: false,
-            live: snapshot.live.clone(),
+            deferred_foreign_keys: false,
+            live: snapshot.live,
             control_capability: None,
         }
     }
+}
+
+impl CachedAuthority {
+    fn matches(&self, session: &Session, state: &State, generation: u64) -> bool {
+        self.principal == session.principal
+            && self.credential == session.credential
+            && self.capability.as_ref().map(|cap| cap.record.id) == session.capability
+            && self.guard.authorized_state.as_ptr() == std::ptr::from_ref(state)
+            && self.guard.authorized_generation == generation
+    }
+}
+
+fn readable_relation<'a>(
+    state: &'a State,
+    principal: Option<&str>,
+    name: &str,
+) -> Result<&'a Arc<CompiledRelation>> {
+    // Hide unknown versus unauthorized names from restricted callers.
+    let def = state
+        .names
+        .get(name)
+        .and_then(|id| state.relations.get(id))
+        .ok_or_else(|| {
+            if principal.is_some() {
+                Error::Denied
+            } else {
+                Error::Schema(format!("unknown relation {name}"))
+            }
+        })?;
+    if !state.can_read(principal, def.id) {
+        return Err(Error::Denied);
+    }
+    Ok(def)
 }
 
 /// Data stays pinned; changed authority invalidates retained restricted snapshots.
@@ -491,14 +786,16 @@ impl Snapshot {
         Ok(def)
     }
     fn complete_schema_visible(&self, def: &Relation) -> bool {
-        def.roles.iter().all(|role| match &role.data_type {
-            DataType::Ref(name) => self
-                .state
-                .names
-                .get(name)
-                .is_some_and(|id| self.can_discover(*id)),
-            _ => true,
-        })
+        def.roles
+            .iter()
+            .all(|role| match role.data_type.reference_target() {
+                Some(name) => self
+                    .state
+                    .names
+                    .get(name)
+                    .is_some_and(|id| self.can_discover(*id)),
+                _ => true,
+            })
     }
     pub fn relations(&self) -> Vec<Relation> {
         if self.check_live().is_err() {
@@ -645,9 +942,17 @@ impl Snapshot {
                 reads,
             )
         } else if let (Some(principal), Some(row)) = (self.principal.as_deref(), row) {
-            self.visibility
-                .lock()
-                .is_ok_and(|mut memo| memo.visible_row(&self.state, principal, &def, row))
+            if def.reference_slots.is_empty() {
+                // Scalar rows have no reference closure to memoize. Fresh point
+                // reads can use the same compiled policy without binding a new
+                // memo or cloning its weak state/principal on every read.
+                !self.visibility.is_poisoned()
+                    && self.state.row_read_allowed(principal, def.id, row)
+            } else {
+                self.visibility
+                    .lock()
+                    .is_ok_and(|mut memo| memo.visible_row(&self.state, principal, &def, row))
+            }
         } else {
             row.is_some()
         };
@@ -691,13 +996,17 @@ impl Snapshot {
                     if !role.data_type.accepts(value) {
                         return Err(Error::Storage("invalid scalar".into()));
                     }
-                    if let (DataType::Ref(target), Value::Ref(id)) = (&role.data_type, value)
+                    if let (Some(target), Value::Ref(id)) =
+                        (role.data_type.reference_target(), value)
                         && self.state.row(self.state.names[target], *id).is_none()
                     {
                         return Err(Error::Storage("dangling reference".into()));
                     }
                 }
                 for i in 0..def.unique.len() {
+                    if !def.unique_applies(row, i) {
+                        continue;
+                    }
                     if rebuilt
                         .unique
                         .contains_key(&(*tid, i, def.unique_values(row, i)))
@@ -728,10 +1037,57 @@ pub struct Transaction {
     reads: BTreeSet<Key>,
     ops: Vec<Op>,
     failed: bool,
+    deferred_foreign_keys: bool,
     live: LiveGuard,
     control_capability: Option<Arc<crate::capability::CompiledCapability>>,
 }
 impl Transaction {
+    /// Defer only reference roles explicitly declared deferrable. UNIQUE and
+    /// CHECK constraints remain immediate. Final targets and permissions are
+    /// validated before durable commit, including targets inserted later.
+    pub fn defer_constraints(&mut self) -> Result<()> {
+        self.mutation(|tx| {
+            tx.deferred_foreign_keys = true;
+            Ok(())
+        })
+    }
+    pub(crate) fn writable_schema(&mut self, name: &str) -> Result<Relation> {
+        self.mutation(|tx| {
+            tx.reads.insert(Key::Catalog);
+            let def = tx.def(name)?;
+            if let Some(p) = &tx.principal {
+                tx.reads.insert(Key::Policy(p.clone()));
+                if p == crate::visibility::ANONYMOUS
+                    || !tx.work.grant(p, def.id).is_some_and(|g| g.write)
+                {
+                    return Err(Error::Denied);
+                }
+            }
+            Ok(def.declaration.clone())
+        })
+    }
+    pub(crate) fn contains_writable(&mut self, name: &str, id: Id) -> Result<bool> {
+        self.mutation(|tx| {
+            let def = tx.def(name)?;
+            if let Some(p) = &tx.principal {
+                tx.reads.insert(Key::Policy(p.clone()));
+                if p == crate::visibility::ANONYMOUS
+                    || !tx.work.grant(p, def.id).is_some_and(|g| g.write)
+                {
+                    return Err(Error::Denied);
+                }
+            }
+            tx.reads.insert(Key::Row(def.id, id));
+            match tx.work.row(def.id, id) {
+                None => Ok(false),
+                Some(row) => match tx.may_write(&def, row) {
+                    Ok(()) => Ok(true),
+                    Err(Error::Denied) => Ok(false),
+                    Err(error) => Err(error),
+                },
+            }
+        })
+    }
     pub(crate) fn db_now(&self) -> u64 {
         self.db.clock.now()
     }
@@ -836,6 +1192,7 @@ impl Transaction {
             reads: BTreeSet::new(),
             ops: vec![],
             failed: false,
+            deferred_foreign_keys: false,
             live: self.live.clone(),
             control_capability: None,
         };
@@ -927,11 +1284,24 @@ impl Transaction {
             crate::visibility::compile(&self.work, row)?;
         }
         for (role, value) in def.roles.iter().zip(row.values.iter()) {
-            if let (DataType::Ref(target), Value::Ref(id)) = (&role.data_type, value) {
-                self.reference(self.work.names[target], *id)?;
+            if let (Some(target), Value::Ref(id)) = (role.data_type.reference_target(), value) {
+                let tid = self.work.names[target];
+                if self.deferred_foreign_keys && role.deferrable {
+                    self.reads.insert(Key::Row(tid, *id));
+                    if let Some(p) = &self.principal
+                        && !self.work.grant(p, tid).is_some_and(|g| g.reference)
+                    {
+                        return Err(Error::Denied);
+                    }
+                } else {
+                    self.reference(tid, *id)?;
+                }
             }
         }
         for i in 0..def.unique.len() {
+            if !def.unique_applies(row, i) {
+                continue;
+            }
             let key = (def.id, i, def.unique_values(row, i));
             self.reads.insert(Key::Unique(key.clone()));
             if self.work.unique.get(&key).is_some_and(|id| *id != row.id) {
@@ -1235,8 +1605,8 @@ impl Transaction {
             .collect();
         for def in &module.relations {
             for role in &def.roles {
-                if let DataType::Ref(target) = &role.data_type {
-                    if local_names.contains(target.as_str()) {
+                if let Some(target) = role.data_type.reference_target() {
+                    if local_names.contains(target) {
                         continue;
                     }
                     let target_def = self.def(target)?;
@@ -1439,27 +1809,66 @@ impl Transaction {
             Ok(())
         })
     }
-    /// RESTRICT deletion of a membership/occurrence; identities are never recycled.
+    /// Delete a membership and its explicitly cascading dependents atomically.
+    /// Every deleted row needs write authority; traversal is cycle-safe and bounded.
     pub fn delete(&mut self, relation: &str, id: Id) -> Result<()> {
+        self.delete_many(relation, &[id])
+    }
+    /// Validate a statement's complete authorized root set before applying its
+    /// cascades. Restrict edges between roots disappear in the same statement.
+    pub(crate) fn delete_many(&mut self, relation: &str, ids: &[Id]) -> Result<()> {
         self.mutation(|tx| {
+            const MAX_CASCADE_ROWS: usize = 100_000;
+            if ids.len() > MAX_CASCADE_ROWS {
+                return Err(Error::Constraint("cascade root budget exceeded".into()));
+            }
             let def = tx.def(relation)?;
-            tx.reads.insert(Key::Row(def.id, id));
-            let old = tx.work.row(def.id, id).ok_or(if tx.principal.is_some() {
-                Error::Denied
-            } else {
-                Error::NotFound
-            })?;
-            tx.may_write(&def, old)?;
-            tx.reads.insert(Key::Incoming((def.id, id)));
-            if tx
-                .work
-                .incoming
-                .get(&(def.id, id))
-                .is_some_and(|s| !s.is_empty())
-            {
+            let mut pending: Vec<_> = ids.iter().map(|id| (def.id, *id)).collect();
+            let mut deleting = BTreeSet::new();
+            let mut restrict = Vec::new();
+            let mut edges = 0usize;
+            while let Some((tid, id)) = pending.pop() {
+                if !deleting.insert((tid, id)) {
+                    continue;
+                }
+                if deleting.len() > MAX_CASCADE_ROWS {
+                    return Err(Error::Constraint("cascade row budget exceeded".into()));
+                }
+                tx.reads.insert(Key::Row(tid, id));
+                let def = &tx.work.relations[&tid];
+                let old = tx.work.row(tid, id).ok_or(if tx.principal.is_some() {
+                    Error::Denied
+                } else {
+                    Error::NotFound
+                })?;
+                tx.may_write(def, old)?;
+                tx.reads.insert(Key::Incoming((tid, id)));
+                if let Some(incoming) = tx.work.incoming.get(&(tid, id)) {
+                    for (source, occurrence, slot) in incoming {
+                        edges += 1;
+                        if edges > MAX_CASCADE_ROWS {
+                            return Err(Error::Constraint("cascade edge budget exceeded".into()));
+                        }
+                        let role = &tx.work.relations[source].roles[*slot];
+                        if role.on_delete == OnDelete::Cascade {
+                            pending.push((*source, *occurrence));
+                        } else if !(tx.deferred_foreign_keys && role.deferrable) {
+                            restrict.push((*source, *occurrence));
+                        }
+                        if pending.len() + restrict.len() > MAX_CASCADE_ROWS {
+                            return Err(Error::Constraint("cascade edge budget exceeded".into()));
+                        }
+                    }
+                }
+            }
+            if restrict.iter().any(|source| !deleting.contains(source)) {
                 return Err(Error::Constraint("occurrence is referenced".into()));
             }
-            tx.stage(Op::Delete(def.id, id));
+            // Remove dependents before roots where possible. Cycles are checked
+            // against the complete transaction state by versioned redo recovery.
+            for (tid, id) in deleting.into_iter().rev() {
+                tx.stage(Op::Delete(tid, id));
+            }
             Ok(())
         })
     }
@@ -1483,9 +1892,30 @@ impl Transaction {
             self.reads.insert(Key::Catalog);
         }
     }
-    pub fn commit(self) -> Result<u64> {
+    pub fn commit(mut self) -> Result<u64> {
         if self.failed {
             return Err(Error::Aborted);
+        }
+        if self.deferred_foreign_keys {
+            self.work.validate_final_references(&self.ops)?;
+            let mut references = BTreeSet::new();
+            for op in &self.ops {
+                if let Op::Put(tid, written) = op
+                    && let Some(row) = self.work.row(*tid, written.id)
+                {
+                    let def = &self.work.relations[tid];
+                    for (slot, target) in &def.reference_slots {
+                        if def.roles[*slot].deferrable
+                            && let Value::Ref(id) = row.values[*slot]
+                        {
+                            references.insert((self.work.names[target], id));
+                        }
+                    }
+                }
+            }
+            for (tid, id) in references {
+                self.reference(tid, id)?;
+            }
         }
         let bytes = crate::codec::encoded_len(&self.ops, &self.work)?;
         let request = commit::Request::new(self.base, self.reads, self.ops, self.live, bytes);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {mkdtempSync,readFileSync,writeFileSync,rmSync,copyFileSync,statSync} from "node:fs";
+import {mkdtempSync,readFileSync,writeFileSync,rmSync,copyFileSync,statSync,readdirSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join,resolve} from "node:path";
 import {spawnSync} from "node:child_process";
@@ -58,5 +58,41 @@ Project.encode({label:1});
 `);
   const check=spawnSync(resolve("node_modules/.bin/tsc"),[join(dir,"use.ts"),"--strict","--target","ES2022","--module","ES2022","--skipLibCheck","--noEmit"],{encoding:"utf8"});
   assert.equal(check.status,0,check.stdout+check.stderr);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test("generated nullable float and reference policy clients compile with exact types",()=>{
+ const dir=mkdtempSync(join(tmpdir(),"liquid-nullable-clients-"));
+ try {
+  const source=join(dir,"source.json"),lock=join(dir,"manifest.json");
+  writeFileSync(source,JSON.stringify({format:1,modules:[{name:"tree",version:1,imports:[],relations:[{name:"tree.Node",roles:[{name:"parent",data_type:{Nullable:{Ref:"tree.Node"}},on_delete:"Cascade",deferrable:true},{name:"score",data_type:{Nullable:"Float"}}]}]}]}));
+  cli("schema-lock",source,lock);cli("generate",lock,dir);
+  const ts=readFileSync(join(dir,"schema.ts"),"utf8");assert.match(ts,/onDelete: "cascade"/);assert.match(ts,/deferrable: true/);
+  writeFileSync(join(dir,"use.ts"),`
+import {Node} from "./schema.js";
+const row: Node = {parent:null,score:1.25};
+Node.encode(row);Node.encode({parent:null,score:null});
+// @ts-expect-error Floating roles are numbers, not bigint integers.
+Node.encode({parent:null,score:1n});
+// @ts-expect-error Nullable references remain typed stable identities.
+Node.encode({parent:7,score:null});
+`);
+  const tscheck=spawnSync(resolve("node_modules/.bin/tsc"),[join(dir,"use.ts"),"--strict","--target","ES2022","--module","ES2022","--skipLibCheck","--noEmit"],{encoding:"utf8"});
+  assert.equal(tscheck.status,0,tscheck.stdout+tscheck.stderr);
+  // Cargo above has built the current engine. Reuse its artifacts to type-check
+  // generated Rust without creating a second dependency graph or linker run.
+  const deps=resolve("target/debug/deps");
+  const libraries=readdirSync(deps).filter(n=>/^libsubstrate_liquid-.*\.rlib$/.test(n)).map(n=>join(deps,n)).sort((a,b)=>statSync(b).mtimeMs-statSync(a).mtimeMs);
+  assert.ok(libraries.length);
+  writeFileSync(join(dir,"use.rs"),`
+include!("schema.rs");
+fn check() {
+ use substrate_liquid::Record;
+ let row=tree::Node {parent:None,score:Some(substrate_liquid::FiniteFloat::new(1.25).unwrap())};
+ let _fields=row.fields();
+}
+`);
+  const rscheck=spawnSync("rustc",["--edition=2024","--crate-name","nullable_generated","--crate-type","lib","--emit=metadata","--extern",`substrate_liquid=${libraries[0]}`,"-L",`dependency=${deps}`,join(dir,"use.rs"),"-o",join(dir,"check.rmeta")],{encoding:"utf8"});
+  assert.equal(rscheck.status,0,rscheck.stdout+rscheck.stderr);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });

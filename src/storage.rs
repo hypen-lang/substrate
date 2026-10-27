@@ -9,6 +9,12 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{Arc, Weak},
 };
+mod posting;
+use posting::Posting;
+mod grants;
+pub(crate) use grants::Grants;
+mod version;
+use version::Versions;
 
 pub(crate) type Bucket = (Id, usize, Value);
 pub(crate) type UniqueKey = (Id, usize, Vec<Value>);
@@ -182,10 +188,10 @@ pub(crate) struct State {
     pub modules: OrdMap<(String, u64), Arc<Module>>,
     pub origins: OrdMap<Id, (String, u64)>,
     pub families: OrdMap<Id, OrdMap<Id, Arc<Row>>>,
-    pub index: OrdMap<Bucket, OrdSet<Id>>,
+    pub index: OrdMap<Bucket, Posting<Id>>,
     pub unique: OrdMap<UniqueKey, Id>,
-    pub incoming: OrdMap<RowKey, OrdSet<(Id, Id, usize)>>,
-    pub grants: OrdMap<(String, Id), CompiledGrant>,
+    pub incoming: OrdMap<RowKey, Posting<(Id, Id, usize)>>,
+    pub grants: Grants,
     pub schema_visibility: OrdMap<Id, Arc<crate::visibility::Policy>>,
     /// Capability overlays must never gain ambient authority. Not persisted.
     pub visibility_disabled: bool,
@@ -194,7 +200,7 @@ pub(crate) struct State {
     pub capabilities: OrdMap<Id, Arc<crate::capability::CompiledCapability>>,
     pub capability_roots: OrdMap<(String, Id), OrdSet<Id>>,
     pub schema_grants: OrdSet<(String, String)>,
-    pub versions: OrdMap<Key, u64>,
+    pub versions: Versions,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) enum Op {
@@ -207,7 +213,7 @@ pub(crate) enum Op {
 }
 impl State {
     pub fn version(&self, key: &Key) -> u64 {
-        self.versions.get(key).copied().unwrap_or(0)
+        self.versions.get(key)
     }
     pub fn relation(&self, name: &str) -> Result<Arc<CompiledRelation>> {
         self.names
@@ -220,7 +226,7 @@ impl State {
         self.families.get(&tid)?.get(&id)
     }
     pub fn grant(&self, principal: &str, tid: Id) -> Option<&CompiledGrant> {
-        self.grants.get(&(principal.into(), tid))
+        self.grants.get(principal, tid)
     }
     pub fn ambient_read(&self, principal: &str, tid: Id) -> bool {
         if self.visibility_disabled {
@@ -294,7 +300,9 @@ impl State {
                 return false;
             }
             for (role, value) in def.roles.iter().zip(row.values.iter()) {
-                if let (DataType::Ref(target), Value::Ref(target_id)) = (&role.data_type, value) {
+                if let (Some(target), Value::Ref(target_id)) =
+                    (role.data_type.reference_target(), value)
+                {
                     pending.push((self.names[target], *target_id));
                 }
             }
@@ -345,7 +353,8 @@ impl State {
                 }
             }
             self.touch(Key::Bucket(key), rev);
-            if let (DataType::Ref(target), Value::Ref(target_id)) = (&def.roles[i].data_type, value)
+            if let (Some(target), Value::Ref(target_id)) =
+                (def.roles[i].data_type.reference_target(), value)
             {
                 let target_key = (self.names[target], *target_id);
                 if let Some(set) = self.incoming.get_mut(&target_key) {
@@ -358,6 +367,9 @@ impl State {
             }
         }
         for i in 0..def.unique.len() {
+            if !def.unique_applies(&row, i) {
+                continue;
+            }
             let key = (tid, i, def.unique_values(&row, i));
             self.unique.remove(&key);
             self.touch(Key::Unique(key), rev);
@@ -410,8 +422,8 @@ impl State {
                             }
                         }
                         self.touch(Key::Bucket(old_key), rev);
-                        if let (DataType::Ref(target), Value::Ref(target_id)) =
-                            (&def.roles[i].data_type, old_value)
+                        if let (Some(target), Value::Ref(target_id)) =
+                            (def.roles[i].data_type.reference_target(), old_value)
                         {
                             let key = (self.names[target], *target_id);
                             if let Some(set) = self.incoming.get_mut(&key) {
@@ -432,8 +444,8 @@ impl State {
                     // Keep the original OCC invalidation, even for unchanged
                     // buckets. Only physical index mutations are skipped.
                     self.touch(Key::Bucket(key), rev);
-                    if let (DataType::Ref(target), Value::Ref(target_id)) =
-                        (&def.roles[i].data_type, value)
+                    if let (Some(target), Value::Ref(target_id)) =
+                        (def.roles[i].data_type.reference_target(), value)
                     {
                         let key = (self.names[target], *target_id);
                         if changed {
@@ -445,19 +457,27 @@ impl State {
                     }
                 }
                 for i in 0..def.unique.len() {
-                    let key = (*tid, i, def.unique_values(row, i));
+                    let key = def
+                        .unique_applies(row, i)
+                        .then(|| (*tid, i, def.unique_values(row, i)));
                     let old_key = previous
                         .as_ref()
+                        .filter(|old| def.unique_applies(old, i))
                         .map(|old| (*tid, i, def.unique_values(old, i)));
-                    if old_key.as_ref() != Some(&key) {
+                    if old_key != key {
                         if let Some(old_key) = old_key {
                             self.unique.remove(&old_key);
                             self.touch(Key::Unique(old_key), rev);
                         }
-                        self.unique.insert(key.clone(), row.id);
+                        if let Some(key) = &key {
+                            self.unique.insert(key.clone(), row.id);
+                        }
                     }
-                    self.touch(Key::Unique(key), rev);
+                    if let Some(key) = key {
+                        self.touch(Key::Unique(key), rev);
+                    }
                 }
+
                 if *tid == crate::visibility::TYPE_ID
                     && let Ok(policy) = crate::visibility::compile(self, row)
                 {
@@ -527,6 +547,9 @@ impl State {
     /// A redo stream preserves immediate constraint order. Checkpoint rows may
     /// appear in key order instead, and are validated as a complete state.
     pub(crate) fn validate_replay_order(&self, op: &Op) -> Result<()> {
+        self.validate_replay_order_versioned(op, false)
+    }
+    pub(crate) fn validate_replay_order_versioned(&self, op: &Op, deferred: bool) -> Result<()> {
         let invalid = || Error::Storage("invalid redo constraint order".into());
         match op {
             Op::Install(module) => {
@@ -541,8 +564,8 @@ impl State {
                 }
                 for def in &module.relations {
                     for role in &def.roles {
-                        if let DataType::Ref(target) = &role.data_type {
-                            if module.relations.iter().any(|r| &r.name == target) {
+                        if let Some(target) = role.data_type.reference_target() {
+                            if module.relations.iter().any(|r| r.name == target) {
                                 continue;
                             }
                             let tid = self.names.get(target).ok_or_else(invalid)?;
@@ -562,23 +585,66 @@ impl State {
             Op::Put(tid, row) => {
                 let def = self.relations.get(tid).ok_or_else(invalid)?;
                 for (role, value) in def.roles.iter().zip(row.values.iter()) {
-                    if let (DataType::Ref(target), Value::Ref(id)) = (&role.data_type, value) {
+                    if let (Some(target), Value::Ref(id)) =
+                        (role.data_type.reference_target(), value)
+                    {
                         let tid = self.names.get(target).ok_or_else(invalid)?;
-                        if self.row(*tid, *id).is_none() {
+                        if !(deferred && role.deferrable) && self.row(*tid, *id).is_none() {
                             return Err(invalid());
                         }
                     }
                 }
             }
-            Op::Delete(tid, id)
+            Op::Delete(tid, id) => {
                 if self
                     .incoming
                     .get(&(*tid, *id))
-                    .is_some_and(|s| !s.is_empty()) =>
-            {
-                return Err(invalid());
+                    .is_some_and(|incoming| !incoming.is_empty())
+                {
+                    return Err(invalid());
+                }
             }
             _ => {}
+        }
+        Ok(())
+    }
+    /// Transaction-final integrity for deferred foreign keys and cascade groups.
+    /// Only changed rows and deleted targets are visited; unrelated families are not scanned.
+    pub(crate) fn validate_final_references(&self, ops: &[Op]) -> Result<()> {
+        let mut checked = BTreeSet::new();
+        for op in ops {
+            let (tid, id) = match op {
+                Op::Put(tid, row) => (*tid, row.id),
+                Op::Delete(tid, id) => (*tid, *id),
+                _ => continue,
+            };
+            if !checked.insert((tid, id)) {
+                continue;
+            }
+            if let Some(row) = self.row(tid, id) {
+                let def = &self.relations[&tid];
+                for (slot, target) in &def.reference_slots {
+                    if let Value::Ref(id) = row.values[*slot] {
+                        let target = self
+                            .names
+                            .get(target)
+                            .ok_or_else(|| Error::Constraint("unknown reference type".into()))?;
+                        if self.row(*target, id).is_none() {
+                            return Err(Error::Constraint(
+                                "invalid typed reference at commit".into(),
+                            ));
+                        }
+                    }
+                }
+            } else if self
+                .incoming
+                .get(&(tid, id))
+                .is_some_and(|incoming| !incoming.is_empty())
+            {
+                return Err(Error::Constraint(
+                    "occurrence is referenced at commit".into(),
+                ));
+            }
         }
         Ok(())
     }
@@ -642,7 +708,7 @@ impl State {
                     if !role.data_type.accepts(value) {
                         return Err(invalid());
                     }
-                    if let DataType::Ref(target) = &role.data_type
+                    if let Some(target) = role.data_type.reference_target()
                         && !self.names.contains_key(target)
                     {
                         return Err(invalid());
@@ -650,6 +716,9 @@ impl State {
                 }
                 def.check_values(&row.values).map_err(|_| invalid())?;
                 for i in 0..def.unique.len() {
+                    if !def.unique_applies(row, i) {
+                        continue;
+                    }
                     if self
                         .unique
                         .get(&(*tid, i, def.unique_values(row, i)))
@@ -722,7 +791,7 @@ impl State {
             }
             for def in &module.relations {
                 for role in &def.roles {
-                    if let DataType::Ref(target) = &role.data_type {
+                    if let Some(target) = role.data_type.reference_target() {
                         let tid = self.names.get(target).ok_or_else(invalid)?;
                         let (owner, version) = &self.origins[tid];
                         let valid = if owner == &module.name {
@@ -744,7 +813,8 @@ impl State {
             let def = &self.relations[tid];
             for row in family.values() {
                 for (role, value) in def.roles.iter().zip(row.values.iter()) {
-                    if let (DataType::Ref(target), Value::Ref(id)) = (&role.data_type, value)
+                    if let (Some(target), Value::Ref(id)) =
+                        (role.data_type.reference_target(), value)
                         && self.row(self.names[target], *id).is_none()
                     {
                         return Err(invalid());

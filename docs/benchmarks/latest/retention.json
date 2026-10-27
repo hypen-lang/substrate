@@ -1,0 +1,18 @@
+{
+  "policy": "Retain latest completed primary comparison and its supporting diagnostics, rejected experiment and validation only. Prior published set moved to ignored workspace scratch; no source or staged content removed.",
+  "current_result_set": "1M total records: intermediate v4 / borrowed control / compiled-index final / SQLite / PostgreSQL; separate I/O, native/API and 1024-group diagnostics",
+  "primary_binary_sha256": "0ed70904c5b6ab6f9bc922148a684f2db26a5b0bee80ef9d5cc788e6922246ec",
+  "baseline_limit": "Intermediate task build; initial-task binary and source manifest unavailable. No total initial-task speedup claim.",
+  "compiled_index_patch_sha256": "4c364e94499a16ddc3187cd285c73424a3c87b3addb0f3f3f7f241992844cbb9",
+  "path_redaction": "Personal home and workspace paths replaced by placeholders in retained text evidence.",
+  "observations": {
+    "primary": 15,
+    "primary_rounds": 3,
+    "io_diagnostic": 2,
+    "native_api_matrix": 9,
+    "wide_group_diagnostic": 4,
+    "rejected_inline_experiment": 15,
+    "all_query_outputs_verified": true
+  },
+  "retained_files": 35
+}

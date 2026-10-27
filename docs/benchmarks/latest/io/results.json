@@ -1,0 +1,1972 @@
+[
+  {
+    "allocator_phases": {
+      "after_diagnostics": {
+        "blocks_in_use": 14324,
+        "max_size_in_use": 0,
+        "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+        "size_allocated": 25165824,
+        "size_in_use": 9390160,
+        "zones": [
+          {
+            "blocks_in_use": 14325,
+            "max_size_in_use": 0,
+            "name": "DefaultMallocZone",
+            "size_allocated": 25165824,
+            "size_in_use": 9390176
+          }
+        ],
+        "zones_available": true,
+        "zones_status": 0
+      },
+      "after_load": {
+        "blocks_in_use": 5256,
+        "max_size_in_use": 0,
+        "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+        "size_allocated": 25165824,
+        "size_in_use": 8487328,
+        "zones": [
+          {
+            "blocks_in_use": 5257,
+            "max_size_in_use": 0,
+            "name": "DefaultMallocZone",
+            "size_allocated": 25165824,
+            "size_in_use": 8487344
+          }
+        ],
+        "zones_available": true,
+        "zones_status": 0
+      },
+      "after_setup": {
+        "blocks_in_use": 6522,
+        "max_size_in_use": 0,
+        "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+        "size_allocated": 25165824,
+        "size_in_use": 8632928,
+        "zones": [
+          {
+            "blocks_in_use": 6523,
+            "max_size_in_use": 0,
+            "name": "DefaultMallocZone",
+            "size_allocated": 25165824,
+            "size_in_use": 8632944
+          }
+        ],
+        "zones_available": true,
+        "zones_status": 0
+      }
+    },
+    "backend_io_method": "stock FileBackend request counts and requested bytes; includes OS-cache hits and failed requests, not physical disk I/O; per-case totals cover timed iterations only, excluding warmup and preparation",
+    "decoded_cache_bytes": 1048576,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 715526144,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 1317015552,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 715526144,
+      "total_logical_bytes": 1317015552
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "sql",
+    "load_backend_io_counts": {
+      "close_calls": 0,
+      "errors": 0,
+      "length_calls": 5,
+      "read_calls": 177857,
+      "read_requested_bytes": 728498496,
+      "resize_calls": 13,
+      "sync_calls": 3915,
+      "write_calls": 647458,
+      "write_requested_bytes": 2637204928
+    },
+    "load_seconds": 33.331401208,
+    "mode": "paged",
+    "namespaces": 2,
+    "native_setup_us": null,
+    "native_source_materialization": null,
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": {
+      "cache": {
+        "configured_cache_bytes": 8388608,
+        "decoded_cache_bytes": 428446,
+        "decoded_cache_entries": 2002,
+        "revision": 3908
+      },
+      "commit_method": "completed engine durable groups since open, including fixture setup; not filesystem synchronization call counts or a concurrent TPS measurement",
+      "commits": {
+        "committed_writes": 3908,
+        "durable_groups": 3908,
+        "largest_group": 1
+      },
+      "counter_scope": "logical instrumented operations, not physical I/O or redb page-cache misses",
+      "read_counts": [
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_requested_bytes": 0,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "point",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 3,
+            "read_requested_bytes": 12288,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 3,
+            "read_requested_bytes": 12288,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "changing_parameters",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_requested_bytes": 0,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "changing_parameters_warm",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 3,
+            "read_requested_bytes": 12288,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "selective_join",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 20622,
+            "read_requested_bytes": 84467712,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 5,
+            "read_requested_bytes": 20480,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 1,
+            "reference_checks": 1,
+            "root_scan_rows": 1,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 360,
+            "read_requested_bytes": 1474560,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_range",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 5000,
+            "reference_checks": 5000,
+            "root_scan_rows": 5000,
+            "row_table_gets": 8,
+            "validated_packed_rows": 10000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 20622,
+            "read_requested_bytes": 84467712,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_broad",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 20622,
+            "read_requested_bytes": 84467712,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_grouped",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 17162,
+            "read_requested_bytes": 70295552,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_filtered_grouped",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 250000,
+            "reference_checks": 250000,
+            "root_scan_rows": 250000,
+            "row_table_gets": 8,
+            "validated_packed_rows": 500000,
+            "visibility_nodes": 0
+          }
+        }
+      ],
+      "read_method": "one untimed instrumented reader execution per case after all timed queries; preparation excluded; cache state follows the timed suite",
+      "storage": {
+        "format": "LPG3",
+        "revision": 3908,
+        "tables": [
+          {
+            "branch_pages": 587,
+            "entries": 20033,
+            "fragmented_bytes": 12876572,
+            "leaf_pages": 20033,
+            "metadata_bytes": 1461100,
+            "name": "paged_rows_v1",
+            "stored_bytes": 70121848,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1611,
+            "entries": 1500000,
+            "fragmented_bytes": 86088706,
+            "leaf_pages": 41011,
+            "metadata_bytes": 9491006,
+            "name": "paged_index_v1",
+            "stored_bytes": 79000000,
+            "tree_height": 5
+          },
+          {
+            "branch_pages": 958,
+            "entries": 1000000,
+            "fragmented_bytes": 60705772,
+            "leaf_pages": 29513,
+            "metadata_bytes": 10103444,
+            "name": "paged_unique_v1",
+            "stored_bytes": 54000000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 923,
+            "entries": 500000,
+            "fragmented_bytes": 39175028,
+            "leaf_pages": 18518,
+            "metadata_bytes": 3955308,
+            "name": "paged_incoming_v1",
+            "stored_bytes": 36500000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 221,
+            "entries": 1000005,
+            "fragmented_bytes": 21199827,
+            "leaf_pages": 10203,
+            "metadata_bytes": 4496792,
+            "name": "paged_ids_v1",
+            "stored_bytes": 17000085,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1462,
+            "entries": 2500007,
+            "fragmented_bytes": 102541538,
+            "leaf_pages": 49375,
+            "metadata_bytes": 13186662,
+            "name": "paged_versions_v1",
+            "stored_bytes": 92500152,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 0,
+            "entries": 4,
+            "fragmented_bytes": 2803,
+            "leaf_pages": 1,
+            "metadata_bytes": 36,
+            "name": "liquid_paged_control_v1",
+            "stored_bytes": 1257,
+            "tree_height": 1
+          }
+        ]
+      },
+      "storage_method": "host-admin pinned table accounting collected after all queries; excludes file headers, allocators, free and historical pages"
+    },
+    "peak_rss_phases": {
+      "after_diagnostics": 38731776,
+      "after_load": 24641536,
+      "after_queries": 38256640,
+      "after_setup": 28770304,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 6648,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 8662400,
+          "zones": [
+            {
+              "blocks_in_use": 6649,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 8662416
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 0,
+          "read_requested_bytes": 0,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "point",
+        "client_cpu_us": 0.40419999999983247,
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 34684928,
+        "prepare_us": 4273.1669999999995,
+        "query_us": 0.40824160000000004
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 6688,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 8665872,
+          "zones": [
+            {
+              "blocks_in_use": 6689,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 8665888
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 1,
+          "read_requested_bytes": 4096,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "equality",
+        "client_cpu_us": 0.47699999999917253,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 34734080,
+        "prepare_us": 146.208,
+        "query_us": 0.4763335
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13019,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9259536,
+          "zones": [
+            {
+              "blocks_in_use": 13020,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9259552
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 5732,
+          "read_requested_bytes": 23478272,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "changing_parameters",
+        "client_cpu_us": 6.4880000000009375,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 35323904,
+        "prepare_us": 64.917,
+        "query_us": 19.024354
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13058,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9262896,
+          "zones": [
+            {
+              "blocks_in_use": 13059,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9262912
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 2191,
+          "read_requested_bytes": 8974336,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.8055000000005705,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 35323904,
+        "prepare_us": 199.375,
+        "query_us": 1.80575
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13133,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9271200,
+          "zones": [
+            {
+              "blocks_in_use": 13134,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9271216
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 0,
+          "read_requested_bytes": 0,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "selective_join",
+        "client_cpu_us": 0.8400000000001739,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 35733504,
+        "prepare_us": 423.875,
+        "query_us": 0.8390835
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13162,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9283792,
+          "zones": [
+            {
+              "blocks_in_use": 13163,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9283808
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 20622,
+          "read_requested_bytes": 84467712,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate",
+        "client_cpu_us": 32395.000000001062,
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 37961728,
+        "prepare_us": 1319.666,
+        "query_us": 32416.915999999997
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13211,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9288032,
+          "zones": [
+            {
+              "blocks_in_use": 13212,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9288048
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 0,
+          "read_requested_bytes": 0,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_equality",
+        "client_cpu_us": 1.2010000000000078,
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 38010880,
+        "prepare_us": 261.375,
+        "query_us": 1.1998330000000001
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13258,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9292000,
+          "zones": [
+            {
+              "blocks_in_use": 13259,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9292016
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 700,
+          "read_requested_bytes": 2867200,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_range",
+        "client_cpu_us": 404.6500000000286,
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 38027264,
+        "prepare_us": 120.459,
+        "query_us": 404.63955
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13288,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9294656,
+          "zones": [
+            {
+              "blocks_in_use": 13289,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9294672
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 61893,
+          "read_requested_bytes": 253513728,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_broad",
+        "client_cpu_us": 33640.666666666286,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 38043648,
+        "prepare_us": 93.084,
+        "query_us": 33673.541666666664
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13364,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9302544,
+          "zones": [
+            {
+              "blocks_in_use": 13365,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9302560
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 61866,
+          "read_requested_bytes": 253403136,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_grouped",
+        "client_cpu_us": 34446.00000000027,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 38240256,
+        "prepare_us": 292.33299999999997,
+        "query_us": 34508.0
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13410,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 9306624,
+          "zones": [
+            {
+              "blocks_in_use": 13411,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 9306640
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 51480,
+          "read_requested_bytes": 210862080,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 35299.66666666636,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 38256640,
+        "prepare_us": 236.917,
+        "query_us": 35336.25
+      }
+    ],
+    "read_setup_us": 3070.75,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": 3070.75,
+    "sqlite_query_plans": null,
+    "storage": "paged",
+    "suite": "aggregates",
+    "timing_class": "instrumented-diagnostic",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 1,
+    "order_index": 0,
+    "resources": {
+      "wall_seconds": 34.579977166999925,
+      "user_cpu_seconds": 9.283874,
+      "system_cpu_seconds": 4.077154,
+      "peak_rss_bytes": 39223296,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 34.579977166999925,
+      "user_cpu_seconds": 9.283874,
+      "system_cpu_seconds": 4.077154,
+      "peak_rss_bytes": 39223296,
+      "returncode": 0
+    },
+    "comparison": "before",
+    "artifact_directory": "target/performance-work/io/round-1-before"
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": {
+        "blocks_in_use": 14324,
+        "max_size_in_use": 0,
+        "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+        "size_allocated": 33554432,
+        "size_in_use": 9390160,
+        "zones": [
+          {
+            "blocks_in_use": 14325,
+            "max_size_in_use": 0,
+            "name": "DefaultMallocZone",
+            "size_allocated": 33554432,
+            "size_in_use": 9390176
+          }
+        ],
+        "zones_available": true,
+        "zones_status": 0
+      },
+      "after_load": {
+        "blocks_in_use": 5256,
+        "max_size_in_use": 0,
+        "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+        "size_allocated": 25165824,
+        "size_in_use": 8487328,
+        "zones": [
+          {
+            "blocks_in_use": 5257,
+            "max_size_in_use": 0,
+            "name": "DefaultMallocZone",
+            "size_allocated": 25165824,
+            "size_in_use": 8487344
+          }
+        ],
+        "zones_available": true,
+        "zones_status": 0
+      },
+      "after_setup": {
+        "blocks_in_use": 6522,
+        "max_size_in_use": 0,
+        "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+        "size_allocated": 25165824,
+        "size_in_use": 8632928,
+        "zones": [
+          {
+            "blocks_in_use": 6523,
+            "max_size_in_use": 0,
+            "name": "DefaultMallocZone",
+            "size_allocated": 25165824,
+            "size_in_use": 8632944
+          }
+        ],
+        "zones_available": true,
+        "zones_status": 0
+      }
+    },
+    "backend_io_method": "stock FileBackend request counts and requested bytes; includes OS-cache hits and failed requests, not physical disk I/O; per-case totals cover timed iterations only, excluding warmup and preparation",
+    "decoded_cache_bytes": 1048576,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 715526144,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 1317015552,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 715526144,
+      "total_logical_bytes": 1317015552
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "sql",
+    "load_backend_io_counts": {
+      "close_calls": 0,
+      "errors": 0,
+      "length_calls": 5,
+      "read_calls": 177857,
+      "read_requested_bytes": 728498496,
+      "resize_calls": 13,
+      "sync_calls": 3915,
+      "write_calls": 647458,
+      "write_requested_bytes": 2637204928
+    },
+    "load_seconds": 32.893333041,
+    "mode": "paged",
+    "namespaces": 2,
+    "native_setup_us": null,
+    "native_source_materialization": null,
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": {
+      "cache": {
+        "configured_cache_bytes": 8388608,
+        "decoded_cache_bytes": 428446,
+        "decoded_cache_entries": 2002,
+        "revision": 3908
+      },
+      "commit_method": "completed engine durable groups since open, including fixture setup; not filesystem synchronization call counts or a concurrent TPS measurement",
+      "commits": {
+        "committed_writes": 3908,
+        "durable_groups": 3908,
+        "largest_group": 1
+      },
+      "counter_scope": "logical instrumented operations, not physical I/O or redb page-cache misses",
+      "read_counts": [
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_requested_bytes": 0,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "point",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 3,
+            "read_requested_bytes": 12288,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 3,
+            "read_requested_bytes": 12288,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "changing_parameters",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 0,
+            "read_requested_bytes": 0,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "changing_parameters_warm",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 3,
+            "read_requested_bytes": 12288,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "selective_join",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 20622,
+            "read_requested_bytes": 84467712,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 5,
+            "read_requested_bytes": 20480,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 1,
+            "reference_checks": 1,
+            "root_scan_rows": 1,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 360,
+            "read_requested_bytes": 1474560,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_range",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 5000,
+            "reference_checks": 5000,
+            "root_scan_rows": 5000,
+            "row_table_gets": 8,
+            "validated_packed_rows": 10000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 20622,
+            "read_requested_bytes": 84467712,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_broad",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 20622,
+            "read_requested_bytes": 84467712,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_grouped",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 500000,
+            "row_table_gets": 0,
+            "validated_packed_rows": 1000000,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": {
+            "close_calls": 0,
+            "errors": 0,
+            "length_calls": 0,
+            "read_calls": 17162,
+            "read_requested_bytes": 70295552,
+            "resize_calls": 0,
+            "sync_calls": 0,
+            "write_calls": 0,
+            "write_requested_bytes": 0
+          },
+          "case": "aggregate_filtered_grouped",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 250000,
+            "reference_checks": 250000,
+            "root_scan_rows": 250000,
+            "row_table_gets": 8,
+            "validated_packed_rows": 500000,
+            "visibility_nodes": 0
+          }
+        }
+      ],
+      "read_method": "one untimed instrumented reader execution per case after all timed queries; preparation excluded; cache state follows the timed suite",
+      "storage": {
+        "format": "LPG3",
+        "revision": 3908,
+        "tables": [
+          {
+            "branch_pages": 587,
+            "entries": 20033,
+            "fragmented_bytes": 12876572,
+            "leaf_pages": 20033,
+            "metadata_bytes": 1461100,
+            "name": "paged_rows_v1",
+            "stored_bytes": 70121848,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1611,
+            "entries": 1500000,
+            "fragmented_bytes": 86088706,
+            "leaf_pages": 41011,
+            "metadata_bytes": 9491006,
+            "name": "paged_index_v1",
+            "stored_bytes": 79000000,
+            "tree_height": 5
+          },
+          {
+            "branch_pages": 958,
+            "entries": 1000000,
+            "fragmented_bytes": 60705772,
+            "leaf_pages": 29513,
+            "metadata_bytes": 10103444,
+            "name": "paged_unique_v1",
+            "stored_bytes": 54000000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 923,
+            "entries": 500000,
+            "fragmented_bytes": 39175028,
+            "leaf_pages": 18518,
+            "metadata_bytes": 3955308,
+            "name": "paged_incoming_v1",
+            "stored_bytes": 36500000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 221,
+            "entries": 1000005,
+            "fragmented_bytes": 21199827,
+            "leaf_pages": 10203,
+            "metadata_bytes": 4496792,
+            "name": "paged_ids_v1",
+            "stored_bytes": 17000085,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1462,
+            "entries": 2500007,
+            "fragmented_bytes": 102541538,
+            "leaf_pages": 49375,
+            "metadata_bytes": 13186662,
+            "name": "paged_versions_v1",
+            "stored_bytes": 92500152,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 0,
+            "entries": 4,
+            "fragmented_bytes": 2803,
+            "leaf_pages": 1,
+            "metadata_bytes": 36,
+            "name": "liquid_paged_control_v1",
+            "stored_bytes": 1257,
+            "tree_height": 1
+          }
+        ]
+      },
+      "storage_method": "host-admin pinned table accounting collected after all queries; excludes file headers, allocators, free and historical pages"
+    },
+    "peak_rss_phases": {
+      "after_diagnostics": 46432256,
+      "after_load": 24985600,
+      "after_queries": 45940736,
+      "after_setup": 29097984,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 6648,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 8662400,
+          "zones": [
+            {
+              "blocks_in_use": 6649,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 8662416
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 0,
+          "read_requested_bytes": 0,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "point",
+        "client_cpu_us": 0.3926000000003427,
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 35209216,
+        "prepare_us": 4712.417,
+        "query_us": 0.39226679999999997
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 6688,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 25165824,
+          "size_in_use": 8665872,
+          "zones": [
+            {
+              "blocks_in_use": 6689,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 25165824,
+              "size_in_use": 8665888
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 1,
+          "read_requested_bytes": 4096,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "equality",
+        "client_cpu_us": 0.44250000000101153,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 35274752,
+        "prepare_us": 249.625,
+        "query_us": 0.44220849999999995
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13019,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9259536,
+          "zones": [
+            {
+              "blocks_in_use": 13020,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9259552
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 5732,
+          "read_requested_bytes": 23478272,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "changing_parameters",
+        "client_cpu_us": 7.588500000000664,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 42762240,
+        "prepare_us": 97.75,
+        "query_us": 26.6841875
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13058,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9262896,
+          "zones": [
+            {
+              "blocks_in_use": 13059,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9262912
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 2191,
+          "read_requested_bytes": 8974336,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.9080000000002428,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 42778624,
+        "prepare_us": 205.959,
+        "query_us": 1.907625
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13133,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9271200,
+          "zones": [
+            {
+              "blocks_in_use": 13134,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9271216
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 0,
+          "read_requested_bytes": 0,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "selective_join",
+        "client_cpu_us": 0.8230000000004623,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 43204608,
+        "prepare_us": 414.25,
+        "query_us": 0.8224170000000001
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13162,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9283792,
+          "zones": [
+            {
+              "blocks_in_use": 13163,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9283808
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 20622,
+          "read_requested_bytes": 84467712,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate",
+        "client_cpu_us": 31933.999999997908,
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 45613056,
+        "prepare_us": 1327.0420000000001,
+        "query_us": 31945.875
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13211,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9288032,
+          "zones": [
+            {
+              "blocks_in_use": 13212,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9288048
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 0,
+          "read_requested_bytes": 0,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_equality",
+        "client_cpu_us": 1.1640000000010533,
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 45678592,
+        "prepare_us": 247.084,
+        "query_us": 1.162542
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13258,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9292000,
+          "zones": [
+            {
+              "blocks_in_use": 13259,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9292016
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 700,
+          "read_requested_bytes": 2867200,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_range",
+        "client_cpu_us": 280.9000000000061,
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 45678592,
+        "prepare_us": 129.833,
+        "query_us": 281.07295
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13288,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9294656,
+          "zones": [
+            {
+              "blocks_in_use": 13289,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9294672
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 61893,
+          "read_requested_bytes": 253513728,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_broad",
+        "client_cpu_us": 33862.333333334034,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 45711360,
+        "prepare_us": 188.417,
+        "query_us": 33919.0
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13364,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9302544,
+          "zones": [
+            {
+              "blocks_in_use": 13365,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9302560
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 61866,
+          "read_requested_bytes": 253403136,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_grouped",
+        "client_cpu_us": 33743.00000000001,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 45891584,
+        "prepare_us": 384.291,
+        "query_us": 33764.583333333336
+      },
+      {
+        "allocator_after_case": {
+          "blocks_in_use": 13410,
+          "max_size_in_use": 0,
+          "method": "macOS allocator zone totals; live heap and reserved allocator bytes, not RSS",
+          "size_allocated": 33554432,
+          "size_in_use": 9306624,
+          "zones": [
+            {
+              "blocks_in_use": 13411,
+              "max_size_in_use": 0,
+              "name": "DefaultMallocZone",
+              "size_allocated": 33554432,
+              "size_in_use": 9306640
+            }
+          ],
+          "zones_available": true,
+          "zones_status": 0
+        },
+        "backend_io_counts": {
+          "close_calls": 0,
+          "errors": 0,
+          "length_calls": 0,
+          "read_calls": 51480,
+          "read_requested_bytes": 210862080,
+          "resize_calls": 0,
+          "sync_calls": 0,
+          "write_calls": 0,
+          "write_requested_bytes": 0
+        },
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 28100.33333333273,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 45924352,
+        "prepare_us": 256.583,
+        "query_us": 28125.166666666668
+      }
+    ],
+    "read_setup_us": 3263.125,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": 3263.125,
+    "sqlite_query_plans": null,
+    "storage": "paged",
+    "suite": "aggregates",
+    "timing_class": "instrumented-diagnostic",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 1,
+    "order_index": 1,
+    "resources": {
+      "wall_seconds": 34.305749749999904,
+      "user_cpu_seconds": 9.278321,
+      "system_cpu_seconds": 4.485174,
+      "peak_rss_bytes": 46923776,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 34.305749749999904,
+      "user_cpu_seconds": 9.278321,
+      "system_cpu_seconds": 4.485174,
+      "peak_rss_bytes": 46923776,
+      "returncode": 0
+    },
+    "comparison": "after",
+    "artifact_directory": "target/performance-work/io/round-1-after"
+  }
+]

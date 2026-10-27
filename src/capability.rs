@@ -52,7 +52,7 @@ pub(crate) struct CompiledCapability {
     pub grants: BTreeMap<Id, CompiledGrant>,
     /// Ready-to-use scoped policy root. Snapshots clone this persistent map
     /// instead of allocating every grant again on every read.
-    pub scoped_grants: im::OrdMap<(String, Id), CompiledGrant>,
+    pub scoped_grants: crate::storage::Grants,
     pub revoked: bool,
 }
 pub(crate) fn module() -> &'static Module {

@@ -1,0 +1,3149 @@
+[
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 1048576,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 715526144,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 1317015552,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 715526144,
+      "total_logical_bytes": 1317015552
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "native",
+    "load_backend_io_counts": null,
+    "load_seconds": 36.2125395,
+    "mode": "native-paged",
+    "namespaces": 2,
+    "native_setup_us": 9.333,
+    "native_source_materialization": "256-row public pages; client fold at most fixture bucket count",
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": {
+      "cache": {
+        "configured_cache_bytes": 8388608,
+        "decoded_cache_bytes": 1048546,
+        "decoded_cache_entries": 4702,
+        "revision": 3908
+      },
+      "commit_method": "completed engine durable groups since open, including fixture setup; not filesystem synchronization call counts or a concurrent TPS measurement",
+      "commits": {
+        "committed_writes": 3908,
+        "durable_groups": 3908,
+        "largest_group": 1
+      },
+      "counter_scope": "logical instrumented operations, not physical I/O or redb page-cache misses",
+      "read_counts": [
+        {
+          "backend_io_counts": null,
+          "case": "point",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "changing_parameters",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "changing_parameters_warm",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "selective_join",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 1,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate",
+          "counts": {
+            "decoded_cache_evictions": 999999,
+            "decoded_cache_hits": 500001,
+            "decoded_cache_misses": 499999,
+            "decoded_rows": 999999,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 499999,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_equality",
+          "counts": {
+            "decoded_cache_evictions": 2,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 2,
+            "decoded_rows": 2,
+            "index_candidates": 0,
+            "reference_checks": 1,
+            "root_scan_rows": 0,
+            "row_table_gets": 2,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_range",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_broad",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_grouped",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_filtered_grouped",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        }
+      ],
+      "read_method": "one untimed instrumented reader execution per case after all timed queries; preparation excluded; cache state follows the timed suite",
+      "storage": {
+        "format": "LPG3",
+        "revision": 3908,
+        "tables": [
+          {
+            "branch_pages": 587,
+            "entries": 20033,
+            "fragmented_bytes": 12876572,
+            "leaf_pages": 20033,
+            "metadata_bytes": 1461100,
+            "name": "paged_rows_v1",
+            "stored_bytes": 70121848,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1611,
+            "entries": 1500000,
+            "fragmented_bytes": 86088706,
+            "leaf_pages": 41011,
+            "metadata_bytes": 9491006,
+            "name": "paged_index_v1",
+            "stored_bytes": 79000000,
+            "tree_height": 5
+          },
+          {
+            "branch_pages": 958,
+            "entries": 1000000,
+            "fragmented_bytes": 60705772,
+            "leaf_pages": 29513,
+            "metadata_bytes": 10103444,
+            "name": "paged_unique_v1",
+            "stored_bytes": 54000000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 923,
+            "entries": 500000,
+            "fragmented_bytes": 39175028,
+            "leaf_pages": 18518,
+            "metadata_bytes": 3955308,
+            "name": "paged_incoming_v1",
+            "stored_bytes": 36500000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 221,
+            "entries": 1000005,
+            "fragmented_bytes": 21199827,
+            "leaf_pages": 10203,
+            "metadata_bytes": 4496792,
+            "name": "paged_ids_v1",
+            "stored_bytes": 17000085,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1462,
+            "entries": 2500007,
+            "fragmented_bytes": 102541538,
+            "leaf_pages": 49375,
+            "metadata_bytes": 13186662,
+            "name": "paged_versions_v1",
+            "stored_bytes": 92500152,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 0,
+            "entries": 4,
+            "fragmented_bytes": 2803,
+            "leaf_pages": 1,
+            "metadata_bytes": 36,
+            "name": "liquid_paged_control_v1",
+            "stored_bytes": 1257,
+            "tree_height": 1
+          }
+        ]
+      },
+      "storage_method": "host-admin pinned table accounting collected after all queries; excludes file headers, allocators, free and historical pages"
+    },
+    "peak_rss_phases": {
+      "after_diagnostics": 34226176,
+      "after_load": 24920064,
+      "after_queries": 34111488,
+      "after_setup": 24936448,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.32000000000032003,
+        "execution_path": "native public get",
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 25018368,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.3196582
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.7620000000008177,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 25034752,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.761729
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 11.058000000000234,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32555008,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 176.71372900000003
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.9525000000006898,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32571392,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 1.9524795
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 1.018999999999437,
+        "execution_path": "native public equality lookups + client join",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32587776,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 1.0192705
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 435120.9999999988,
+        "execution_path": "native public scan + client fold",
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 34111488,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 443038.667
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 0.7840000000012282,
+        "execution_path": "native public equality lookup + client fold",
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 34111488,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.7817090000000001
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 442125.55,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 34111488,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 466734.13960000005
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 449494.66666666634,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34111488,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 460374.9723333333
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 447030.33333333285,
+        "execution_path": "native public scan + client fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34111488,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 465907.4583333333
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 442955.6666666675,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34111488,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 454624.9583333333
+      }
+    ],
+    "read_setup_us": 9.333,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": null,
+    "sqlite_query_plans": null,
+    "storage": "paged",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 1,
+    "order_index": 0,
+    "resources": {
+      "wall_seconds": 57.01694145800002,
+      "user_cpu_seconds": 26.256709999999998,
+      "system_cpu_seconds": 4.923872,
+      "peak_rss_bytes": 34717696,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 57.01694145800002,
+      "user_cpu_seconds": 26.256709999999998,
+      "system_cpu_seconds": 4.923872,
+      "peak_rss_bytes": 34717696,
+      "returncode": 0
+    }
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 0,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 349065216,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 364908544,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 349065216,
+      "total_logical_bytes": 364908544
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "sql",
+    "load_backend_io_counts": null,
+    "load_seconds": 31.007633083,
+    "mode": "resident",
+    "namespaces": 2,
+    "native_setup_us": null,
+    "native_source_materialization": null,
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": null,
+    "peak_rss_phases": {
+      "after_diagnostics": 1750712320,
+      "after_load": 1638383616,
+      "after_queries": 1750663168,
+      "after_setup": 1642741760,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.9046000000001443,
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 1648951296,
+        "prepare_us": 1192.1670000000001,
+        "query_us": 0.9043834000000001
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.8699999999999263,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1649033216,
+        "prepare_us": 142.583,
+        "query_us": 0.8695835
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 10.308000000000206,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1649033216,
+        "prepare_us": 85.625,
+        "query_us": 10.3422915
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.9654999999998424,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1649033216,
+        "prepare_us": 351.875,
+        "query_us": 1.9650204999999998
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 1.235499999999945,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1649475584,
+        "prepare_us": 354.625,
+        "query_us": 1.2354580000000002
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 2227.0000000013115,
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 1730265088,
+        "prepare_us": 386.70799999999997,
+        "query_us": 1680.666
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 25.235000000002117,
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 1730641920,
+        "prepare_us": 238.958,
+        "query_us": 22.363375
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 49.4999999999024,
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 1730969600,
+        "prepare_us": 146.25,
+        "query_us": 40.17295
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 1821.6666666669805,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1735557120,
+        "prepare_us": 98.875,
+        "query_us": 1363.375
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 5291.3333333333885,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1746370560,
+        "prepare_us": 239.417,
+        "query_us": 4336.041666666667
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 2674.6666666663073,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1750663168,
+        "prepare_us": 267.959,
+        "query_us": 2205.3056666666666
+      }
+    ],
+    "read_setup_us": 980.042,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": 980.042,
+    "sqlite_query_plans": null,
+    "storage": "resident",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 1,
+    "order_index": 1,
+    "resources": {
+      "wall_seconds": 32.06240741700003,
+      "user_cpu_seconds": 12.263213,
+      "system_cpu_seconds": 1.195976,
+      "peak_rss_bytes": 1751646208,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 32.06240741700003,
+      "user_cpu_seconds": 12.263213,
+      "system_cpu_seconds": 1.195976,
+      "peak_rss_bytes": 1751646208,
+      "returncode": 0
+    }
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 0,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 349065216,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 364908544,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 349065216,
+      "total_logical_bytes": 364908544
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "native",
+    "load_backend_io_counts": null,
+    "load_seconds": 32.012671167,
+    "mode": "native-resident",
+    "namespaces": 2,
+    "native_setup_us": 15.167,
+    "native_source_materialization": "public eager scan/lookup Vec<Row>; client fold at most fixture bucket count",
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": null,
+    "peak_rss_phases": {
+      "after_diagnostics": 2315960320,
+      "after_load": 1638350848,
+      "after_queries": 2315862016,
+      "after_setup": 1638367232,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.46259999999982426,
+        "execution_path": "native public get",
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 1638432768,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.4624666
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.6034999999995351,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638481920,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.6028125
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 6.8835000000007085,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638481920,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 6.8831875
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.3994999999988877,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638481920,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 1.3993335
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 0.8509999999999353,
+        "execution_path": "native public equality lookups + client join",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638498304,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.851
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 48130.00000000223,
+        "execution_path": "native public scan + client fold",
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 1787068416,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 48150.25
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 0.28100000000108594,
+        "execution_path": "native public equality lookup + client fold",
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 1787068416,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.280791
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 45210.499999999956,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 2123579392,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 45231.4625
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 45641.66666666717,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2187673600,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 45661.22233333334
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 46939.66666666623,
+        "execution_path": "native public scan + client fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2251767808,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 46957.22233333334
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 45923.99999999941,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2315862016,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 45941.139
+      }
+    ],
+    "read_setup_us": 15.167,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": null,
+    "sqlite_query_plans": null,
+    "storage": "resident",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 1,
+    "order_index": 2,
+    "resources": {
+      "wall_seconds": 34.26488449999988,
+      "user_cpu_seconds": 13.286625,
+      "system_cpu_seconds": 1.187667,
+      "peak_rss_bytes": 2316025856,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 34.26488449999988,
+      "user_cpu_seconds": 13.286625,
+      "system_cpu_seconds": 1.187667,
+      "peak_rss_bytes": 2316025856,
+      "returncode": 0
+    }
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 0,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 349065216,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 364908544,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 349065216,
+      "total_logical_bytes": 364908544
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "sql",
+    "load_backend_io_counts": null,
+    "load_seconds": 29.281747208,
+    "mode": "resident",
+    "namespaces": 2,
+    "native_setup_us": null,
+    "native_source_materialization": null,
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": null,
+    "peak_rss_phases": {
+      "after_diagnostics": 1752104960,
+      "after_load": 1638088704,
+      "after_queries": 1752055808,
+      "after_setup": 1642446848,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.9014000000000522,
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 1648623616,
+        "prepare_us": 929.166,
+        "query_us": 0.9011165999999999
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.9410000000009688,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1648705536,
+        "prepare_us": 143.041,
+        "query_us": 0.940521
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 5.7800000000005625,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1648705536,
+        "prepare_us": 85.0,
+        "query_us": 5.7797705
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.5084999999999127,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1648705536,
+        "prepare_us": 134.459,
+        "query_us": 1.5081875
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 1.3044999999998197,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1649115136,
+        "prepare_us": 269.084,
+        "query_us": 1.304375
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 2051.0000000015793,
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 1731690496,
+        "prepare_us": 283.625,
+        "query_us": 1579.416
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 24.998999999999327,
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 1732050944,
+        "prepare_us": 208.084,
+        "query_us": 22.241875
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 51.54999999996689,
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 1732362240,
+        "prepare_us": 156.792,
+        "query_us": 42.14165
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 1760.3333333327716,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1736966144,
+        "prepare_us": 109.0,
+        "query_us": 1347.847
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 5233.666666666655,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1747746816,
+        "prepare_us": 212.04199999999997,
+        "query_us": 4335.277666666667
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 2647.666666666974,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1752055808,
+        "prepare_us": 230.084,
+        "query_us": 2208.6806666666666
+      }
+    ],
+    "read_setup_us": 772.5,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": 772.5,
+    "sqlite_query_plans": null,
+    "storage": "resident",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 2,
+    "order_index": 0,
+    "resources": {
+      "wall_seconds": 30.278908207999848,
+      "user_cpu_seconds": 11.966759,
+      "system_cpu_seconds": 1.116559,
+      "peak_rss_bytes": 1753038848,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 30.278908207999848,
+      "user_cpu_seconds": 11.966759,
+      "system_cpu_seconds": 1.116559,
+      "peak_rss_bytes": 1753038848,
+      "returncode": 0
+    }
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 0,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 349065216,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 364908544,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 349065216,
+      "total_logical_bytes": 364908544
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "native",
+    "load_backend_io_counts": null,
+    "load_seconds": 28.753116041,
+    "mode": "native-resident",
+    "namespaces": 2,
+    "native_setup_us": 17.167,
+    "native_source_materialization": "public eager scan/lookup Vec<Row>; client fold at most fixture bucket count",
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": null,
+    "peak_rss_phases": {
+      "after_diagnostics": 2317516800,
+      "after_load": 1638055936,
+      "after_queries": 2317418496,
+      "after_setup": 1638072320,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.48379999999994544,
+        "execution_path": "native public get",
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 1638137856,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.4834834
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.6249999999994316,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638187008,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.6242914999999999
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 5.620500000000028,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638187008,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 5.620271
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.4745000000004893,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638187008,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 1.474625
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 0.8649999999992275,
+        "execution_path": "native public equality lookups + client join",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638187008,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.8652084999999999
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 51585.0000000011,
+        "execution_path": "native public scan + client fold",
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 1788592128,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 51604.791
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 0.2890000000004278,
+        "execution_path": "native public equality lookup + client fold",
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 1788592128,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.28879200000000005
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 47051.19999999994,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 2125135872,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 47072.741649999996
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 47721.66666666659,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2189230080,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 47744.041666666664
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 49633.333333333714,
+        "execution_path": "native public scan + client fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2253324288,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 49652.513999999996
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 47978.99999999977,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2317418496,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 48004.513999999996
+      }
+    ],
+    "read_setup_us": 17.167,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": null,
+    "sqlite_query_plans": null,
+    "storage": "resident",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 2,
+    "order_index": 1,
+    "resources": {
+      "wall_seconds": 31.1020362080003,
+      "user_cpu_seconds": 13.290801,
+      "system_cpu_seconds": 1.137827,
+      "peak_rss_bytes": 2317582336,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 31.1020362080003,
+      "user_cpu_seconds": 13.290801,
+      "system_cpu_seconds": 1.137827,
+      "peak_rss_bytes": 2317582336,
+      "returncode": 0
+    }
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 1048576,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 715526144,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 1317015552,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 715526144,
+      "total_logical_bytes": 1317015552
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "native",
+    "load_backend_io_counts": null,
+    "load_seconds": 34.59542125,
+    "mode": "native-paged",
+    "namespaces": 2,
+    "native_setup_us": 13.875,
+    "native_source_materialization": "256-row public pages; client fold at most fixture bucket count",
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": {
+      "cache": {
+        "configured_cache_bytes": 8388608,
+        "decoded_cache_bytes": 1048546,
+        "decoded_cache_entries": 4702,
+        "revision": 3908
+      },
+      "commit_method": "completed engine durable groups since open, including fixture setup; not filesystem synchronization call counts or a concurrent TPS measurement",
+      "commits": {
+        "committed_writes": 3908,
+        "durable_groups": 3908,
+        "largest_group": 1
+      },
+      "counter_scope": "logical instrumented operations, not physical I/O or redb page-cache misses",
+      "read_counts": [
+        {
+          "backend_io_counts": null,
+          "case": "point",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "changing_parameters",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "changing_parameters_warm",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "selective_join",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 1,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate",
+          "counts": {
+            "decoded_cache_evictions": 999999,
+            "decoded_cache_hits": 500001,
+            "decoded_cache_misses": 499999,
+            "decoded_rows": 999999,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 499999,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_equality",
+          "counts": {
+            "decoded_cache_evictions": 2,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 2,
+            "decoded_rows": 2,
+            "index_candidates": 0,
+            "reference_checks": 1,
+            "root_scan_rows": 0,
+            "row_table_gets": 2,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_range",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_broad",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_grouped",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_filtered_grouped",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        }
+      ],
+      "read_method": "one untimed instrumented reader execution per case after all timed queries; preparation excluded; cache state follows the timed suite",
+      "storage": {
+        "format": "LPG3",
+        "revision": 3908,
+        "tables": [
+          {
+            "branch_pages": 587,
+            "entries": 20033,
+            "fragmented_bytes": 12876572,
+            "leaf_pages": 20033,
+            "metadata_bytes": 1461100,
+            "name": "paged_rows_v1",
+            "stored_bytes": 70121848,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1611,
+            "entries": 1500000,
+            "fragmented_bytes": 86088706,
+            "leaf_pages": 41011,
+            "metadata_bytes": 9491006,
+            "name": "paged_index_v1",
+            "stored_bytes": 79000000,
+            "tree_height": 5
+          },
+          {
+            "branch_pages": 958,
+            "entries": 1000000,
+            "fragmented_bytes": 60705772,
+            "leaf_pages": 29513,
+            "metadata_bytes": 10103444,
+            "name": "paged_unique_v1",
+            "stored_bytes": 54000000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 923,
+            "entries": 500000,
+            "fragmented_bytes": 39175028,
+            "leaf_pages": 18518,
+            "metadata_bytes": 3955308,
+            "name": "paged_incoming_v1",
+            "stored_bytes": 36500000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 221,
+            "entries": 1000005,
+            "fragmented_bytes": 21199827,
+            "leaf_pages": 10203,
+            "metadata_bytes": 4496792,
+            "name": "paged_ids_v1",
+            "stored_bytes": 17000085,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1462,
+            "entries": 2500007,
+            "fragmented_bytes": 102541538,
+            "leaf_pages": 49375,
+            "metadata_bytes": 13186662,
+            "name": "paged_versions_v1",
+            "stored_bytes": 92500152,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 0,
+            "entries": 4,
+            "fragmented_bytes": 2803,
+            "leaf_pages": 1,
+            "metadata_bytes": 36,
+            "name": "liquid_paged_control_v1",
+            "stored_bytes": 1257,
+            "tree_height": 1
+          }
+        ]
+      },
+      "storage_method": "host-admin pinned table accounting collected after all queries; excludes file headers, allocators, free and historical pages"
+    },
+    "peak_rss_phases": {
+      "after_diagnostics": 34111488,
+      "after_load": 24969216,
+      "after_queries": 34013184,
+      "after_setup": 24985600,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.2934000000003323,
+        "execution_path": "native public get",
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 25067520,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.2933416
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.7504999999996541,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 25100288,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.7502085
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 8.024999999999949,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32522240,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 8.024895500000001
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 2.176999999999652,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32538624,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 2.176896
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 1.1979999999995883,
+        "execution_path": "native public equality lookups + client join",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32571392,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 1.1980625
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 431798.9999999998,
+        "execution_path": "native public scan + client fold",
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 34013184,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 432043.54099999997
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 0.8009999999991635,
+        "execution_path": "native public equality lookup + client fold",
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 34013184,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.8005829999999999
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 436829.4000000002,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 34013184,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 437319.1375
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 436302.99999999994,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34013184,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 436520.5416666667
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 431706.6666666669,
+        "execution_path": "native public scan + client fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34013184,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 431931.7776666667
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 434020.0000000003,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34013184,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 434369.847
+      }
+    ],
+    "read_setup_us": 13.875,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": null,
+    "sqlite_query_plans": null,
+    "storage": "paged",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 2,
+    "order_index": 2,
+    "resources": {
+      "wall_seconds": 52.31904445800001,
+      "user_cpu_seconds": 26.286471,
+      "system_cpu_seconds": 5.379061,
+      "peak_rss_bytes": 34586624,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 52.31904445800001,
+      "user_cpu_seconds": 26.286471,
+      "system_cpu_seconds": 5.379061,
+      "peak_rss_bytes": 34586624,
+      "returncode": 0
+    }
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 0,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 349065216,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 364908544,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 349065216,
+      "total_logical_bytes": 364908544
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "native",
+    "load_backend_io_counts": null,
+    "load_seconds": 29.081257292,
+    "mode": "native-resident",
+    "namespaces": 2,
+    "native_setup_us": 13.834,
+    "native_source_materialization": "public eager scan/lookup Vec<Row>; client fold at most fixture bucket count",
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": null,
+    "peak_rss_phases": {
+      "after_diagnostics": 2315993088,
+      "after_load": 1638416384,
+      "after_queries": 2315894784,
+      "after_setup": 1638432768,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.4528000000000531,
+        "execution_path": "native public get",
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 1638498304,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.452575
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.5999999999994897,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638547456,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.5998334999999999
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 5.006500000000359,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638547456,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 5.0066665
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.1179999999999521,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638547456,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 1.1175625
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 0.8799999999995477,
+        "execution_path": "native public equality lookups + client join",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1638547456,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.879229
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 49335.00000000102,
+        "execution_path": "native public scan + client fold",
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 1787101184,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 49356.125
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 0.28299999999958914,
+        "execution_path": "native public equality lookup + client fold",
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 1787101184,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.28195800000000004
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 45930.80000000009,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 2123612160,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 46156.89165
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 45594.666666666824,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2187706368,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 45614.263999999996
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 46895.99999999968,
+        "execution_path": "native public scan + client fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2251800576,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 46915.694333333326
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 45447.66666666671,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 2315894784,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 45466.763666666666
+      }
+    ],
+    "read_setup_us": 13.834,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": null,
+    "sqlite_query_plans": null,
+    "storage": "resident",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 3,
+    "order_index": 0,
+    "resources": {
+      "wall_seconds": 31.356600292000167,
+      "user_cpu_seconds": 13.110899,
+      "system_cpu_seconds": 1.14222,
+      "peak_rss_bytes": 2316058624,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 31.356600292000167,
+      "user_cpu_seconds": 13.110899,
+      "system_cpu_seconds": 1.14222,
+      "peak_rss_bytes": 2316058624,
+      "returncode": 0
+    }
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 1048576,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 715526144,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 1317015552,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 715526144,
+      "total_logical_bytes": 1317015552
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "native",
+    "load_backend_io_counts": null,
+    "load_seconds": 33.001279041,
+    "mode": "native-paged",
+    "namespaces": 2,
+    "native_setup_us": 11.042,
+    "native_source_materialization": "256-row public pages; client fold at most fixture bucket count",
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": {
+      "cache": {
+        "configured_cache_bytes": 8388608,
+        "decoded_cache_bytes": 1048546,
+        "decoded_cache_entries": 4702,
+        "revision": 3908
+      },
+      "commit_method": "completed engine durable groups since open, including fixture setup; not filesystem synchronization call counts or a concurrent TPS measurement",
+      "commits": {
+        "committed_writes": 3908,
+        "durable_groups": 3908,
+        "largest_group": 1
+      },
+      "counter_scope": "logical instrumented operations, not physical I/O or redb page-cache misses",
+      "read_counts": [
+        {
+          "backend_io_counts": null,
+          "case": "point",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "equality",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "changing_parameters",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 0,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "changing_parameters_warm",
+          "counts": {
+            "decoded_cache_evictions": 0,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 0,
+            "decoded_rows": 0,
+            "index_candidates": 0,
+            "reference_checks": 0,
+            "root_scan_rows": 0,
+            "row_table_gets": 0,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 0
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "selective_join",
+          "counts": {
+            "decoded_cache_evictions": 1,
+            "decoded_cache_hits": 3,
+            "decoded_cache_misses": 1,
+            "decoded_rows": 1,
+            "index_candidates": 0,
+            "reference_checks": 1,
+            "root_scan_rows": 0,
+            "row_table_gets": 1,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate",
+          "counts": {
+            "decoded_cache_evictions": 999999,
+            "decoded_cache_hits": 500001,
+            "decoded_cache_misses": 499999,
+            "decoded_rows": 999999,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 499999,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_equality",
+          "counts": {
+            "decoded_cache_evictions": 2,
+            "decoded_cache_hits": 1,
+            "decoded_cache_misses": 2,
+            "decoded_rows": 2,
+            "index_candidates": 0,
+            "reference_checks": 1,
+            "root_scan_rows": 0,
+            "row_table_gets": 2,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 2
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_range",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_broad",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_grouped",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        },
+        {
+          "backend_io_counts": null,
+          "case": "aggregate_filtered_grouped",
+          "counts": {
+            "decoded_cache_evictions": 1000000,
+            "decoded_cache_hits": 500000,
+            "decoded_cache_misses": 500000,
+            "decoded_rows": 1000000,
+            "index_candidates": 0,
+            "reference_checks": 500000,
+            "root_scan_rows": 0,
+            "row_table_gets": 500000,
+            "validated_packed_rows": 0,
+            "visibility_nodes": 1000000
+          }
+        }
+      ],
+      "read_method": "one untimed instrumented reader execution per case after all timed queries; preparation excluded; cache state follows the timed suite",
+      "storage": {
+        "format": "LPG3",
+        "revision": 3908,
+        "tables": [
+          {
+            "branch_pages": 587,
+            "entries": 20033,
+            "fragmented_bytes": 12876572,
+            "leaf_pages": 20033,
+            "metadata_bytes": 1461100,
+            "name": "paged_rows_v1",
+            "stored_bytes": 70121848,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1611,
+            "entries": 1500000,
+            "fragmented_bytes": 86088706,
+            "leaf_pages": 41011,
+            "metadata_bytes": 9491006,
+            "name": "paged_index_v1",
+            "stored_bytes": 79000000,
+            "tree_height": 5
+          },
+          {
+            "branch_pages": 958,
+            "entries": 1000000,
+            "fragmented_bytes": 60705772,
+            "leaf_pages": 29513,
+            "metadata_bytes": 10103444,
+            "name": "paged_unique_v1",
+            "stored_bytes": 54000000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 923,
+            "entries": 500000,
+            "fragmented_bytes": 39175028,
+            "leaf_pages": 18518,
+            "metadata_bytes": 3955308,
+            "name": "paged_incoming_v1",
+            "stored_bytes": 36500000,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 221,
+            "entries": 1000005,
+            "fragmented_bytes": 21199827,
+            "leaf_pages": 10203,
+            "metadata_bytes": 4496792,
+            "name": "paged_ids_v1",
+            "stored_bytes": 17000085,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 1462,
+            "entries": 2500007,
+            "fragmented_bytes": 102541538,
+            "leaf_pages": 49375,
+            "metadata_bytes": 13186662,
+            "name": "paged_versions_v1",
+            "stored_bytes": 92500152,
+            "tree_height": 4
+          },
+          {
+            "branch_pages": 0,
+            "entries": 4,
+            "fragmented_bytes": 2803,
+            "leaf_pages": 1,
+            "metadata_bytes": 36,
+            "name": "liquid_paged_control_v1",
+            "stored_bytes": 1257,
+            "tree_height": 1
+          }
+        ]
+      },
+      "storage_method": "host-admin pinned table accounting collected after all queries; excludes file headers, allocators, free and historical pages"
+    },
+    "peak_rss_phases": {
+      "after_diagnostics": 34209792,
+      "after_load": 24903680,
+      "after_queries": 34095104,
+      "after_setup": 24920064,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.29020000000024027,
+        "execution_path": "native public get",
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 25001984,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.28988339999999996
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.6744999999996891,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 25018368,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.6737085
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 10.315999999999548,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32538624,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 32.203229
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 1.8470000000005982,
+        "execution_path": "native public equality lookup",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32555008,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 1.8903125
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 0.9994999999998199,
+        "execution_path": "native public equality lookups + client join",
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 32571392,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.999458
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 429663.99999999895,
+        "execution_path": "native public scan + client fold",
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 34095104,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 433967.125
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 0.7710000000002992,
+        "execution_path": "native public equality lookup + client fold",
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 34095104,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 0.7694590000000001
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 430736.3000000001,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 34095104,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 444960.21875
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 432067.6666666661,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34095104,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 461188.19433333335
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 429488.333333334,
+        "execution_path": "native public scan + client fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34095104,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 434825.8333333333
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 429182.666666667,
+        "execution_path": "native public scan + client filter and fold",
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 34095104,
+        "prepare_kind": "not applicable; public native calls, no SQL or prepared aggregate engine",
+        "prepare_us": 0.0,
+        "query_us": 432079.51399999997
+      }
+    ],
+    "read_setup_us": 11.042,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": null,
+    "sqlite_query_plans": null,
+    "storage": "paged",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 3,
+    "order_index": 1,
+    "resources": {
+      "wall_seconds": 51.98081524999998,
+      "user_cpu_seconds": 25.743191,
+      "system_cpu_seconds": 4.915042,
+      "peak_rss_bytes": 34701312,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 51.98081524999998,
+      "user_cpu_seconds": 25.743191,
+      "system_cpu_seconds": 4.915042,
+      "peak_rss_bytes": 34701312,
+      "returncode": 0
+    }
+  },
+  {
+    "allocator_phases": {
+      "after_diagnostics": null,
+      "after_load": null,
+      "after_setup": null
+    },
+    "backend_io_method": null,
+    "decoded_cache_bytes": 0,
+    "file_footprint": {
+      "allocated_bytes_source": "filesystem st_blocks multiplied by 512; excludes directory metadata",
+      "main_database": {
+        "allocated_bytes": 349065216,
+        "exists": true,
+        "filename": "db",
+        "logical_bytes": 364908544,
+        "role": "main_database"
+      },
+      "measurement": "after timed queries, while database and snapshot remain open",
+      "scope": "main database and explicitly known sidecars only",
+      "sidecars": [],
+      "total_allocated_bytes": 349065216,
+      "total_logical_bytes": 364908544
+    },
+    "fixture_version": "fixed-schema-ids-v1",
+    "interface": "sql",
+    "load_backend_io_counts": null,
+    "load_seconds": 30.543348458,
+    "mode": "resident",
+    "namespaces": 2,
+    "native_setup_us": null,
+    "native_source_materialization": null,
+    "page_cache_bytes": 8388608,
+    "paged_diagnostics": null,
+    "peak_rss_phases": {
+      "after_diagnostics": 1752121344,
+      "after_load": 1638105088,
+      "after_queries": 1752072192,
+      "after_setup": 1642463232,
+      "method": "process lifetime high-water RSS sampled at untimed phase boundaries, not current memory or phase allocation"
+    },
+    "people": 500000,
+    "queries": [
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "point",
+        "client_cpu_us": 0.5544000000000437,
+        "iterations": 5000,
+        "peak_rss_bytes_after_case": 1648640000,
+        "prepare_us": 480.917,
+        "query_us": 0.554325
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "equality",
+        "client_cpu_us": 0.5839999999999179,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1648721920,
+        "prepare_us": 76.417,
+        "query_us": 0.5839165000000001
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters",
+        "client_cpu_us": 3.9749999999996177,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1648721920,
+        "prepare_us": 54.208,
+        "query_us": 3.9751250000000002
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "changing_parameters_warm",
+        "client_cpu_us": 0.9155000000005132,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1648721920,
+        "prepare_us": 69.125,
+        "query_us": 0.9153125
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "selective_join",
+        "client_cpu_us": 0.9870000000002932,
+        "iterations": 2000,
+        "peak_rss_bytes_after_case": 1649131520,
+        "prepare_us": 134.875,
+        "query_us": 0.9866670000000002
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate",
+        "client_cpu_us": 2191.9999999990837,
+        "iterations": 1,
+        "peak_rss_bytes_after_case": 1731706880,
+        "prepare_us": 232.292,
+        "query_us": 1675.709
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_equality",
+        "client_cpu_us": 24.28100000000022,
+        "iterations": 1000,
+        "peak_rss_bytes_after_case": 1732067328,
+        "prepare_us": 229.5,
+        "query_us": 21.495
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_range",
+        "client_cpu_us": 53.75000000000796,
+        "iterations": 20,
+        "peak_rss_bytes_after_case": 1732378624,
+        "prepare_us": 150.375,
+        "query_us": 42.8917
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_broad",
+        "client_cpu_us": 1698.0000000004954,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1736982528,
+        "prepare_us": 103.75,
+        "query_us": 1276.2083333333333
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_grouped",
+        "client_cpu_us": 5294.000000000428,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1747763200,
+        "prepare_us": 244.91600000000003,
+        "query_us": 4306.805333333334
+      },
+      {
+        "allocator_after_case": null,
+        "backend_io_counts": null,
+        "case": "aggregate_filtered_grouped",
+        "client_cpu_us": 2749.6666666664282,
+        "iterations": 3,
+        "peak_rss_bytes_after_case": 1752072192,
+        "prepare_us": 216.958,
+        "query_us": 2239.653
+      }
+    ],
+    "read_setup_us": 406.875,
+    "reference_order": "ordered",
+    "relations": 2,
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "sql_setup_us": 406.875,
+    "sqlite_query_plans": null,
+    "storage": "resident",
+    "suite": "aggregates",
+    "timing_class": "headline",
+    "total_rows": 1000000,
+    "verified": true,
+    "round": 3,
+    "order_index": 2,
+    "resources": {
+      "wall_seconds": 31.560735000000022,
+      "user_cpu_seconds": 12.182588,
+      "system_cpu_seconds": 1.246536,
+      "peak_rss_bytes": 1753071616,
+      "returncode": 0
+    },
+    "client_resources": {
+      "wall_seconds": 31.560735000000022,
+      "user_cpu_seconds": 12.182588,
+      "system_cpu_seconds": 1.246536,
+      "peak_rss_bytes": 1753071616,
+      "returncode": 0
+    }
+  }
+]

@@ -2,6 +2,11 @@
 
 Status: implemented. Extends ADR 001's initial log-only storage.
 
+Historical design: the full-checkpoint and publication-lock cost descriptions
+below describe the first implementation. Current incremental V3 storage,
+bounded materialized row overrides, and atomic compaction are specified in
+[ADR 011](011-bounded-checkpoint-overlay.md).
+
 ## Recovery contract
 
 `Database::open` uses a default redo budget of 128 commits or 8 MiB of encoded

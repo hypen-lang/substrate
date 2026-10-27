@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, fmt};
+use std::{
+    collections::BTreeSet,
+    fmt,
+    hash::{Hash, Hasher},
+};
 use uuid::Uuid;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -48,6 +52,65 @@ impl fmt::Display for Id {
     }
 }
 
+/// A finite IEEE-754 binary64 value with one representation for zero. Rejecting
+/// NaN/infinities and canonicalizing signed zero keeps equality, hashing, JSON,
+/// ordered indexes and durable replay consistent.
+#[derive(Clone, Copy, Debug)]
+pub struct FiniteFloat(f64);
+impl FiniteFloat {
+    pub fn new(value: f64) -> Result<Self> {
+        if !value.is_finite() {
+            return Err(Error::Constraint("float must be finite".into()));
+        }
+        Ok(Self(if value == 0.0 { 0.0 } else { value }))
+    }
+    pub fn get(self) -> f64 {
+        self.0
+    }
+}
+impl TryFrom<f64> for FiniteFloat {
+    type Error = Error;
+    fn try_from(value: f64) -> Result<Self> {
+        Self::new(value)
+    }
+}
+impl PartialEq for FiniteFloat {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_bits() == other.0.to_bits()
+    }
+}
+impl Eq for FiniteFloat {}
+impl PartialOrd for FiniteFloat {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for FiniteFloat {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.total_cmp(&other.0)
+    }
+}
+impl Hash for FiniteFloat {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
+    }
+}
+impl Serialize for FiniteFloat {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_f64(self.0)
+    }
+}
+impl<'de> Deserialize<'de> for FiniteFloat {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        Self::new(f64::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
 /// Exact fixed-scale decimals use signed minor units. Scale belongs to the role type.
 /// Timestamps are signed UTC microseconds since Unix epoch; leap seconds are excluded.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -60,6 +123,14 @@ pub enum Value {
     Decimal(i64),
     Timestamp(i64),
     Bytes(Vec<u8>),
+    Null,
+    Float(FiniteFloat),
+}
+impl TryFrom<f64> for Value {
+    type Error = Error;
+    fn try_from(value: f64) -> Result<Self> {
+        FiniteFloat::new(value).map(Self::Float)
+    }
 }
 impl From<&str> for Value {
     fn from(s: &str) -> Self {
@@ -87,9 +158,32 @@ pub enum DataType {
     Decimal { scale: u8 },
     Timestamp,
     Bytes,
+    Float,
+    Nullable(Box<DataType>),
 }
 impl DataType {
+    pub fn nullable(self) -> Self {
+        Self::Nullable(Box::new(self))
+    }
+    pub fn is_nullable(&self) -> bool {
+        matches!(self, Self::Nullable(_))
+    }
+    pub fn base_type(&self) -> &Self {
+        match self {
+            Self::Nullable(inner) => inner.base_type(),
+            other => other,
+        }
+    }
+    pub fn reference_target(&self) -> Option<&str> {
+        match self.base_type() {
+            Self::Ref(target) => Some(target),
+            _ => None,
+        }
+    }
     pub(crate) fn accepts(&self, v: &Value) -> bool {
+        if let Self::Nullable(inner) = self {
+            return matches!(v, Value::Null) || inner.accepts(v);
+        }
         matches!(
             (self, v),
             (Self::Bool, Value::Bool(_))
@@ -99,6 +193,7 @@ impl DataType {
                 | (Self::Decimal { .. }, Value::Decimal(_))
                 | (Self::Timestamp, Value::Timestamp(_))
                 | (Self::Bytes, Value::Bytes(_))
+                | (Self::Float, Value::Float(_))
         )
     }
 }
@@ -107,13 +202,41 @@ impl DataType {
 pub struct Role {
     pub name: String,
     pub data_type: DataType,
+    #[serde(default, skip_serializing_if = "OnDelete::is_restrict")]
+    pub on_delete: OnDelete,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub deferrable: bool,
+}
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OnDelete {
+    #[default]
+    Restrict,
+    Cascade,
+}
+impl OnDelete {
+    fn is_restrict(&self) -> bool {
+        *self == Self::Restrict
+    }
 }
 impl Role {
     pub fn new(name: &str, data_type: DataType) -> Self {
         Self {
             name: name.into(),
             data_type,
+            on_delete: OnDelete::Restrict,
+            deferrable: false,
         }
+    }
+    pub fn on_delete(mut self, action: OnDelete) -> Self {
+        self.on_delete = action;
+        self
+    }
+    pub fn deferrable(mut self) -> Self {
+        self.deferrable = true;
+        self
     }
 }
 
@@ -235,13 +358,25 @@ impl Relation {
         }
         let mut seen = BTreeSet::new();
         for role in &self.roles {
+            if (role.on_delete != OnDelete::Restrict || role.deferrable)
+                && role.data_type.reference_target().is_none()
+            {
+                return Err(Error::Schema(
+                    "delete actions and deferral apply only to reference roles".into(),
+                ));
+            }
             if !identifier(&role.name)
                 || role.name.eq_ignore_ascii_case("id")
                 || !seen.insert(role.name.to_ascii_lowercase())
             {
                 return Err(Error::Schema("invalid, reserved or duplicate role".into()));
             }
-            if matches!(role.data_type, DataType::Decimal { scale } if scale > 18) {
+            if matches!(role.data_type, DataType::Nullable(ref inner) if inner.is_nullable()) {
+                return Err(Error::Schema(
+                    "nested nullable types are not supported".into(),
+                ));
+            }
+            if matches!(role.data_type.base_type(), DataType::Decimal { scale } if *scale > 18) {
                 return Err(Error::Schema("decimal scale must be <= 18".into()));
             }
         }
@@ -255,11 +390,14 @@ impl Relation {
                 .map_err(|_| Error::Schema("unknown check role".into()))?;
             let valid = match check {
                 Check::IntRange { min, max, .. } => {
-                    min <= max && self.roles[slot].data_type == DataType::Int
+                    min <= max && self.roles[slot].data_type.base_type() == &DataType::Int
                 }
                 Check::ByteLength { min, max, .. } => {
                     min <= max
-                        && matches!(self.roles[slot].data_type, DataType::Text | DataType::Bytes)
+                        && matches!(
+                            self.roles[slot].data_type.base_type(),
+                            DataType::Text | DataType::Bytes
+                        )
                 }
             };
             if !valid || !seen_checks.insert(check) {

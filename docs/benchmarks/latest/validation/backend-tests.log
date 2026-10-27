@@ -1,0 +1,88 @@
+   Compiling redb v3.1.3 (<repo>/vendor/redb)
+warning: use of deprecated method `table::Table::<'_, K, V>::insert_reserve`: The returned guard must be dropped before the transaction commits, otherwise data loss may occur. This is fixed in the 4.0 release.
+    --> src/db.rs:1364:27
+     |
+1364 |             let _ = table.insert_reserve(118821, 360).unwrap();
+     |                           ^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated method `table::Table::<'_, K, V>::insert_reserve`: The returned guard must be dropped before the transaction commits, otherwise data loss may occur. This is fixed in the 4.0 release.
+    --> src/db.rs:1471:15
+     |
+1471 |             t.insert_reserve(&660503, 489).unwrap().as_mut().fill(0xFF);
+     |               ^^^^^^^^^^^^^^
+
+warning: use of deprecated method `table::Table::<'_, K, V>::insert_reserve`: The returned guard must be dropped before the transaction commits, otherwise data loss may occur. This is fixed in the 4.0 release.
+    --> src/db.rs:1596:15
+     |
+1596 |             t.insert_reserve(&744037, 3645).unwrap().as_mut().fill(0xFF);
+     |               ^^^^^^^^^^^^^^
+
+warning: use of deprecated method `table::Table::<'_, K, V>::insert_reserve`: The returned guard must be dropped before the transaction commits, otherwise data loss may occur. This is fixed in the 4.0 release.
+    --> src/db.rs:1604:15
+     |
+1604 |             t.insert_reserve(&118749, 734).unwrap().as_mut().fill(0xFF);
+     |               ^^^^^^^^^^^^^^
+
+warning: use of deprecated method `table::Table::<'_, K, V>::insert_reserve`: The returned guard must be dropped before the transaction commits, otherwise data loss may occur. This is fixed in the 4.0 release.
+   --> src/tree_store/page_store/header.rs:661:35
+    |
+661 |             let mut value = table.insert_reserve("hello", 5).unwrap();
+    |                                   ^^^^^^^^^^^^^^
+
+warning: use of deprecated method `table::Table::<'_, K, V>::insert_reserve`: The returned guard must be dropped before the transaction commits, otherwise data loss may occur. This is fixed in the 4.0 release.
+   --> src/tree_store/page_store/header.rs:669:35
+    |
+669 |             let mut value = table.insert_reserve("hello2", 5).unwrap();
+    |                                   ^^^^^^^^^^^^^^
+
+warning: `redb` (lib test) generated 6 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.77s
+     Running unittests src/lib.rs (vendor/redb/target/debug/deps/redb-fd8d3b99ece0c335)
+
+running 41 tests
+test db::test::open_missing_file ... ok
+test db::test::open_empty_file ... ok
+test legacy_tuple_types::test::width ... ok
+test tree_store::page_store::base::test::last_page ... ok
+test tree_store::page_store::base::test::reserved_bits ... ok
+test tree_store::page_store::bitmap::test::all_space_used ... ok
+test tree_store::page_store::bitmap::test::alloc ... ok
+test tree_store::page_store::bitmap::test::find_free ... ok
+test tree_store::page_store::bitmap::test::free ... ok
+test db::test::transient_io_error ... ok
+test db::test::create_new_db_in_empty_file ... ok
+test tree_store::page_store::bitmap::test::random_pattern ... ok
+test tree_store::page_store::bitmap::test::record_alloc ... ok
+test db::test::small_pages3 ... ok
+test db::test::small_pages ... ok
+test tree_store::page_store::bitmap::test::resize_beyond_initial_capacity ... ok
+test db::test::small_pages4 ... ok
+test tree_store::page_store::bitmap::test::reuse_lowest ... ok
+test tree_store::page_store::buddy_allocator::test::alloc_large ... ok
+test tree_store::page_store::buddy_allocator::test::buddy_merge ... ok
+test tree_store::page_store::buddy_allocator::test::record_alloc_buddy ... ok
+test tree_store::page_store::cached_file::test::boxed_page_payload_is_not_copied_across_allocator_boundaries ... ok
+test tree_store::page_store::buddy_allocator::test::serialized_size ... ok
+test transactions::test::transaction_id_persistence ... ok
+test tree_store::page_store::cached_file::test::cache_leak ... ok
+test tree_store::page_store::cached_file::test::cache_miss_fills_final_arc_allocation_and_hits_reuse_it ... ok
+test tree_store::page_store::cached_file::test::partial_read_failure_does_not_publish_arc_or_charge_cache ... ok
+test tree_store::page_store::header::test::magic_number ... ok
+test db::test::crash_regression4 ... ok
+test tree_store::page_store::xxh3::test::test_empty ... ok
+test tree_store::table_tree::test::round_trip ... ok
+test tuple_types::test::width ... ok
+test db::test::small_pages2 ... ok
+test tree_store::page_store::header::test::close_on_drop ... ok
+test tree_store::page_store::header::test::abort_repair ... ok
+test tree_store::page_store::header::test::repair_empty ... ok
+test tree_store::page_store::header::test::repair_insert_reserve_regression ... ok
+test tree_store::page_store::page_manager::test::panic ... ok
+test tree_store::page_store::header::test::repair_allocator_checksums ... ok
+test db::test::dynamic_shrink ... ok
+test tree_store::page_store::page_manager::test::out_of_regions ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+

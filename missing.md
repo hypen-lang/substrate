@@ -1,17 +1,40 @@
 # Substrate: remaining work and implementation queue
 
-Updated: 2026-10-25. Scope: both the supplied performance review and the outstanding
-milestones in the README. Package publication and Bend verification are explicitly
-excluded from this implementation run. This is a status ledger, not a claim that
-queued features already work.
+Updated: 2026-10-27. Package publication and Bend verification remain excluded.
 
-Latest change: restricted reads and scoped snapshot contention are optimized with
-compiled visibility decisions, nonblocking scope reuse, and publication-generation
-fences. Full scans avoid duplicate lookups; large owned payload copies remain a
-measured limit. Verification and paired performance results are recorded in the
-final follow-up section; earlier sections are history.
-See the final adoption section for current limits; earlier sections retain the
-chronological benchmark and implementation history.
+Current integration adds typed NULL/finite floats, authorized cascade deletion,
+explicitly deferred foreign keys, bounded remote SQL writes, paged group commit,
+paged/resident-file conversion and replication, and optional OpenRaft consensus. See the
+[README implementation matrix](README.md#implemented-and-planned) for the current
+contract and [the latest benchmark](docs/benchmarks/latest/README.md) for the exact
+measured binary boundary. Final validation passed 794 engine tests (11 ignored),
+41 vendored-backend tests, the 10-test iterator check, one borrowed-lifetime
+compile-fail check and strict Clippy. These suites overlap; unchanged SDK/Python
+suites were not rerun in this iteration. The completed one-million-record SQL
+comparison, native/API matrix, separate I/O and 1,024-group diagnostics are
+published in the linked report. Earlier counts and timings below describe earlier revisions.
+
+Loading and small-read fixes are implemented and tested, but the surviving
+comparison baseline is an intermediate build that already contains them; total
+start-of-task improvements cannot be established. Final filtered grouping is
+28.03 ms, 16.9% below that baseline, still 21.5% slower than PostgreSQL. The 1%
+range aggregate is 278.93 µs, still 9.5% slower. Small-read regressions and cold/load
+variance remain; peak RSS is 44.66 MiB versus 37.42 MiB baseline despite identical
+sampled live heap. Allocator reservation is a lead, not a proven cause. Native
+public folds still pay decoding/copying costs, and the 1,024-group diagnostic
+leaves a 52.7% filtered-grouping gap. These remain open performance work.
+
+Remaining adoption work includes production authenticated Raft peer serving,
+snapshot transfer/log compaction and membership changes; broader SQL mutation
+syntax; deferred uniqueness/CHECK constraints; import mappings for unsupported
+resident control metadata;
+operator authentication/enrollment and durable audit; general distributed
+transactions and sharding; and analytical/cache improvements backed by repeatable
+measurements. Paged current data and indexes are already disk-backed. Bounded
+working structures do not make the configured cache size a process RSS limit.
+
+Earlier sections retain chronological implementation history and are superseded
+by this current status and the linked implementation guides.
 
 Three subagents can run concurrently with the coordinating agent. Remaining agents
 start as slots become available. Each workstream must report implemented behavior,
@@ -31,10 +54,10 @@ operation is not implied by a small replication/sharding implementation.
 | Persistent transport sessions | `persistent_transport` — implemented/tested | Reuse bounded TLS/Unix sessions with framing, deadlines, shutdown and authentication on every operation; test rotation/expiry between requests and uncertain writes | Pooling, cancellation and backpressure |
 | Authorization traversal | `visibility_scaling` — snapshot slice implemented/tested | Memoize completed visibility safely in an immutable authorization context; correct cycles and negative results; retain every transaction dependency and final revocation gate; shared-chain scaling test | Cache bounds, invalidation cost and policy/reference-graph stress testing |
 | Schema/compiler scaling | `schema_compiler_scaling` — implemented/tested | Deterministic graph-based module ordering; precomputed name lookup; reference/cycle/duplicate tests and long-chain scaling | Large-catalog tooling and declaration/contract compilation costs |
-| Richer constraints and schema evolution | `constraints_evolution` — typed check slice implemented/tested | A bounded conservative evolution/constraint slice with stable identities, compatibility planning and transactional enforcement | Cardinality bounds, deferred constraints, explicit conversion/backfill plans, safe destructive lifecycle and ownership transfer |
+| Richer constraints and schema evolution | Typed constraints implemented/tested | Stable identities, conservative planning, explicit NULL/finite floats, CHECKs, authorized cascades and explicitly deferred foreign keys | Cardinality bounds, deferred UNIQUE/CHECK, explicit conversion/backfill plans, safe destructive lifecycle and ownership transfer |
 | Durable views | `durable_views` — native slice implemented/tested | Durable typed view definition and authorized execution across restart; live revocation, dependency validation and read-only behavior | Materialized maintenance, published disclosures, richer composition and schema evolution |
-| Storage beyond RAM | `disk_backed_reads` — immutable read lease implemented/tested | Inspect physical backend boundary; implement a bounded disk-backed serving slice only with snapshot/index parity and measured memory evidence | Lazy working sets/indexes, bounded caches, eviction, recovery and large-database benchmarks |
-| Replication | `replication` — trusted-host slice implemented/tested | Versioned ordered replication boundary with atomic apply, duplicate/gap/divergence handling and recovery tests; clearly state topology and trust assumptions | Authenticated streaming, follower lifecycle, lag/backpressure, failover and consensus |
+| Storage beyond RAM | Mutable paged engine implemented/tested | Disk-backed current rows/indexes with bounded caches, transactions, SQL, SDKs and remote access; explicit offline resident/paged import | Cache efficiency, allocation/footprint measurements, safe tombstone reclamation and broader workloads beyond cache capacity |
+| Replication and consensus | Trusted-host followers and optional static OpenRaft implemented/tested | Atomic ordered apply, durable cursors, quorum acknowledgements, fenced failover, bounded recovery and explicit topology/trust boundaries | Production authenticated peer serving, snapshot transfer/log compaction, membership changes and stronger operational tooling |
 | Sharding | `sharding` — fixed local routing implemented/tested | Explicit stable partition/routing contract and bounded executable behavior, with cross-shard invariants stated and tested | Routing changes, rebalancing, global constraints, cross-shard transactions and distributed authorization |
 
 ## Performance review checklist
@@ -228,7 +251,7 @@ The subsequent adoption milestone is recorded below:
 | redb → SQLite WAL / RocksDB | Completed; retain redb | All ~4 ms/durable group with matched platform flush; 32-record throughput within ~2.4% of redb; reopen/process-loss tests pass; sustained compaction and full-engine adapters remain unmeasured |
 
 No candidate is adopted just because an upstream microbenchmark claims it is faster.
-See [candidate decisions and reproduction links](docs/benchmarks/CANDIDATES.md).
+See candidate decisions and reproduction links (historical results removed).
 
 Final post-experiment shared-checkout verification passed all **320 Rust tests**,
 including the doctest, and strict all-target Clippy. The frozen imbl comparison
@@ -258,7 +281,7 @@ construction, precise transaction read dependencies, larger-than-catalog-budget
 queries, hard CPU/RSS isolation, wider checked arithmetic/aggregate coverage, and
 broader dialect compatibility. The current pool and deadlines are accounting and
 cooperative limits, not a sandbox against arbitrary untrusted SQL. Point queries
-can be slower than SQLite; the [native benchmark](docs/benchmarks/DATAFUSION-NATIVE.md)
+can be slower than SQLite; the native benchmark (historical results removed)
 separates catalog setup, planning and warm execution from raw candidate results.
 
 
@@ -300,7 +323,7 @@ Remaining work: indexed join probes driven by join results, native ordered-range
 and top-k pushdown, cheaper changed-parameter planning, precise transactional read
 dependencies, larger-than-RAM serving and hard CPU/RSS isolation. Numeric range
 queries still materialize their candidates before DataFusion sorts them. The
-[paired benchmark](docs/benchmarks/DATAFUSION-INDEXED.md) separates unprimed source
+paired benchmark (historical results removed) separates unprimed source
 conversion from warm repeats and compares both previous adapters with SQLite.
 
 Integrated verification: **363 Rust tests including the doctest** and **50
@@ -342,7 +365,7 @@ Next SQL pain points, in priority order:
    beyond the bounded page cache still pay conversion costs. Native engine state
    still lives in RAM, and SQL transaction read dependencies remain conservative.
 
-The [follow-up benchmark](docs/benchmarks/DATAFUSION-RANGE-EXISTS.md) records
+The follow-up benchmark (historical results removed) records
 measurement boundaries and both previous adapters alongside SQLite.
 
 All eighteen benchmark processes passed result checks. At 180k occurrences,
@@ -381,7 +404,7 @@ Remaining boundaries:
 - SQL transaction read dependencies remain conservative; native state and indexes
   remain memory-resident.
 
-See [the execution benchmark](docs/benchmarks/DATAFUSION-EXECUTION.md) and
+See the execution benchmark (historical results removed) and
 [independent review](docs/reviews/DATAFUSION-EXECUTION.md). The
 [beyond-SQL investigation](docs/PERFORMANCE-BEYOND-SQL.md) prioritizes duplicated
 redo encoding, unnecessary index updates, authorization work under the publication
@@ -421,8 +444,8 @@ visibility changes conservatively invalidate all unscoped retained readers.
 Final verification: **430 Rust tests including the doctest**, **53 TypeScript
 tests**, strict all-target Clippy, formatting, and working local/TLS examples.
 Two independent reviews completed and all concrete findings were fixed. Final
-paired reports: [tiny joins](docs/benchmarks/TINY-JOINS.md) and
-[native overheads](docs/benchmarks/NATIVE-OVERHEADS.md), with raw data from both
+paired reports: tiny joins (historical results removed) and
+native overheads (historical results removed), with raw data from both
 iterations. At 180,000 occurrences the two tiny admin joins improved about 36×.
 32-field partial updates improved about 3.8× and selected native projection
 about 34×. Restricted non-join reads still show new visibility overhead; full
@@ -454,8 +477,193 @@ formatting, independent review, and exact benchmark result checks. One manual
 performance probe remains ignored. The review-found capacity disclosure and a
 second-boundary race in the TLS expiry test are fixed. Full results, SQLite
 controls, cold-handle costs, limitations, raw data and fingerprints are in
-[READ-REGRESSIONS](docs/benchmarks/READ-REGRESSIONS.md).
+READ-REGRESSIONS (historical results removed).
 
 Remaining performance work includes owned-result payload allocation/copying,
 sustained writer pressure under unlimited readers, cold SQL setup, broader SQL
 plan eligibility, and the previously documented durable synchronization costs.
+
+
+### Scale measurements (2026-10-25)
+
+The scale/concurrency report (historical results removed) and raw measurements now
+cover 100–10,000,000 total application rows, 1–256 clients, resource usage, durable
+TPS, query output parity, and process-crash recovery. Completed and resource-limited
+runs are distinguished. Substrate completed one million rows but its ten-million
+load hit a 5 GiB process-footprint guard after 2.619 million confirmed rows.
+Resident state/index overhead, recovery/checkpoint allocations, durable write
+amplification, and large query paths remain priorities. This
+benchmark work does not implement a larger-than-RAM mutable working set or establish
+a production concurrency maximum.
+
+### Capacity tuning after the scale measurements (2026-10-25)
+
+Implemented and tested: atomic publication of data/authorization/failure state;
+fresh-snapshot authority payload reuse without retaining old row state; adaptive
+singleton/small-array index postings; configurable backend cache (64 MiB default);
+direct checkpoint replacements and skipping discarded redo encoding; persistence
+stage counters; 128-transaction groups with a 500 µs collection window only under
+current/recent concurrent demand; authorized indexed execution for a bounded subset
+of correlated EXISTS queries. The default checkpoint bound remains 128 commits or
+8 MiB: experiments with larger bounds increased checkpoint tail latency.
+
+The capacity report (historical results removed) contains sustained before/
+after comparisons, SQLite/PostgreSQL controls, raw counters, query parity, and
+resource-limited larger-load results. The full Rust library/integration suite passed
+470 tests; all 16 commit tests and five benchmark-example tests passed, along with
+strict Clippy. Enqueue notifications now fire only when a batch fill threshold is
+crossed; completion still wakes all callers. The final sustained measurements
+include this fix for unnecessary thread wakeups.
+Three subagents implemented/reviewed the snapshot, posting, and EXISTS changes.
+
+At this earlier resident-only milestone, mutable disk-backed serving was missing.
+The [paged engine](docs/PAGED-STORAGE.md) now supplies it. Remaining resident work
+includes packed/chunked rows, compact internal handles, safe reclamation of
+historical conflict keys and larger-scale recovery without rebuilding resident indexes. Fresh reads still do not
+scale linearly with cores; analytical joins/window execution and storage write
+amplification need further work. Immutable disk read leases alone do not fill that
+gap; mutable paged storage is a separate backend. No PostgreSQL parity or production writer maximum is claimed.
+
+### Shared ownership and indexed partition reads (2026-10-25)
+
+Implemented: `Session::get` for fresh owned point reads, borrowing publication and
+authority handles on warm unscoped scalar reads; transaction construction moves
+temporary handles; bounded top-one-per-identity SQL windows use authorized index
+probes; checkpoint encoding borrows rows and accepted operations. Existing snapshot
+semantics, capability scopes, reference visibility, durable acknowledgements and
+entry/release revocation checks remain. Shared `Arc` ownership is retained.
+
+The ownership/query report (historical results removed) includes
+million-record before/after runs, SQLite controls, failed optimization experiments,
+native stack samples and reproduction. The new API's gain does not apply to
+unchanged snapshot callers, capability-scoped credentials or relationship reads.
+The SQL optimization applies to a proven deterministic, bounded ROW_NUMBER shape;
+general analytical queries retain DataFusion. Three subagents implemented and
+reviewed the read, SQL and checkpoint changes; the integrated Rust suite passed
+483 tests, with two manual performance probes ignored (storage probe run separately).
+
+Next bottlenecks, in evidence order:
+
+1. **Checkpoint write amplification:** roughly 880 KB of backend writes per 7.3 KB
+   encoded row payload in the storage probe. Atomic log-table recreation wrote
+   exactly the same bytes and was rejected. A compact versioned segment/delta
+   checkpoint with crash-safe compaction needs a separate format milestone.
+2. **Mutable data beyond RAM:** rows and indexes still materialize in memory;
+   bounded cache serving and recovery without rebuilding all resident indexes remain.
+3. **Retained/scoped read contention:** global weak-handle upgrades remain in the
+   retained snapshot path; the new fresh-session shortcut deliberately excludes
+   capability-scoped and reference-bearing reads.
+4. **Result allocation and wider analytical plans:** owned rows still copy selected
+   payloads, and unbounded joins/grouping/windows retain their general execution cost.
+
+See backend I/O evidence (historical results removed) for actual backend-call
+bytes rather than estimates of device traffic. No new write-throughput improvement
+or PostgreSQL parity is claimed by this read-focused milestone.
+
+### Checkpoint amplification, conflict memory and scoped reads (2026-10-25)
+
+The next follow-up addresses three items above:
+
+- V3 checkpoints retain a bounded map of latest row overrides/tombstones, partially
+  flushing sorted non-pending entries into the base. Both 4,096-key and 8 MiB bounds
+  are enforced at every durable checkpoint; rows, metadata, manifest, head and redo
+  pruning remain one Immediate transaction. V1/V2 recovery is supported, with an
+  atomic upgrade on the next checkpoint. Older binaries cannot open V3 files.
+- Conflict timestamps use typed maps grouped by relation/role instead of repeating
+  large enum keys. All historical keys remain for correct optimistic conflicts;
+  this is a layout change, not tombstone reclamation.
+- Warm scoped scalar reads reuse compiled capabilities while retaining entry and
+  release authorization checks. `Session::get_shared` avoids owned payload copies;
+  expiry clock reads avoid unnecessary shared atomic writes within the same second.
+  Relationship reads keep the complete reference-visibility path.
+- Compiled grants are grouped by principal and relation. Runtime permission checks
+  borrow principal names without allocating lookup keys; ordered durable grant
+  declarations and capability isolation remain unchanged.
+
+The follow-up report (historical results removed) separates whole-engine
+before/after measurements from isolated allocation and read probes. It includes
+SQLite/PostgreSQL controls, query parity, crash recovery, and rejected checkpoint
+experiments. [The shared-read example](examples/shared_reads.rs) demonstrates
+filtered capability access, immutable returned rows and live revocation.
+
+Still outstanding: mutable serving beyond RAM; compact resident row handles and
+payloads; safe conflict-key reclamation; startup without rebuilding all indexes;
+lower checkpoint page amplification; broader analytical execution; and scoped
+reference traversal. Partial checkpoint merging reduces measured I/O but retains
+synchronous merge costs and needs tail-latency monitoring. Shared rows retain their
+payload until released. No production concurrency maximum or PostgreSQL parity is
+claimed.
+
+
+### Paged native current storage (2026-10-25)
+
+The opt-in `paged::PagedDatabase` stores current rows, ordered role/unique/incoming
+indexes, allocated identities and conflict timestamps in redb with bounded caches.
+Opening compiles the bounded catalog without rebuilding rows/indexes. Typed native
+writes, independent point transactions, additive schema installation, retained
+snapshots, visibility/grants, bounded pages and crash recovery are implemented.
+See [paged storage](docs/PAGED-STORAGE.md) for the exact boundary.
+
+Follow-up integration now implements paged DataFusion SQL, existing SDK/local/TLS
+transport, scoped credentials, rotation/expiry/delegation/live revocation, runtime
+schema proposal/install, named/typed operations and nested reads. Repeated table
+opens, quadratic batch uniqueness, redundant scan seeks and row sizing allocations
+were removed. Bound inner equijoins now use reusable index probes. New LPG2 files
+omit redundant singleton-unique role postings; legacy LPG1 layouts are preserved.
+See integration benchmarks (historical results removed), including the
+remaining cold-read, aggregate and large-load costs.
+
+Whole-family scalar COUNT/checked SUM/numeric MIN/MAX now have a bounded streaming
+path with compiled row policies, full reference validation, and a bidirectional
+target cursor. It removes cache churn, page copies and Arrow conversion for this
+shape. Typed WHERE/FILTER comparisons and direct-field GROUP BY now compile too:
+selective ranges use validated role/unique indexes, broad scans stream, and group
+state has an explicit 32 MiB/query-limit ceiling. Compiled singleton read/join
+probes avoid whole-row copies and generic pages. DISTINCT, HAVING, expression
+keys, windows and broader analytics retain DataFusion. Paging and reference
+validation still have measurable costs. See the
+small-read and filtered/grouped follow-up (historical results removed).
+See the aggregate follow-up (historical results removed) for the repeated
+SQLite/PostgreSQL comparison and reverse-reference control.
+
+[Paged group commit, replication and bounded resident conversion](docs/PAGED-REPLICATION.md)
+now work. Remaining paged work includes persistent named-view management, broader
+range/order/analytic SQL parity and disk-version/tombstone reclamation. Resident `Database` still needs its current
+working set in RAM. Cache budgets are not hard process RSS limits; larger-than-cache
+capacity results must not be advertised as zero-cost paging or production readiness.
+
+
+Broad scans now reuse value-slot arrays, and single-field groups use borrowed hash
+lookups plus a bounded numeric cache. Authorization/reference validation and the
+32 MiB group-state limit remain intact. Physical cache misses, per-reference row
+validation, variable payload allocation and multi-field group keys remain costs.
+Read-ahead, threaded prefetch and a redb cursor fork were measured and rejected;
+none ships. See the same-runner follow-up (historical results removed).
+
+Fixed-width SQL aggregate sources now use validated compiled offsets and direct
+numeric/reference accessors, with the general authorized path retained for
+unsupported schemas and row filters. Singleton streaming setup is lazy. Retaining
+batches of row guards was tested and rejected after million-record regressions.
+The packed-scan follow-up (historical results removed) records modest
+broad/grouped median gains, other regressions and an 18% wider-record scanner
+improvement; it does not establish universal non-regression or PostgreSQL parity.
+
+Before dense storage, the million-record broad query requested about 168 MiB
+through 42,973 backend reads. A dense family-block experiment (historical results removed)
+provided evidence for the new production LPG3 family-block layout. The physical
+row store now sits below native, SQL, reference and SDK operations; existing
+LPG1/LPG2 files remain supported. Automatic legacy conversion and background
+sparse-block compaction remain unimplemented. Separate index/identity/version
+B-trees and reference visibility work still contribute to scan and storage cost.
+
+The [latest dense comparison](docs/benchmarks/latest/README.md) measures
+80.59 MiB through 20,631 backend requests per broad query. Borrowed index
+visitation and compiled fixed-key checks reduce indexed aggregate CPU without
+changing backend request counts. Broad/full scans still trail PostgreSQL by
+9.0%/15.0%; small-group grouping is faster, but filtered and wider grouping remain
+slower. Loading issues unchanged backend writes and sync requests, and its
+serial transactions cannot demonstrate group-commit amortization. Next work
+includes native aggregate pushdown, small-read variance, allocator reservation,
+index/tombstone space, reference-validation work and serial write amplification.
+Production durable-update amplification and concurrent TPS for LPG3 still need
+separate measurements.

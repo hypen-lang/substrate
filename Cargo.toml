@@ -6,13 +6,18 @@ rust-version = "1.94"
 description = "A transactional prototype of Liquid SQL's composable relational model"
 license = "MIT OR Apache-2.0"
 
+[features]
+consensus = ["dep:openraft"]
+
 [dependencies]
+openraft = { version = "=0.9.25", features = ["serde", "storage-v2"], optional = true }
+arc-swap = "=1.9.3"
 async-trait = "0.1"
 datafusion = { version = "=55.0.0", default-features = false, features = ["sql", "string_expressions", "unicode_expressions", "regex_expressions", "recursive_protection"] }
 tokio = { version = "1.53.2", features = ["rt-multi-thread", "time", "sync"] }
 futures = "0.3.31"
 im = { package = "imbl", version = "=7.0.2" }
-redb = "3.1.3"
+redb = { version = "=3.1.3", path = "vendor/redb" }
 rusqlite = { version = "0.32.1", features = ["bundled", "vtab", "modern_sqlite", "hooks", "limits"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
@@ -26,6 +31,7 @@ subtle = "2.6.1"
 mio = { version = "1.2.3", features = ["os-poll", "net"] }
 
 [dev-dependencies]
+libc = "0.2"
 proptest = "1.11.0"
 tempfile = "3.27.0"
 
@@ -59,3 +65,7 @@ harness = false
 [[bench]]
 name = "schema_install"
 harness = false
+
+[[example]]
+name = "consensus_failover"
+required-features = ["consensus"]

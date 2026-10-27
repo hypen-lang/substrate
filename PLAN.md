@@ -85,7 +85,7 @@ Final combined verification: 132 Rust tests + 1 doctest, 18 TypeScript tests,
 
 Final verification: 154 Rust tests + 1 doctest, 23 TypeScript tests, 1,152 generated
 property cases; both process examples, formatting and Clippy pass. See
-[workflow](docs/SCHEMA-CONTROL.md) and [measurements](docs/benchmarks/SCHEMA-CONTROL.md).
+[workflow](docs/SCHEMA-CONTROL.md) and measurements (historical results removed).
 
 Remaining at the schema-control milestone: delegation, remote authenticated transport,
 strict live revocation,

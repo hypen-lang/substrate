@@ -585,3 +585,133 @@ proptest::proptest! {
         snapshot.verify_indexes().unwrap();
     }
 }
+
+#[test]
+fn collection_window_does_not_delay_an_isolated_writer() {
+    let db = Database::memory_with_commit_options(GroupCommitOptions {
+        collection_window: Duration::from_millis(100),
+        ..GroupCommitOptions::default()
+    })
+    .unwrap();
+    let id = setup(&db);
+    for i in 0..5 {
+        let mut tx = db.admin().transaction();
+        tx.update("core.Person", id, vec![Value::Text(format!("v{i}"))])
+            .unwrap();
+        tx.commit().unwrap();
+    }
+    // Verify the decision directly, not a scheduler-sensitive elapsed threshold.
+    assert_eq!(db.group_commit_stats().collection_windows, 0);
+    assert_eq!(db.group_commit_stats().largest_group, 1);
+}
+
+fn wait_for_pending(db: &Database, count: usize) {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        {
+            let queue = db.coordinator.queue.lock().unwrap();
+            if queue.active && queue.pending.len() == count {
+                return;
+            }
+        }
+        assert!(Instant::now() < deadline, "submitter did not reach queue");
+        std::thread::yield_now();
+    }
+}
+
+#[test]
+fn collection_wakes_at_count_or_byte_fill_without_per_arrival_broadcasts() {
+    // Check exact count fill, exact byte fill, and crossing the byte limit.
+    for mode in 0..3 {
+        let mut db = Database::memory();
+        setup(&db);
+        let requests: Vec<_> = (0..3)
+            .map(|_| {
+                let mut tx = db.admin().transaction();
+                tx.insert("core.Person", vec!["equal-size".into()]).unwrap();
+                request(tx)
+            })
+            .collect();
+        let bytes = requests[0].bytes;
+        let coordinator = Arc::get_mut(&mut db.coordinator).unwrap();
+        coordinator.options.collection_window = Duration::from_secs(1);
+        coordinator.options.max_group_transactions = if mode == 0 { 3 } else { 100 };
+        coordinator.options.max_group_bytes = match mode {
+            1 => bytes * 3,
+            2 => bytes * 3 - 1,
+            _ => usize::MAX,
+        };
+        coordinator.queue.get_mut().unwrap().previous_group_size = 2;
+        let (done, received) = std::sync::mpsc::channel();
+        let mut threads = Vec::new();
+        for (i, request) in requests.into_iter().enumerate() {
+            let db_clone = db.clone();
+            let done = done.clone();
+            threads.push(std::thread::spawn(move || {
+                let result = db_clone.coordinator.submit(&db_clone.head, request);
+                done.send((i, result)).unwrap();
+            }));
+            if i < 2 {
+                wait_for_pending(&db, i + 1);
+                assert_eq!(
+                    db.coordinator.queue.lock().unwrap().enqueue_notifications,
+                    0
+                );
+            }
+        }
+        // Filling the queue must wake the collector before its one-second
+        // deadline. With an overflowing last request only the first two fit.
+        let expected_immediate = if mode == 2 { 2 } else { 3 };
+        let mut results = Vec::new();
+        for _ in 0..expected_immediate {
+            results.push(received.recv_timeout(Duration::from_millis(500)).unwrap());
+        }
+        while results.len() < 3 {
+            results.push(received.recv_timeout(Duration::from_secs(2)).unwrap());
+        }
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        results.sort_by_key(|(i, _)| *i);
+        assert_eq!(
+            results
+                .into_iter()
+                .map(|(_, r)| r.unwrap())
+                .collect::<Vec<_>>(),
+            vec![2, 3, 4]
+        );
+        assert_eq!(
+            db.coordinator.queue.lock().unwrap().enqueue_notifications,
+            1
+        );
+        db.admin().snapshot().verify_indexes().unwrap();
+    }
+}
+
+#[test]
+fn partial_collection_completes_on_deadline_without_an_enqueue_notification() {
+    let mut db = Database::memory();
+    let id = setup(&db);
+    let coordinator = Arc::get_mut(&mut db.coordinator).unwrap();
+    coordinator.options.collection_window = Duration::from_millis(20);
+    coordinator.queue.get_mut().unwrap().previous_group_size = 2;
+    let (done, received) = std::sync::mpsc::channel();
+    let worker = db.clone();
+    let thread = std::thread::spawn(move || {
+        let mut tx = worker.admin().transaction();
+        tx.update("core.Person", id, vec!["after-deadline".into()])
+            .unwrap();
+        done.send(tx.commit()).unwrap();
+    });
+    assert_eq!(
+        received
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap()
+            .unwrap(),
+        2
+    );
+    thread.join().unwrap();
+    let queue = db.coordinator.queue.lock().unwrap();
+    assert_eq!(queue.enqueue_notifications, 0);
+    assert_eq!(queue.stats.collection_windows, 1);
+}

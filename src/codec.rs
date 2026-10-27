@@ -7,6 +7,7 @@ use crate::{
 use std::io::{Cursor, Read};
 const MAGIC: &[u8; 4] = b"LQ01";
 const MAGIC_V2: &[u8; 4] = b"LQ02";
+const MAGIC_V3: &[u8; 4] = b"LQ03";
 fn invalid() -> Error {
     Error::Storage("invalid or unsupported Liquid log record".into())
 }
@@ -24,6 +25,7 @@ fn len(out: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
 /// obey the same wire contract; no encoded metadata buffer is retained.
 pub(crate) fn encoded_len(ops: &[Op], schema: &State) -> Result<usize> {
     u32::try_from(ops.len()).map_err(|_| invalid())?;
+    let v3 = uses_v3(ops, schema);
     let v2 = uses_v2(ops);
     let mut total = 16usize;
     let mut add = |n: usize| -> Result<()> {
@@ -33,30 +35,13 @@ pub(crate) fn encoded_len(ops: &[Op], schema: &State) -> Result<usize> {
     for op in ops {
         match op {
             Op::Put(tid, row) => {
-                add(33)?;
-                let def = schema.relations.get(tid).ok_or_else(invalid)?;
-                if row.values.len() != def.roles.len() {
-                    return Err(invalid());
-                }
-                for (role, value) in def.roles.iter().zip(row.values.iter()) {
-                    if !role.data_type.accepts(value) {
-                        return Err(invalid());
-                    }
-                    let size = match value {
-                        Value::Bool(_) => 1,
-                        Value::Int(_) | Value::Decimal(_) | Value::Timestamp(_) => 8,
-                        Value::Ref(_) => 16,
-                        Value::Text(value) => variable_len(value.len())?,
-                        Value::Bytes(value) => variable_len(value.len())?,
-                    };
-                    add(size)?;
-                }
+                add(row_payload_len(*tid, row, schema)?)?;
             }
             Op::Identity(_) => add(17)?,
             Op::Delete(_, _) => add(33)?,
             _ => {
                 let mut counter = JsonSize(0);
-                if v2 {
+                if v3 || v2 {
                     serde_json::to_writer(&mut counter, &crate::wire::EventV2::from_op(op)?)
                 } else {
                     serde_json::to_writer(&mut counter, &crate::wire::EventV1::from_op(op)?)
@@ -91,9 +76,33 @@ fn uses_v2(ops: &[Op]) -> bool {
     ops.iter()
         .any(|op| matches!(op, Op::Install(m) if m.relations.iter().any(|r| !r.checks.is_empty())))
 }
+fn uses_v3(ops: &[Op], schema: &State) -> bool {
+    ops.iter().any(|op| {
+        crate::wire::event_v3(op)
+            || match op {
+                Op::Put(tid, _) => schema
+                    .relations
+                    .get(tid)
+                    .is_some_and(|r| crate::wire::relation_v3(r)),
+                Op::Delete(..) => schema
+                    .relations
+                    .values()
+                    .any(|r| crate::wire::relation_v3(r)),
+                _ => false,
+            }
+    })
+}
 pub(crate) fn encode(revision: u64, ops: &[Op], schema: &State) -> Result<Vec<u8>> {
+    let v3 = uses_v3(ops, schema);
     let v2 = uses_v2(ops);
-    let mut out = if v2 { MAGIC_V2 } else { MAGIC }.to_vec();
+    let mut out = if v3 {
+        MAGIC_V3
+    } else if v2 {
+        MAGIC_V2
+    } else {
+        MAGIC
+    }
+    .to_vec();
     out.extend(revision.to_le_bytes());
     out.extend(
         u32::try_from(ops.len())
@@ -102,29 +111,7 @@ pub(crate) fn encode(revision: u64, ops: &[Op], schema: &State) -> Result<Vec<u8
     );
     for op in ops {
         match op {
-            Op::Put(tid, row) => {
-                out.push(1);
-                out.extend(tid.0.as_bytes());
-                out.extend(row.id.0.as_bytes());
-                let def = schema.relations.get(tid).ok_or_else(invalid)?;
-                if row.values.len() != def.roles.len() {
-                    return Err(invalid());
-                }
-                for (role, value) in def.roles.iter().zip(row.values.iter()) {
-                    if !role.data_type.accepts(value) {
-                        return Err(invalid());
-                    }
-                    match value {
-                        Value::Bool(v) => out.push(u8::from(*v)),
-                        Value::Int(v) | Value::Decimal(v) | Value::Timestamp(v) => {
-                            out.extend(v.to_le_bytes())
-                        }
-                        Value::Ref(id) => out.extend(id.0.as_bytes()),
-                        Value::Text(v) => len(&mut out, v.as_bytes())?,
-                        Value::Bytes(v) => len(&mut out, v)?,
-                    }
-                }
-            }
+            Op::Put(tid, row) => encode_put(&mut out, *tid, row, schema)?,
             Op::Identity(id) => {
                 out.push(2);
                 out.extend(id.0.as_bytes());
@@ -138,7 +125,7 @@ pub(crate) fn encode(revision: u64, ops: &[Op], schema: &State) -> Result<Vec<u8
                 out.push(0);
                 len(
                     &mut out,
-                    &if v2 {
+                    &if v3 || v2 {
                         serde_json::to_vec(&crate::wire::EventV2::from_op(op)?)
                     } else {
                         serde_json::to_vec(&crate::wire::EventV1::from_op(op)?)
@@ -149,6 +136,78 @@ pub(crate) fn encode(revision: u64, ops: &[Op], schema: &State) -> Result<Vec<u8
         }
     }
     Ok(out)
+}
+/// A checkpoint row uses the same single-Put LQ01 record as before, but borrows
+/// its canonical row rather than allocating a temporary boxed payload and Op.
+pub(crate) fn encode_checkpoint_row(tid: Id, row: &Row, schema: &State) -> Result<Vec<u8>> {
+    let def = schema.relations.get(&tid).ok_or_else(invalid)?;
+    let mut out = if crate::wire::relation_v3(def) {
+        MAGIC_V3
+    } else {
+        MAGIC
+    }
+    .to_vec();
+    out.extend(0u64.to_le_bytes());
+    out.extend(1u32.to_le_bytes());
+    encode_put(&mut out, tid, row, schema)?;
+    Ok(out)
+}
+pub(crate) fn encoded_checkpoint_row_len(tid: Id, row: &Row, schema: &State) -> Result<usize> {
+    row_payload_len(tid, row, schema)?
+        .checked_add(16)
+        .ok_or_else(invalid)
+}
+fn row_payload_len(tid: Id, row: &Row, schema: &State) -> Result<usize> {
+    let def = schema.relations.get(&tid).ok_or_else(invalid)?;
+    if row.values.len() != def.roles.len() {
+        return Err(invalid());
+    }
+    def.roles
+        .iter()
+        .zip(row.values.iter())
+        .try_fold(33usize, |total, (role, value)| {
+            if !role.data_type.accepts(value) {
+                return Err(invalid());
+            }
+            let size = match value {
+                Value::Bool(_) => 1,
+                Value::Int(_) | Value::Decimal(_) | Value::Timestamp(_) | Value::Float(_) => 8,
+                Value::Null => 0,
+                Value::Ref(_) => 16,
+                Value::Text(value) => variable_len(value.len())?,
+                Value::Bytes(value) => variable_len(value.len())?,
+            };
+            total
+                .checked_add(size + usize::from(role.data_type.is_nullable()))
+                .ok_or_else(invalid)
+        })
+}
+fn encode_put(out: &mut Vec<u8>, tid: Id, row: &Row, schema: &State) -> Result<()> {
+    out.push(1);
+    out.extend(tid.0.as_bytes());
+    out.extend(row.id.0.as_bytes());
+    let def = schema.relations.get(&tid).ok_or_else(invalid)?;
+    if row.values.len() != def.roles.len() {
+        return Err(invalid());
+    }
+    for (role, value) in def.roles.iter().zip(row.values.iter()) {
+        if !role.data_type.accepts(value) {
+            return Err(invalid());
+        }
+        if role.data_type.is_nullable() {
+            out.push(u8::from(!matches!(value, Value::Null)));
+        }
+        match value {
+            Value::Null => {}
+            Value::Float(v) => out.extend(v.get().to_le_bytes()),
+            Value::Bool(v) => out.push(u8::from(*v)),
+            Value::Int(v) | Value::Decimal(v) | Value::Timestamp(v) => out.extend(v.to_le_bytes()),
+            Value::Ref(id) => out.extend(id.0.as_bytes()),
+            Value::Text(v) => len(out, v.as_bytes())?,
+            Value::Bytes(v) => len(out, v)?,
+        }
+    }
+    Ok(())
 }
 fn bytes<const N: usize>(input: &mut Cursor<&[u8]>) -> Result<[u8; N]> {
     let mut bytes = [0; N];
@@ -235,7 +294,8 @@ fn replay_inner(
 ) -> Result<()> {
     let mut input = Cursor::new(data);
     let magic = bytes::<4>(&mut input)?;
-    if (&magic != MAGIC && &magic != MAGIC_V2) || u64::from_le_bytes(bytes(&mut input)?) != revision
+    if (&magic != MAGIC && &magic != MAGIC_V2 && &magic != MAGIC_V3)
+        || u64::from_le_bytes(bytes(&mut input)?) != revision
     {
         return Err(invalid());
     }
@@ -243,6 +303,7 @@ fn replay_inner(
     if (row_key.is_some() || catalog_key.is_some()) && count != 1 {
         return Err(invalid());
     }
+    let mut reference_ops = Vec::new();
     for _ in 0..count {
         let tag = bytes::<1>(&mut input)?[0];
         if (catalog && !matches!(tag, 0 | 2)) || (row_key.is_some() && tag != 1) {
@@ -251,7 +312,11 @@ fn replay_inner(
         let op = match tag {
             0 => {
                 let json = variable(&mut input)?;
-                let op = if &magic == MAGIC_V2 {
+                let op = if &magic == MAGIC_V3 {
+                    serde_json::from_slice::<crate::wire::EventV3>(&json)
+                        .map_err(|_| invalid())?
+                        .into_op()
+                } else if &magic == MAGIC_V2 {
                     serde_json::from_slice::<crate::wire::EventV2>(&json)
                         .map_err(|_| invalid())?
                         .into_op()
@@ -260,7 +325,9 @@ fn replay_inner(
                         .map_err(|_| invalid())?
                         .into_op()
                 };
-                if !matches!(op, Op::Install(_) | Op::Grant(..) | Op::SchemaGrant(..)) {
+                if (&magic != MAGIC_V3 && crate::wire::event_v3(&op))
+                    || !matches!(op, Op::Install(_) | Op::Grant(..) | Op::SchemaGrant(..))
+                {
                     return Err(invalid());
                 }
                 op
@@ -278,27 +345,13 @@ fn replay_inner(
                 }
                 let def = state.relations.get(&tid).ok_or_else(invalid)?;
                 let mut values = Vec::with_capacity(def.roles.len());
-                for role in &def.roles {
-                    values.push(match role.data_type {
-                        DataType::Bool => match bytes::<1>(&mut input)?[0] {
-                            0 => Value::Bool(false),
-                            1 => Value::Bool(true),
-                            _ => return Err(invalid()),
-                        },
-                        DataType::Int => Value::Int(i64::from_le_bytes(bytes(&mut input)?)),
-                        DataType::Decimal { .. } => {
-                            Value::Decimal(i64::from_le_bytes(bytes(&mut input)?))
-                        }
-                        DataType::Timestamp => {
-                            Value::Timestamp(i64::from_le_bytes(bytes(&mut input)?))
-                        }
-                        DataType::Text => Value::Text(
-                            String::from_utf8(variable(&mut input)?).map_err(|_| invalid())?,
-                        ),
-                        DataType::Ref(_) => Value::Ref(id(&mut input)?),
-                        DataType::Bytes => Value::Bytes(variable(&mut input)?),
-                    });
+                if &magic != MAGIC_V3 && crate::wire::relation_v3(def) {
+                    return Err(invalid());
                 }
+                for role in &def.roles {
+                    values.push(decode_value(&role.data_type, &mut input)?);
+                }
+
                 if !state.identities.contains(&row_id) {
                     return Err(invalid());
                 }
@@ -319,16 +372,54 @@ fn replay_inner(
         {
             return Err(invalid());
         }
-        if !catalog && row_key.is_none() {
-            state.validate_replay_order(&op)?;
+        if !catalog && row_key.is_none() && !(&magic == MAGIC_V3 && matches!(op, Op::Delete(..))) {
+            state.validate_replay_order_versioned(&op, &magic == MAGIC_V3)?;
         }
         state.apply_recovered(&op, revision)?;
+        if &magic == MAGIC_V3
+            && !catalog
+            && row_key.is_none()
+            && matches!(op, Op::Put(..) | Op::Delete(..))
+        {
+            reference_ops.push(op.clone());
+        }
         observe(&op);
     }
     if input.position() != data.len() as u64 {
         return Err(invalid());
     }
+    if !reference_ops.is_empty() {
+        state.validate_final_references(&reference_ops)?;
+    }
     Ok(())
+}
+
+pub(crate) fn decode_value(kind: &DataType, input: &mut Cursor<&[u8]>) -> Result<Value> {
+    Ok(match kind {
+        DataType::Nullable(inner) => match bytes::<1>(input)?[0] {
+            0 => Value::Null,
+            1 => decode_value(inner, input)?,
+            _ => return Err(invalid()),
+        },
+        DataType::Float => {
+            let raw = f64::from_le_bytes(bytes(input)?);
+            if raw.to_bits() == (-0.0f64).to_bits() {
+                return Err(invalid());
+            }
+            Value::Float(FiniteFloat::new(raw).map_err(|_| invalid())?)
+        }
+        DataType::Bool => match bytes::<1>(input)?[0] {
+            0 => Value::Bool(false),
+            1 => Value::Bool(true),
+            _ => return Err(invalid()),
+        },
+        DataType::Int => Value::Int(i64::from_le_bytes(bytes(input)?)),
+        DataType::Decimal { .. } => Value::Decimal(i64::from_le_bytes(bytes(input)?)),
+        DataType::Timestamp => Value::Timestamp(i64::from_le_bytes(bytes(input)?)),
+        DataType::Text => Value::Text(String::from_utf8(variable(input)?).map_err(|_| invalid())?),
+        DataType::Bytes => Value::Bytes(variable(input)?),
+        DataType::Ref(_) => Value::Ref(id(input)?),
+    })
 }
 
 #[cfg(test)]
@@ -577,6 +668,16 @@ mod sizing_tests {
             let length = encoded_len(&ops,&state).unwrap();
             prop_assert_eq!(length,encode(0,&ops,&state).unwrap().len());
             prop_assert_eq!(length,encode(u64::MAX,&ops,&state).unwrap().len());
+            let Op::Put(tid, row) = &ops[2] else { unreachable!() };
+            let borrowed = encode_checkpoint_row(*tid, row, &state).unwrap();
+            prop_assert_eq!(encoded_checkpoint_row_len(*tid,row,&state).unwrap(),borrowed.len());
+            prop_assert_eq!(&borrowed, &encode(0,std::slice::from_ref(&ops[2]),&state).unwrap());
+            prop_assert_eq!(&borrowed[..16], b"LQ01\0\0\0\0\0\0\0\0\x01\0\0\0");
+            let mut restored = state.clone();
+            restored.apply(&Op::Identity(row.id), 0);
+            let mut key = tid.0.as_bytes().to_vec(); key.extend(row.id.0.as_bytes());
+            replay_checkpoint_row(&borrowed,0,&key,&mut restored).unwrap();
+            prop_assert_eq!(restored.row(*tid,row.id).unwrap().as_ref(),row);
         }
     }
     #[test]
@@ -606,6 +707,10 @@ mod sizing_tests {
             ),
         ] {
             assert!(encoded_len(std::slice::from_ref(&op), &state).is_err());
+            let Op::Put(tid, row) = &op else {
+                unreachable!()
+            };
+            assert!(encode_checkpoint_row(*tid, row, &state).is_err());
             assert!(encode(0, &[op], &state).is_err());
         }
         assert_eq!(encoded_len(&[], &state).unwrap(), 16);
@@ -614,5 +719,88 @@ mod sizing_tests {
             let mut sink = JsonSize(u32::MAX as usize);
             assert!(std::io::Write::write(&mut sink, &[0]).is_err());
         }
+    }
+}
+
+#[cfg(test)]
+mod nullable_wire_tests {
+    use super::*;
+    #[test]
+    fn new_typed_records_are_versioned_and_reject_noncanonical_scalars() {
+        let relation = Relation::new(
+            "typed.Row",
+            vec![Role::new("value", DataType::Float.nullable())],
+        );
+        let tid = relation.id;
+        let row = Row {
+            id: Id::new(),
+            values: vec![Value::try_from(1.5).unwrap()].into_boxed_slice(),
+        };
+        let mut state = State::default();
+        state.apply(
+            &Op::Install(Module::new("typed", 1, vec![], vec![relation])),
+            1,
+        );
+        state.apply(&Op::Identity(row.id), 1);
+        let encoded = encode_checkpoint_row(tid, &row, &state).unwrap();
+        assert_eq!(&encoded[..4], b"LQ03");
+        assert_eq!(
+            encoded_checkpoint_row_len(tid, &row, &state).unwrap(),
+            encoded.len()
+        );
+        let key = [tid.0.as_bytes().as_slice(), row.id.0.as_bytes()].concat();
+        replay_checkpoint_row(&encoded, 0, &key, &mut state.clone()).unwrap();
+        for end in 0..encoded.len() {
+            assert!(replay_checkpoint_row(&encoded[..end], 0, &key, &mut state.clone()).is_err());
+        }
+        let mut invalid = encoded.clone();
+        invalid[49] = 2;
+        assert!(replay_checkpoint_row(&invalid, 0, &key, &mut state.clone()).is_err());
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.0] {
+            let mut invalid = encoded.clone();
+            invalid[50..58].copy_from_slice(&value.to_le_bytes());
+            assert!(replay_checkpoint_row(&invalid, 0, &key, &mut state.clone()).is_err());
+        }
+        for magic in [b"LQ01", b"LQ02"] {
+            let mut invalid = encoded.clone();
+            invalid[..4].copy_from_slice(magic);
+            assert!(replay_checkpoint_row(&invalid, 0, &key, &mut state.clone()).is_err());
+        }
+    }
+    #[test]
+    fn deferred_redo_still_rejects_a_missing_final_target() {
+        let target = Relation::new("deferred.Target", vec![]);
+        let link = Relation::new(
+            "deferred.Link",
+            vec![Role::new("target", DataType::Ref(target.name.clone())).deferrable()],
+        );
+        let id = Id::new();
+        let missing = Id::new();
+        let ops = vec![
+            Op::Install(Module::new(
+                "deferred",
+                1,
+                vec![],
+                vec![target, link.clone()],
+            )),
+            Op::Identity(id),
+            Op::Put(
+                link.id,
+                Row {
+                    id,
+                    values: vec![missing.into()].into_boxed_slice(),
+                },
+            ),
+        ];
+        let mut staged = State::default();
+        for op in &ops {
+            staged.apply(op, 1);
+        }
+        let encoded = encode(1, &ops, &staged).unwrap();
+        assert_eq!(encoded_len(&ops, &staged).unwrap(), encoded.len());
+        assert!(replay(&encoded, 1, &mut State::default()).is_err());
+        let mut downgraded = encoded;
+        downgraded[..4].copy_from_slice(b"LQ02");
+        assert!(replay(&downgraded, 1, &mut State::default()).is_err());
     }
 }

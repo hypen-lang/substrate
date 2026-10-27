@@ -147,3 +147,32 @@ impl EventV2 {
         }
     }
 }
+
+/// LQ03 adds finite floats, nullable roles and explicit reference actions.
+/// The shape is identical to v2, but its semantic vocabulary is version-gated.
+pub(crate) type EventV3 = EventV2;
+pub(crate) fn relation_v3(r: &Relation) -> bool {
+    r.roles.iter().any(|role| {
+        matches!(role.data_type, DataType::Float | DataType::Nullable(_))
+            || role.deferrable
+            || role.on_delete != OnDelete::Restrict
+    })
+}
+pub(crate) fn event_v3(op: &Op) -> bool {
+    match op {
+        Op::Install(m) => m.relations.iter().any(relation_v3),
+        Op::Grant(
+            _,
+            _,
+            Some(Grant {
+                filter:
+                    RowFilter::Equals {
+                        value: Value::Null | Value::Float(_),
+                        ..
+                    },
+                ..
+            }),
+        ) => true,
+        _ => false,
+    }
+}

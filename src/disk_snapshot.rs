@@ -62,6 +62,13 @@ fn key(tid: Id, id: Id) -> Vec<u8> {
 fn value_hash(value: &Value) -> [u8; 32] {
     let mut h = Sha256::new();
     match value {
+        Value::Null => {
+            h.update([7]);
+        }
+        Value::Float(v) => {
+            h.update([8]);
+            h.update(v.get().to_le_bytes());
+        }
         Value::Bool(v) => {
             h.update([0, u8::from(*v)]);
         }
@@ -103,30 +110,43 @@ fn indexed_key(tid: Id, slot: usize, value: &Value, id: Id) -> Vec<u8> {
     out.extend(id.0.as_bytes());
     out
 }
-fn row_size(row: &Row) -> Result<usize> {
-    row.values.iter().try_fold(4usize + 32 + 32, |size, v| {
-        let n = match v {
-            Value::Bool(_) => 1,
-            Value::Int(_) | Value::Decimal(_) | Value::Timestamp(_) => 8,
-            Value::Ref(_) => 16,
-            Value::Text(v) => 4usize
-                .checked_add(v.len())
-                .ok_or_else(|| error("row size overflow"))?,
-            Value::Bytes(v) => 4usize
-                .checked_add(v.len())
-                .ok_or_else(|| error("row size overflow"))?,
-        };
-        size.checked_add(n)
-            .ok_or_else(|| error("row size overflow"))
-    })
+fn row_size(def: &CompiledRelation, row: &Row) -> Result<usize> {
+    row.values
+        .iter()
+        .zip(&def.roles)
+        .try_fold(4usize + 32 + 32, |size, (v, role)| {
+            let n = match v {
+                Value::Bool(_) => 1,
+                Value::Int(_) | Value::Decimal(_) | Value::Timestamp(_) | Value::Float(_) => 8,
+                Value::Null => 0,
+                Value::Ref(_) => 16,
+                Value::Text(v) => 4usize
+                    .checked_add(v.len())
+                    .ok_or_else(|| error("row size overflow"))?,
+                Value::Bytes(v) => 4usize
+                    .checked_add(v.len())
+                    .ok_or_else(|| error("row size overflow"))?,
+            };
+            size.checked_add(n + usize::from(role.data_type.is_nullable()))
+                .ok_or_else(|| error("row size overflow"))
+        })
 }
-fn encode(tid: Id, row: &Row) -> Result<Vec<u8>> {
-    let mut out = Vec::with_capacity(row_size(row)?);
-    out.extend(b"LDS1");
-    out.extend(tid.0.as_bytes());
+fn encode(def: &CompiledRelation, row: &Row) -> Result<Vec<u8>> {
+    let mut out = Vec::with_capacity(row_size(def, row)?);
+    out.extend(if crate::wire::relation_v3(def) {
+        b"LDS2"
+    } else {
+        b"LDS1"
+    });
+    out.extend(def.id.0.as_bytes());
     out.extend(row.id.0.as_bytes());
-    for v in &row.values {
+    for (v, role) in row.values.iter().zip(&def.roles) {
+        if role.data_type.is_nullable() {
+            out.push(u8::from(!matches!(v, Value::Null)));
+        }
         match v {
+            Value::Null => {}
+            Value::Float(v) => out.extend(v.get().to_le_bytes()),
             Value::Bool(v) => out.push(u8::from(*v)),
             Value::Int(v) | Value::Decimal(v) | Value::Timestamp(v) => out.extend(v.to_le_bytes()),
             Value::Ref(v) => out.extend(v.0.as_bytes()),
@@ -149,20 +169,6 @@ fn take<const N: usize>(c: &mut Cursor<&[u8]>) -> Result<[u8; N]> {
     c.read_exact(&mut bytes).map_err(error)?;
     Ok(bytes)
 }
-fn variable(c: &mut Cursor<&[u8]>) -> Result<Vec<u8>> {
-    let len = u32::from_le_bytes(take(c)?) as usize;
-    let begin = c.position() as usize;
-    let end = begin
-        .checked_add(len)
-        .ok_or_else(|| error("length overflow"))?;
-    let bytes = c
-        .get_ref()
-        .get(begin..end)
-        .ok_or_else(|| error("truncated row"))?
-        .to_vec();
-    c.set_position(end as u64);
-    Ok(bytes)
-}
 fn decode(def: &CompiledRelation, id: Id, bytes: &[u8], max: usize) -> Result<Row> {
     if bytes.len() > max || bytes.len() < 68 {
         return Err(error("invalid row length"));
@@ -172,7 +178,12 @@ fn decode(def: &CompiledRelation, id: Id, bytes: &[u8], max: usize) -> Result<Ro
         return Err(error("row checksum mismatch"));
     }
     let mut c = Cursor::new(body);
-    if take::<4>(&mut c)? != *b"LDS1"
+    let expected_magic = if crate::wire::relation_v3(def) {
+        *b"LDS2"
+    } else {
+        *b"LDS1"
+    };
+    if take::<4>(&mut c)? != expected_magic
         || take::<16>(&mut c)? != *def.id.0.as_bytes()
         || take::<16>(&mut c)? != *id.0.as_bytes()
     {
@@ -180,19 +191,7 @@ fn decode(def: &CompiledRelation, id: Id, bytes: &[u8], max: usize) -> Result<Ro
     }
     let mut values = Vec::with_capacity(def.roles.len());
     for role in &def.roles {
-        values.push(match role.data_type {
-            DataType::Bool => match take::<1>(&mut c)?[0] {
-                0 => Value::Bool(false),
-                1 => Value::Bool(true),
-                _ => return Err(error("invalid bool")),
-            },
-            DataType::Int => Value::Int(i64::from_le_bytes(take(&mut c)?)),
-            DataType::Decimal { .. } => Value::Decimal(i64::from_le_bytes(take(&mut c)?)),
-            DataType::Timestamp => Value::Timestamp(i64::from_le_bytes(take(&mut c)?)),
-            DataType::Ref(_) => Value::Ref(Id(uuid::Uuid::from_bytes(take(&mut c)?))),
-            DataType::Text => Value::Text(String::from_utf8(variable(&mut c)?).map_err(error)?),
-            DataType::Bytes => Value::Bytes(variable(&mut c)?),
-        });
+        values.push(crate::codec::decode_value(&role.data_type, &mut c).map_err(error)?);
     }
     if c.position() != body.len() as u64 {
         return Err(error("trailing row bytes"));
@@ -270,10 +269,10 @@ impl Snapshot {
                     self.live.check_attached()?;
                     let page = self.page_shared(name, None, after, 64)?;
                     for row in &page.rows {
-                        if row_size(row)? > options.max_row_bytes {
+                        if row_size(def, row)? > options.max_row_bytes {
                             return Err(Error::Constraint("row exceeds spill byte limit".into()));
                         }
-                        let bytes = encode(def.id, row)?;
+                        let bytes = encode(def, row)?;
                         let row_key = key(def.id, row.id);
                         tx.open_table(ROWS)
                             .map_err(error)?

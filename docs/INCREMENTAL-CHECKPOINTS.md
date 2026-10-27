@@ -1,5 +1,10 @@
 # Incremental checkpoint storage
 
+This documents the format-2 milestone. The current format-3 overlay, partial
+compaction and upgrade rules are in [ADR 011](adr/011-bounded-checkpoint-overlay.md).
+Checkpoint I/O now runs outside publication locking, and optional background
+checkpoint scheduling is implemented; the mutable working set still resides in RAM.
+
 Checkpoint format 2 updates only the row and catalog entries changed since the previous checkpoint. Repeated changes to one row coalesce to one final upsert or deletion. Additive schema modules, allocated identities, principal grants and schema grants are individually keyed metadata entries, so appending identities no longer rewrites the entire identity catalog every 128 commits.
 
 This addresses the fixed-interval full-rewrite path. It does **not** move checkpoint IO outside the publication lock or make the working set disk-resident. Background checkpoints and larger-than-memory serving remain separate architectural work.
@@ -40,4 +45,4 @@ The checkpoint integration suite and property-based histories also verify refere
 
 Run `cargo run --offline --release --example checkpoint_scaling`. It performs 512, 1,024 and 2,048 single-row durable inserts, checkpoints every 128 inserts, runs three samples per size, then reopens each database and verifies the row count/indexes and an empty redo tail. Timings include immediate-durability commits; they are not memory-only throughput measurements.
 
-Before/after raw results and the measurement discussion are in [the benchmark report](benchmarks/INCREMENTAL-CHECKPOINTS.md). The deterministic entry-write reduction is the primary complexity evidence; wall-clock results depend heavily on shared-machine disk contention.
+Before/after raw results and the measurement discussion are in the benchmark report (historical results removed). The deterministic entry-write reduction is the primary complexity evidence; wall-clock results depend heavily on shared-machine disk contention.

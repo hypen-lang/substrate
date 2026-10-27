@@ -76,38 +76,40 @@ including branches under an empty root. It performs one SQL statement per nonemp
 plan node: Person → Performed → Workout takes three statements for one or hundreds
 of parents. Distinct parent IDs are batched with IN; reverse reads use partitioned
 ROW_NUMBER to apply per-parent limits. Assembly uses maps, not per-parent scans.
-SQLite can perform multiple internal index probes for an IN predicate; the statement
+The SQL engine can perform multiple internal index probes for an IN predicate; the statement
 counter is not an index-probe count or constant-work claim.
 
-The existing authorized virtual-table provider filters inputs and enforces reference
+The authorized DataFusion providers filter inputs and enforces reference
 visibility **before** joins, windows and limits. A link to an invisible participant
 is itself hidden. Selecting an unauthorized family returns denied, not a silently
 empty branch. Typed SQL contract validation and execution also share one snapshot.
-Only selected families are registered in these SQL connections, avoiding failures
-caused by unrelated readable namespaces. Explicitly selecting more than SQLite's
-ten attached namespaces remains unsupported.
+Only selected families are registered for execution, avoiding failures caused by
+unrelated readable namespaces. The current service uses DataFusion; the attached
+namespace ceiling of the legacy embedded SQLite adapter does not apply here.
 
 ## Budgets and current limits
 
 Nested reads allow root plus 16 branches, depth four edges, 256 total predicate
 nodes (depth 16), up to eight ordering fields per node, and limits 1–1,000 per node.
 Forward limits are exactly one. Fetched rows and expanded output each have a
-5,000-node and 2 MiB logical scalar-size budget. Each statement has a one-million
-SQLite VM-step budget. The transport additionally caps serialized responses at
+5,000-node and 2 MiB logical scalar-size budget. Each statement also has a
+configured source/output work budget; this is not a SQLite VM instruction counter. The transport additionally caps serialized responses at
 4 MiB. Budget failures return an error, never a partial tree. These limits do not
 bound every allocation, recursive policy check or unit of CPU work.
 
 Nested reads return the requested first N rows; they do not advertise hasMore or
 continuation cursors. Use the existing revision-guarded `page` API for keyset scans.
 Nested field projection, relation-existence filters on parents, flattened through
-relations, outer-join typing, aggregation/grouping builders, upsert and persistent
-views are still pending. Raw parameterized SQL supports its existing richer SELECT
-surface. Remote SQL remains read-only; writes use atomic typed batches.
+relations, outer-join typing, aggregation/grouping builders and upsert remain
+pending. Persistent view management is not exposed through this nested/remote API;
+resident durable views have a separate native API. Raw parameterized SQL supports
+its richer SELECT surface. Remote `query` remains read-only; mutations use atomic
+typed batches or the bounded [`execute` SQL API](SQL-WRITES.md).
 
 Retained native snapshots preserve data but fail closed when their authority is
-revoked. Nested and SQL reads check before releasing results; SQL also cooperatively
-interrupts at VM progress checks. See [SECURITY.md](SECURITY.md) for scoped delegation,
+revoked. Nested and SQL reads check before releasing results and enforce live
+authorization and execution-budget checks during work. See [SECURITY.md](SECURITY.md) for scoped delegation,
 read linearization and the existing local-host trust boundary.
 
-See [measurements](benchmarks/NESTED.md), [discovery](CATALOG.md), and
+See measurements (historical results removed), [discovery](CATALOG.md), and
 [execution decision](adr/007-nested-queries.md).

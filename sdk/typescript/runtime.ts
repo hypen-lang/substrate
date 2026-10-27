@@ -2,7 +2,7 @@ import {defineRecord,type Descriptor} from "./generated-preamble.js";
 import {introspect,type CatalogRelation} from "./catalog.js";
 import type {QueryClient} from "./query.js";
 import type {FieldSpec} from "./validation.js";
-export type RuntimeScalar=boolean|bigint|string|Uint8Array;
+export type RuntimeScalar=boolean|bigint|number|string|Uint8Array|null;
 export type RuntimeRecord=Record<string,RuntimeScalar>;
 export type RuntimeDescriptor=Descriptor<RuntimeRecord,string>;
 
@@ -14,14 +14,16 @@ export function runtimeDescriptor(relation:CatalogRelation):RuntimeDescriptor {
   const fields:Record<string,FieldSpec>=Object.fromEntries(relation.roles.map(role=>{
     const t=role.data_type;let spec:FieldSpec;
     switch(t.kind) {
-      case "ref":if(t.target===null)throw new Error("opaque reference domain");spec={kind:"Ref",target:t.target.name};break;
+      case "ref":if(t.target===null)throw new Error("opaque reference domain");spec={kind:"Ref",target:t.target.name,onDelete:role.on_delete==="Cascade"?"cascade":"restrict",deferrable:role.deferrable??false};break;
       case "decimal":spec={kind:"Decimal",scale:t.scale};break;
       case "bool":spec={kind:"Bool"};break;
       case "int":spec={kind:"Int"};break;
+      case "float":spec={kind:"Float"};break;
       case "text":spec={kind:"Text"};break;
       case "bytes":spec={kind:"Bytes"};break;
       case "timestamp":spec={kind:"Timestamp"};break;
     }
+    if (!role.required) spec = {...spec, nullable:true};
     const checks = (relation.checks ?? []).filter(c => c.role === role.name);
     if (checks.length) spec = {...spec, checks};
     return [role.name,Object.freeze(spec)];

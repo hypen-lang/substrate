@@ -23,8 +23,10 @@ function scopeCheck(scope:CapabilityScope) {
     if(!r.grant||[r.grant.read,r.grant.write,r.grant.reference].some(v=>typeof v!=="boolean"))throw new Error("invalid rights");
     if(r.grant.filter!=="All") {
       const f=r.grant.filter?.Equals;
-      if(!f||typeof f.role!=="string"||!f.value||Object.keys(f.value).length!==1)throw new Error("invalid row filter");
+      if(!f||typeof f.role!=="string"||!f.value||(f.value !== "Null" && Object.keys(f.value).length!==1))throw new Error("invalid row filter");
+      if (f.value === "Null") continue;
       const [kind,value]=Object.entries(f.value)[0];
+      if (kind === "Float" && (typeof value !== "number" || !Number.isFinite(value))) throw new Error("expected finite float policy");
       if(["Int","Timestamp","Decimal"].includes(kind)) {
         if(typeof value!=="string"||! /^-?(0|[1-9][0-9]*)$/.test(value)||value.length>20||BigInt(value)<-(1n<<63n)||BigInt(value)>=(1n<<63n))throw new Error("expected exact i64 policy string");
       }

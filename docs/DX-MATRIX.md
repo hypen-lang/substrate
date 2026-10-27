@@ -1,6 +1,6 @@
 # DX implementation matrix
 
-Planner review, 2026-10-24. The baseline was recorded before implementation; the table below is updated to the verified final state. “Implemented and tested” describes the named subset, not every aspirational API in the planner. See DX.md for the final supported workflow and limitations.
+Planner review, updated through 2026-10-26. The baseline was recorded before implementation; the table below is updated to the verified final state. “Implemented and tested” describes the named subset, not every aspirational API in the planner. See DX.md for the final supported workflow and limitations.
 
 | Feature | Status after this milestone | Scope / next step |
 |---|---|---|
@@ -9,12 +9,12 @@ Planner review, 2026-10-24. The baseline was recorded before implementation; the
 | Canonical contract fingerprint | Implemented and tested | Versioned SHA-256 manifest/relation hashes |
 | Namespaces, versions, imports | Implemented and tested | Exact integer versions; semver ranges deferred |
 | Entities, memberships, n-ary relations | Implemented and tested | Unified relation occurrences with stable IDs |
-| Cardinality, unique keys, references | Partially implemented | Unique keys and references; richer cardinality deferred |
+| Cardinality, unique keys, references | Partially implemented | NULL-distinct unique keys, references, authorized cascades and explicitly deferred foreign keys; richer cardinality deferred |
 | Independent optional extension properties | Implemented and tested | optionalProperty emits separate unique-owner family; absence means optional |
 | Index declarations | Partially implemented | Every role indexed; custom/composite index selection deferred |
-| Portable validation constraints | Partially implemented | Scalar domains, unique, references; range/pattern refinements deferred |
-| Security declarations | Partially implemented | Host-admin grants separate from schema; no serialized executable policies |
-| Named views and documentation metadata in IR | Intentionally deferred | Read-only query snapshots exist; persistent view IR does not |
+| Portable validation constraints | Partially implemented | Scalar domains, unique, references, integer-range and byte-length CHECKs; arbitrary refinements/regex deferred |
+| Security declarations | Partially implemented | Schema visibility plus separately persisted scoped grants and ownership; no serialized executable policies |
+| Named views and documentation metadata in IR | Partially implemented | Resident durable read-only view definitions; paged/remote view management and declaration documentation metadata remain deferred |
 | TypeScript schema compiler and inference | Implemented and tested | Builder emits IR; Rust remains semantic authority |
 | Rust explicit builders | Implemented and tested | Module / Relation / Role constructors |
 | Rust derive macros | Intentionally deferred | Builders and generated Record suffice for P0/P1 |
@@ -24,13 +24,13 @@ Planner review, 2026-10-24. The baseline was recorded before implementation; the
 | Native runtime validators and structured paths | Implemented and tested | Scalar/strict object/patch/read/wire validation; constraints limited to supported IR |
 | Standard Schema V1 | Implemented and tested | Structural validator interface; no Effect/Zod dependency |
 | Effect/Zod adapters, application refinements | Intentionally deferred | Standard Schema first |
-| Exact scalar codecs | Implemented and tested | i64 bigint/string, fixed-scale decimal, UTC microseconds, byte arrays |
+| Exact scalar codecs | Implemented and tested | i64 bigint/string, fixed-scale decimal, UTC microseconds, byte arrays, explicit NULL and finite Float |
 | Custom codecs / server-generated fields | Intentionally deferred | IDs generated; no defaults/computed properties |
 | Typed insert/read/update/delete and relationships | Implemented and tested | Rust records, Node descriptors, partial TS patches, batch reference aliases |
 | Nested relationship loading | Implemented and tested | One snapshot/request; batched branches, per-parent limits, reference closure |
 | findUnique/upsert/count helpers | Intentionally deferred | Bounded pages and raw SQL available |
 | Typed relational query builder | Partially implemented | TS projection/inner joins, predicates/order/limit/explain; Rust ReadPlan, no fluent Rust builder |
-| Parameterized SQL, joins, aggregates, explain | Implemented and tested | SQLite virtual tables; DML embedded Rust only |
+| Parameterized SQL, joins, aggregates, explain | Implemented and tested | Authorized DataFusion reads; embedded DML and bounded remote INSERT/UPDATE/DELETE |
 | Runtime SQL result contracts | Implemented and tested | queryChecked accepts Standard Schema validator; duplicate aliases rejected |
 | Query tracing, N+1 warnings | Partially implemented | Nested statement/fetch/output counters and typed EXPLAIN; no automatic warnings |
 | Static selected-module contracts | Implemented and tested | Exact roots plus transitive imports/prior revisions; unrelated modules excluded |
@@ -57,7 +57,8 @@ Planner review, 2026-10-24. The baseline was recorded before implementation; the
 | Editor responsiveness / IDE integration | Intentionally deferred | Compiler timings are not an editor measurement |
 | Onboarding init / sample project generator | Intentionally deferred | Runnable checked-in example first |
 | Subscriptions, typed materialized views, packages, visualizer | Intentionally deferred | P3 |
-| Replication, sharding, parallel durable writers | Intentionally deferred | redb keeps one active write transaction |
+| Replication, consensus and sharding | Implemented bounded subsets | Paged/resident trusted-host followers, optional static OpenRaft cluster, fixed local routing; production authenticated peer serving, snapshot transfer/log compaction, membership changes and distributed transactions remain |
+| Parallel durable writers | Not implemented | redb keeps one active write transaction; independent transactions can share a durable group |
 | Bend executable reference model | Intentionally deferred | Rust property tests remain current oracle |
 
 Delivered: TS declaration → Rust compiler → transactional install → catalog export → generated validators/client → typed reads/writes/SQL; imported application schema and Rust authoring pass the same round trip. Preserve the existing storage and compiler.

@@ -1,0 +1,509 @@
+[
+  {
+    "people": 500000,
+    "mode": "paged",
+    "interface": "sql",
+    "storage": "paged",
+    "timing_class": "headline",
+    "reference_order": "ordered",
+    "suite": "aggregates-wide",
+    "native_source_materialization": null,
+    "fixture_version": "fixed-schema-ids-v1",
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "rounds": 1,
+    "queries": [
+      {
+        "case": "point",
+        "iterations_per_round": 5000,
+        "query_us_median": 0.3604834,
+        "query_us_min": 0.3604834,
+        "query_us_max": 0.3604834,
+        "client_cpu_us_median": 0.36079999999998336
+      },
+      {
+        "case": "equality",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.422354,
+        "query_us_min": 0.422354,
+        "query_us_max": 0.422354,
+        "client_cpu_us_median": 0.4229999999996181
+      },
+      {
+        "case": "changing_parameters",
+        "iterations_per_round": 2000,
+        "query_us_median": 10.4779795,
+        "query_us_min": 10.4779795,
+        "query_us_max": 10.4779795,
+        "client_cpu_us_median": 4.428000000000765
+      },
+      {
+        "case": "changing_parameters_warm",
+        "iterations_per_round": 2000,
+        "query_us_median": 1.5455415000000001,
+        "query_us_min": 1.5455415000000001,
+        "query_us_max": 1.5455415000000001,
+        "client_cpu_us_median": 1.5454999999988672
+      },
+      {
+        "case": "selective_join",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.804167,
+        "query_us_min": 0.804167,
+        "query_us_max": 0.804167,
+        "client_cpu_us_median": 0.8044999999992086
+      },
+      {
+        "case": "aggregate",
+        "iterations_per_round": 1,
+        "query_us_median": 30393.125,
+        "query_us_min": 30393.125,
+        "query_us_max": 30393.125,
+        "client_cpu_us_median": 30378.99999999638
+      },
+      {
+        "case": "aggregate_equality",
+        "iterations_per_round": 1000,
+        "query_us_median": 1.0960830000000001,
+        "query_us_min": 1.0960830000000001,
+        "query_us_max": 1.0960830000000001,
+        "client_cpu_us_median": 1.09600000000043
+      },
+      {
+        "case": "aggregate_range",
+        "iterations_per_round": 20,
+        "query_us_median": 263.67289999999997,
+        "query_us_min": 263.67289999999997,
+        "query_us_max": 263.67289999999997,
+        "client_cpu_us_median": 263.64999999994865
+      },
+      {
+        "case": "aggregate_broad",
+        "iterations_per_round": 3,
+        "query_us_median": 31382.625,
+        "query_us_min": 31382.625,
+        "query_us_max": 31382.625,
+        "client_cpu_us_median": 31369.333333332845
+      },
+      {
+        "case": "aggregate_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 45060.986333333334,
+        "query_us_min": 45060.986333333334,
+        "query_us_max": 45060.986333333334,
+        "client_cpu_us_median": 45005.000000000924
+      },
+      {
+        "case": "aggregate_filtered_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 34757.083333333336,
+        "query_us_min": 34757.083333333336,
+        "query_us_max": 34757.083333333336,
+        "client_cpu_us_median": 34741.33333333285
+      }
+    ],
+    "load_seconds_median": 42.081652375,
+    "client_peak_rss_bytes_max": 48136192
+  },
+  {
+    "people": 500000,
+    "mode": "postgres",
+    "interface": "sql",
+    "storage": "postgres",
+    "timing_class": "headline",
+    "reference_order": "ordered",
+    "suite": "aggregates-wide",
+    "native_source_materialization": null,
+    "fixture_version": "fixed-schema-ids-v1",
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "rounds": 1,
+    "queries": [
+      {
+        "case": "point",
+        "iterations_per_round": 5000,
+        "query_us_median": 9.237775,
+        "query_us_min": 9.237775,
+        "query_us_max": 9.237775,
+        "client_cpu_us_median": 3.6828000000001637
+      },
+      {
+        "case": "equality",
+        "iterations_per_round": 2000,
+        "query_us_median": 9.036125,
+        "query_us_min": 9.036125,
+        "query_us_max": 9.036125,
+        "client_cpu_us_median": 3.598499999999838
+      },
+      {
+        "case": "changing_parameters",
+        "iterations_per_round": 2000,
+        "query_us_median": 14.838375,
+        "query_us_min": 14.838375,
+        "query_us_max": 14.838375,
+        "client_cpu_us_median": 4.0160000000000196
+      },
+      {
+        "case": "changing_parameters_warm",
+        "iterations_per_round": 2000,
+        "query_us_median": 12.486041499999999,
+        "query_us_min": 12.486041499999999,
+        "query_us_max": 12.486041499999999,
+        "client_cpu_us_median": 3.8320000000000576
+      },
+      {
+        "case": "selective_join",
+        "iterations_per_round": 2000,
+        "query_us_median": 11.1463125,
+        "query_us_min": 11.1463125,
+        "query_us_max": 11.1463125,
+        "client_cpu_us_median": 3.7514999999999077
+      },
+      {
+        "case": "aggregate",
+        "iterations_per_round": 1,
+        "query_us_median": 26090.875,
+        "query_us_min": 26090.875,
+        "query_us_max": 26090.875,
+        "client_cpu_us_median": 13.000000000040757
+      },
+      {
+        "case": "aggregate_equality",
+        "iterations_per_round": 1000,
+        "query_us_median": 11.246707999999998,
+        "query_us_min": 11.246707999999998,
+        "query_us_max": 11.246707999999998,
+        "client_cpu_us_median": 3.8439999999999586
+      },
+      {
+        "case": "aggregate_range",
+        "iterations_per_round": 20,
+        "query_us_median": 252.7875,
+        "query_us_min": 252.7875,
+        "query_us_max": 252.7875,
+        "client_cpu_us_median": 4.099999999995774
+      },
+      {
+        "case": "aggregate_broad",
+        "iterations_per_round": 3,
+        "query_us_median": 26674.208333333332,
+        "query_us_min": 26674.208333333332,
+        "query_us_max": 26674.208333333332,
+        "client_cpu_us_median": 10.9999999997612
+      },
+      {
+        "case": "aggregate_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 40774.111,
+        "query_us_min": 40774.111,
+        "query_us_max": 40774.111,
+        "client_cpu_us_median": 115.33333333317113
+      },
+      {
+        "case": "aggregate_filtered_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 22759.264,
+        "query_us_min": 22759.264,
+        "query_us_max": 22759.264,
+        "client_cpu_us_median": 107.66666666691312
+      }
+    ],
+    "load_seconds_median": 31.035799916,
+    "client_peak_rss_bytes_max": 13303808
+  },
+  {
+    "people": 500000,
+    "mode": "sqlite",
+    "interface": "sql",
+    "storage": "sqlite",
+    "timing_class": "headline",
+    "reference_order": "ordered",
+    "suite": "aggregates-wide",
+    "native_source_materialization": null,
+    "fixture_version": "fixed-schema-ids-v1",
+    "schema_manifest": [
+      {
+        "imports": [],
+        "name": "core",
+        "relations": [
+          {
+            "id": "01000000-0000-0000-0000-000000000001",
+            "name": "core.Person",
+            "roles": [
+              {
+                "data_type": "Text",
+                "name": "name"
+              },
+              {
+                "data_type": "Int",
+                "name": "number"
+              }
+            ],
+            "unique": [
+              [
+                "number"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      },
+      {
+        "imports": [
+          [
+            "core",
+            1
+          ]
+        ],
+        "name": "app",
+        "relations": [
+          {
+            "id": "02000000-0000-0000-0000-000000000002",
+            "name": "app.Score",
+            "roles": [
+              {
+                "data_type": {
+                  "Ref": "core.Person"
+                },
+                "name": "person"
+              },
+              {
+                "data_type": "Int",
+                "name": "score"
+              },
+              {
+                "data_type": "Int",
+                "name": "bucket"
+              }
+            ],
+            "unique": [
+              [
+                "person"
+              ]
+            ]
+          }
+        ],
+        "version": 1
+      }
+    ],
+    "rounds": 1,
+    "queries": [
+      {
+        "case": "point",
+        "iterations_per_round": 5000,
+        "query_us_median": 0.6456916,
+        "query_us_min": 0.6456916,
+        "query_us_max": 0.6456916,
+        "client_cpu_us_median": 0.645799999999852
+      },
+      {
+        "case": "equality",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.5500625,
+        "query_us_min": 0.5500625,
+        "query_us_max": 0.5500625,
+        "client_cpu_us_median": 0.5505000000001202
+      },
+      {
+        "case": "changing_parameters",
+        "iterations_per_round": 2000,
+        "query_us_median": 2.6993335000000003,
+        "query_us_min": 2.6993335000000003,
+        "query_us_max": 2.6993335000000003,
+        "client_cpu_us_median": 2.6999999999999247
+      },
+      {
+        "case": "changing_parameters_warm",
+        "iterations_per_round": 2000,
+        "query_us_median": 2.0808335000000002,
+        "query_us_min": 2.0808335000000002,
+        "query_us_max": 2.0808335000000002,
+        "client_cpu_us_median": 2.081000000000444
+      },
+      {
+        "case": "selective_join",
+        "iterations_per_round": 2000,
+        "query_us_median": 0.7775415,
+        "query_us_min": 0.7775415,
+        "query_us_max": 0.7775415,
+        "client_cpu_us_median": 0.7780000000003895
+      },
+      {
+        "case": "aggregate",
+        "iterations_per_round": 1,
+        "query_us_median": 7380.041,
+        "query_us_min": 7380.041,
+        "query_us_max": 7380.041,
+        "client_cpu_us_median": 7381.000000000526
+      },
+      {
+        "case": "aggregate_equality",
+        "iterations_per_round": 1000,
+        "query_us_median": 0.27625,
+        "query_us_min": 0.27625,
+        "query_us_max": 0.27625,
+        "client_cpu_us_median": 0.2770000000005268
+      },
+      {
+        "case": "aggregate_range",
+        "iterations_per_round": 20,
+        "query_us_median": 87.25210000000001,
+        "query_us_min": 87.25210000000001,
+        "query_us_max": 87.25210000000001,
+        "client_cpu_us_median": 87.24999999998317
+      },
+      {
+        "case": "aggregate_broad",
+        "iterations_per_round": 3,
+        "query_us_median": 6127.458333333333,
+        "query_us_min": 6127.458333333333,
+        "query_us_max": 6127.458333333333,
+        "client_cpu_us_median": 6127.666666666087
+      },
+      {
+        "case": "aggregate_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 87574.26366666668,
+        "query_us_min": 87574.26366666668,
+        "query_us_max": 87574.26366666668,
+        "client_cpu_us_median": 87495.6666666667
+      },
+      {
+        "case": "aggregate_filtered_grouped",
+        "iterations_per_round": 3,
+        "query_us_median": 87788.16666666667,
+        "query_us_min": 87788.16666666667,
+        "query_us_max": 87788.16666666667,
+        "client_cpu_us_median": 87748.33333333257
+      }
+    ],
+    "load_seconds_median": 35.379412417,
+    "client_peak_rss_bytes_max": 23396352
+  }
+]

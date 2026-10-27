@@ -266,12 +266,8 @@ impl LiquidTable {
                 .chain(declaration.roles.iter().map(|role| {
                     Field::new(
                         &role.name,
-                        match role.data_type {
-                            DataType::Text | DataType::Ref(_) => ArrowType::Utf8,
-                            DataType::Bytes => ArrowType::Binary,
-                            _ => ArrowType::Int64,
-                        },
-                        false,
+                        crate::datafusion_sql::values::arrow_type(&role.data_type),
+                        role.data_type.is_nullable(),
                     )
                 }))
                 .collect::<Vec<_>>(),
@@ -598,7 +594,14 @@ impl LiquidScanExec {
         }
     }
     pub(super) fn probe_capable(&self, output_column: usize) -> bool {
-        self.limit.is_none() && self.projection.get(output_column).is_some()
+        self.limit.is_none()
+            && self.projection.get(output_column).is_some_and(|column| {
+                *column == 0
+                    || !matches!(
+                        self.source.declaration.roles[*column - 1].data_type,
+                        DataType::Nullable(_) | DataType::Float
+                    )
+            })
     }
     pub(super) fn probe_result_upper_bound(&self, output_column: usize) -> Option<usize> {
         if !self.probe_capable(output_column) {
@@ -1087,6 +1090,12 @@ fn batch(
         } else {
             let slot = column - 1;
             match declaration.roles[slot].data_type {
+                DataType::Nullable(_) | DataType::Float => {
+                    crate::datafusion_sql::values::extended_array(
+                        &declaration.roles[slot].data_type,
+                        rows.iter().map(|r| &r.values[slot]),
+                    )?
+                }
                 DataType::Text => Arc::new(StringArray::from(
                     rows.iter()
                         .map(|r| match &r.values[slot] {

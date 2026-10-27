@@ -70,8 +70,8 @@ agents were developing on the same machine, so absolute timing and small-ratio
 comparisons are not isolated production estimates. The reduction in traversal work
 is also checked deterministically: for both visible and hidden shared chains,
 2,000 distinct nodes are expanded exactly 2,000 times, not once per root's path.
-Raw medians: [before](benchmarks/2026-10-25-visibility-before.csv) and
-[after](benchmarks/2026-10-25-visibility-after.csv).
+Raw medians: before (historical results removed) and
+after (historical results removed).
 
 ## Verification
 

@@ -7,7 +7,7 @@ paged reads and parameterized SQL. The storage model remains unchanged.
 
 ## Run the complete example
 
-Requirements: Rust 1.89+, Node 20+ (verified with 22.22.1), npm. TypeScript 5.9.3 is
+Requirements: Rust 1.94+, Node 20+ (verified with 22.22.1), npm. TypeScript 5.9.3 is
 pinned in package-lock.json. The process example requires a Unix system.
 
 ```sh
@@ -145,8 +145,9 @@ Client-side reference validation checks UUID shape; existence, membership, uniqu
 keys, row policy and reference capabilities remain authoritative server checks.
 Batch encoders additionally allow explicit `link<"fitness.Workout">("workout")`
 references to a preceding insertion alias. Stored-read validators reject aliases.
-No arbitrary JS closures, regex constraints, range refinements or permissions are
-serialized as engine constraints. Unsupported declaration options fail instead of
+No arbitrary JS closures, regex constraints or executable permissions are
+serialized as engine constraints. Supported integer-range and byte-length CHECK
+constraints compile into typed engine checks. Unsupported declaration options fail instead of
 being silently treated as database-enforced behavior.
 
 | Logical scalar | Rust | TS decoded | Application wire | SQL |
@@ -154,6 +155,8 @@ being silently treated as database-enforced behavior.
 | Int64 | i64 | bigint | tagged decimal string | INTEGER |
 | Decimal(scale) | i64 minor units | bigint minor units | tagged decimal string | INTEGER minor units |
 | Timestamp | i64 UTC microseconds | bigint UTC microseconds | tagged decimal string | INTEGER |
+| Float | FiniteFloat | finite number | tagged number | DOUBLE / REAL |
+| Nullable(T) | Option<T> | T \| null | base encoding or `"Null"` | base type or NULL |
 | Bool | bool | boolean | tagged boolean | 0 / 1 |
 | Text | UTF-8 String | string without unpaired surrogates | tagged string | TEXT |
 | Ref | Id / TypedId | branded UUID string | tagged UUID | lowercase UUID TEXT |
@@ -161,14 +164,16 @@ being silently treated as database-enforced behavior.
 
 Timestamps exclude leap seconds; Date/ISO coercion is not automatic. Decimal scale
 is fixed at the role (0..18), not carried in each value. SQL real arithmetic can
-lose exactness; expose minor units and use deliberate arithmetic. Native rows have
-no null roles; SQL outer joins can yield NULL. Runtime validators are portable
-standard TypeScript; the current transport is Node/Unix only, not browser/edge.
+lose exactness; expose minor units and use deliberate arithmetic. Explicitly
+nullable roles accept native NULL; every named field is still required on insert.
+SQL outer joins can also yield NULL. See [nullable values](NULLABLE-AND-REFERENCES.md).
+Runtime validators are portable standard TypeScript; the transport supports Node
+over Unix sockets or TLS, with no browser/edge transport.
 
 ## Queries and transactions
 
 The Node client has `insert`, partial `update`, `delete`, `page`, atomic `batch`,
-`query`, `queryChecked` and `capabilities`. `page` uses native identity-order keyset
+`query`, `queryChecked`, `execute` and `capabilities`. `page` uses native identity-order keyset
 pagination, with optional typed-wire equality filtering. A page materializes at most
 limit+1 visible rows, up to a limit of 1,000. To reject cross-request changes, pass
 its revision back as `expectedRevision`; retry the whole read on conflict. This is
@@ -178,9 +183,9 @@ a revision guard, not a server-pinned snapshot or consistent multi-request strea
 positional scalar rows, without pretending to infer arbitrary SQL. For checked
 results use `queryChecked(sql, params, resultSchema)`, supplying a Standard Schema
 validator of the returned object rows. Duplicate result names require aliases.
-Joins happen in the server's SQLite query engine over Liquid virtual tables; the
-client never downloads all families to join them. SQL EXPLAIN QUERY PLAN exposes
-identity/equality access paths. A composable TypeScript projection/inner-join builder and explicit batched nested
+Service SQL reads use authorized indexed DataFusion providers and eligible native
+fast paths; the client never downloads all families to join them. DataFusion
+EXPLAIN exposes the execution plan. The legacy embedded SQL adapter uses SQLite. A composable TypeScript projection/inner-join builder and explicit batched nested
 reads now work: see [QUERY-DX.md](QUERY-DX.md). Nested reads use one request and
 one snapshot, with one statement per selected nonempty branch. Upsert, typed
 outer joins and aggregation builders remain deferred.
@@ -198,16 +203,22 @@ acknowledgement loss leaves an uncertain outcome; reconcile before retrying. Dur
 idempotency keys for data batches and interactive remote transactions are not implemented.
 Schema proposals/apply have their own durable receipt-based reconciliation.
 
-Embedded Rust `Session::sql_transaction()` supports INSERT/UPDATE/DELETE, reads its
+The legacy embedded resident Rust `Session::sql_transaction()` supports
+INSERT/UPDATE/DELETE, reads its
 staged writes and commits through Liquid's OCC checks. SQL inserts require an explicit
 UUID `id`. Any SQL failure aborts the entire transaction, including earlier statements;
 drop rolls back. Identity changes, RETURNING, DDL, ATTACH, PRAGMA and SQL-managed
-BEGIN/COMMIT are rejected. `SqlSnapshot` remains read-only. Remote SQL is read-only;
-remote mutations use the typed batch protocol.
+BEGIN/COMMIT are rejected. `SqlSnapshot` and the remote `query` endpoint remain
+read-only. The separate remote `execute` endpoint supports bounded INSERT, UPDATE
+and DELETE on both resident and paged storage, with generated insert identities
+and explicit identity predicates for updates/deletes. It compiles to native
+transactions; see [SQL writes](SQL-WRITES.md). Atomic typed batches remain available.
 
-Snapshot SQL cursors fetch 64-row pages. Transactional SQL scans retain statement
-candidate rows for stable mutation semantics. The trusted embedded query API can
-collect unrestricted results; remote SQL uses output row/byte and VM-step budgets.
+Legacy embedded SQLite snapshot cursors fetch 64-row pages. Its transactional
+SQL scans retain statement candidate rows for stable mutation semantics. The trusted
+embedded query API can collect unrestricted results; service DataFusion reads use
+source/output work and result row/byte budgets. SQLite VM-step limits apply to the
+legacy adapter, not DataFusion execution.
 These are not comprehensive CPU/memory isolation: policy traversals, sorting,
 schema registration and native operations need broader resource accounting.
 
@@ -222,7 +233,9 @@ credentials and raw database files out of application processes' access; same-OS
 malicious processes with filesystem access are not isolated by Unix permissions.
 
 Authorized paged [catalog discovery](CATALOG.md) exposes stable IDs, role domains,
-constraints and operation flags for explicitly granted families. Hidden reference
+constraints and operation flags for authorized visible families. Public and
+authenticated visibility, ownership and explicit grants remain constrained by the
+caller's credential/capability scope. Hidden reference
 targets are opaque; imports and row-filter values are omitted. Legacy capability
 listing omits families with hidden reference targets. Neither API grants authority. Existing
 reference-closed visibility and write checks govern native and SQL operations.
@@ -240,19 +253,22 @@ removes its own socket after awaiting its killed child. This is not an HA servic
 Multiple processes submit requests concurrently. **redb still has one active write
 transaction per file**, and Liquid publication serializes. This demonstrates logical
 independence and a shared host, not parallel durable write execution. Engine/storage
-semantics stay separate from the protocol and SDK; redb types remain inside the
-durable module. Evaluating FoundationDB later requires preserving transaction,
+semantics stay separate from the protocol and SDK; redb is confined to the
+storage and consensus implementation layers. Evaluating FoundationDB later requires preserving transaction,
 snapshot, conflict and durability semantics, not merely replacing a key/value API.
 
 ## Evidence and remaining work
 
-See DX-MATRIX.md for the feature audit, IMPLEMENTATION.md for verification, and
-benchmarks/DX.md for compiler/SQL measurements. No derive macros, rich ORM surface,
-semver resolution, schema registry, distributed service, subscriptions, persistent
-views, larger-than-memory execution or Bend reference model are claimed complete.
+See [DX-MATRIX.md](DX-MATRIX.md) for the feature audit,
+[IMPLEMENTATION.md](IMPLEMENTATION.md) for verification, and the
+[latest benchmark report](benchmarks/latest/README.md) for its measured scope.
+Resident durable views and mutable paged storage are implemented; paged/remote
+named-view management remains pending. Optional static-peer consensus is a host
+integration, not a deployed distributed service. Derive macros, a rich ORM, semver
+resolution, a schema registry, subscriptions and Bend verification remain deferred.
 
 Typed/nested query measurements and the expanded TypeScript consumer fixture are
-in [NESTED.md](benchmarks/NESTED.md). The [cross-engine suite](benchmarks/COMPARISON.md)
+in NESTED.md (historical results removed). The cross-engine suite (historical results removed)
 now runs eight verified workloads on SQLite, PostgreSQL and Substrate.
 
 ## Runtime schema workflow

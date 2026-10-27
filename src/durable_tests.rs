@@ -7,6 +7,8 @@ use std::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
+#[path = "durable_overlay_tests.rs"]
+mod overlay;
 
 fn manual() -> DatabaseOptions {
     DatabaseOptions {
@@ -33,6 +35,72 @@ fn fixture(path: &Path, checkpoint: bool) {
             .unwrap();
     }
     tx.commit().unwrap();
+}
+
+#[test]
+fn checkpoint_log_pruning_preserves_pinned_redb_readers() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db");
+    fixture(&path, true);
+    let (mut durable, mut state) = Durable::open(&path, manual()).unwrap();
+    // Relation IDs are random; the first family may be an internal relation.
+    let tid = state.names["core.Person"];
+    let id = state.families[&tid].keys().next().copied().unwrap();
+    let pinned = durable.db.begin_read().unwrap();
+    let old_log = pinned.open_table(LOG).unwrap();
+    let old_record = old_log.get(3).unwrap().unwrap().value().to_vec();
+    let old_rows = pinned.open_table(ROWS).unwrap();
+    let key = row_key(tid, id);
+    let old_row = old_rows.get(key.as_slice()).unwrap().unwrap();
+    let value = old_row.value().to_vec();
+    durable.checkpoint(&state).unwrap();
+    let empty = durable.db.begin_read().unwrap();
+    assert_eq!(empty.open_table(LOG).unwrap().len().unwrap(), 0);
+    // Reuse the same table name through several redo/checkpoint generations
+    // while both the original populated tree and its empty replacement are pinned.
+    for revision in 4..8 {
+        let op = Op::Put(
+            tid,
+            Row {
+                id,
+                values: vec![Value::Text(format!("revision {revision}"))].into_boxed_slice(),
+            },
+        );
+        state.apply(&op, revision);
+        state.revision = revision;
+        durable.append(revision, &[op], &state).unwrap();
+        durable.checkpoint(&state).unwrap();
+        assert_eq!(old_log.len().unwrap(), 1);
+        assert_eq!(old_log.get(3).unwrap().unwrap().value(), old_record);
+        assert_eq!(
+            old_rows.get(key.as_slice()).unwrap().unwrap().value(),
+            value
+        );
+        assert_eq!(empty.open_table(LOG).unwrap().len().unwrap(), 0);
+        assert_eq!(
+            durable
+                .db
+                .begin_read()
+                .unwrap()
+                .open_table(LOG)
+                .unwrap()
+                .len()
+                .unwrap(),
+            0
+        );
+    }
+    drop(old_row);
+    drop(old_rows);
+    drop(old_log);
+    drop(pinned);
+    drop(empty);
+    drop(durable);
+    let (_, recovered) = Durable::open(&path, manual()).unwrap();
+    assert_eq!(recovered.revision, 7);
+    assert_eq!(
+        recovered.row(tid, id).unwrap().values[0],
+        Value::from("revision 7")
+    );
 }
 
 #[derive(Debug)]
@@ -128,7 +196,11 @@ fn crash_child() {
     }
     let mut ops = Vec::new();
     let tid = state.names["core.Person"];
+    let partial_id = (mode == "partial").then(|| *state.families[&tid].keys().next_back().unwrap());
     for row in state.families[&tid].values() {
+        if partial_id.is_some_and(|id| row.id != id) {
+            continue;
+        }
         ops.push(Op::Put(
             tid,
             Row {
@@ -155,7 +227,7 @@ fn crash_child() {
     for op in &ops {
         next.apply(op, next.revision);
     }
-    if mode == "auto" {
+    if mode == "auto" || mode == "partial" {
         durable.options.checkpoint_policy = Some(CheckpointPolicy {
             max_log_commits: 1,
             max_log_bytes: u64::MAX,
@@ -414,15 +486,46 @@ fn wrong_checkpoint_row_key_is_rejected() {
 }
 #[test]
 fn truncated_checkpoint_row_is_rejected() {
-    corrupt(|tx| {
-        let mut table = tx.open_table(ROWS).unwrap();
-        let (key, mut value) = {
-            let (k, v) = table.iter().unwrap().next().unwrap().unwrap();
-            (k.value().to_vec(), v.value().to_vec())
-        };
-        value.pop();
-        table.insert(key.as_slice(), value.as_slice()).unwrap();
-    });
+    // The fixture checkpoints updated Person rows into the v3 overlay. A base
+    // image replaced there is intentionally not decoded during recovery. UUID
+    // ordering made corrupting the first base entry randomly hit such an image.
+    // Exercise both authoritative locations, never a superseded base record.
+    for in_overlay in [false, true] {
+        corrupt(|tx| {
+            let (key, mut value) = {
+                let rows = tx.open_table(ROWS).unwrap();
+                let overlay = tx.open_table(OVERLAY).unwrap();
+                if in_overlay {
+                    overlay
+                        .iter()
+                        .unwrap()
+                        .find_map(|entry| {
+                            let (key, value) = entry.unwrap();
+                            (!value.value().is_empty())
+                                .then(|| (key.value().to_vec(), value.value().to_vec()))
+                        })
+                        .expect("fixture must contain a non-tombstone overlay row")
+                } else {
+                    rows.iter()
+                        .unwrap()
+                        .find_map(|entry| {
+                            let (key, value) = entry.unwrap();
+                            overlay
+                                .get(key.value())
+                                .unwrap()
+                                .is_none()
+                                .then(|| (key.value().to_vec(), value.value().to_vec()))
+                        })
+                        .expect("fixture must contain an unshadowed base row")
+                }
+            };
+            assert!(value.pop().is_some());
+            tx.open_table(if in_overlay { OVERLAY } else { ROWS })
+                .unwrap()
+                .insert(key.as_slice(), value.as_slice())
+                .unwrap();
+        });
+    }
 }
 #[test]
 fn missing_final_redo_is_detected_by_head() {
@@ -631,7 +734,7 @@ fn frozen_v1_checkpoint_upgrades_once_without_changing_rows_or_identities() {
         assert_eq!(again.written_metadata, 0);
     }
     let (manifest, _, _) = raw_checkpoint(&path);
-    assert_eq!(&manifest[..4], b"LCP2");
+    assert_eq!(&manifest[..4], b"LCP3");
     let db = Database::open(&path).unwrap();
     assert_eq!(db.recovery_info().unwrap().replayed_commits, 0);
     assert_eq!(
@@ -727,7 +830,7 @@ fn repeated_row_updates_coalesce_and_deleted_new_identity_remains_allocated() {
     );
 }
 #[test]
-fn v2_noop_checkpoint_has_deterministic_manifest_and_zero_entry_writes() {
+fn noop_checkpoint_has_deterministic_manifest_and_zero_entry_writes() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("db");
     fixture(&path, true);

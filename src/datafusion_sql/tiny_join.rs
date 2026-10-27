@@ -80,6 +80,15 @@ type Tuple = Vec<Option<Arc<Row>>>;
 impl TinyJoin {
     pub(super) fn compile(plan: &LogicalPlan) -> Option<Self> {
         let mut shape = shape(plan)?;
+        if shape.tables.iter().any(|table| {
+            table
+                .relation
+                .roles
+                .iter()
+                .any(|r| matches!(r.data_type, DataType::Nullable(_) | DataType::Float))
+        }) {
+            return None;
+        }
         if !(2..=MAX_TABLES).contains(&shape.tables.len()) {
             return None;
         }

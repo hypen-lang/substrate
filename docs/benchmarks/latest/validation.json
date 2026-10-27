@@ -1,0 +1,56 @@
+{
+  "full_engine_suite": {
+    "passed": 794,
+    "ignored": 11,
+    "test_groups": 51,
+    "features": [
+      "consensus"
+    ],
+    "log": "validation/key-full-tests.log"
+  },
+  "final_iterator_tests": {
+    "passed": 10,
+    "log": "validation/inline-iterator-tests.log"
+  },
+  "backend_library": {
+    "passed": 41,
+    "log": "validation/backend-tests.log"
+  },
+  "backend_borrowed_lifetime_compile_fail": {
+    "passed": 1,
+    "log": "validation/backend-lifetime-doctest.log"
+  },
+  "strict_clippy_all_targets_consensus": "passed",
+  "unchanged_sdk_and_harness_suites": "not rerun in this iteration; do not count historical successes as fresh validation",
+  "strict_clippy_log": "validation/key-clippy.log",
+  "binary_sha256": "0ed70904c5b6ab6f9bc922148a684f2db26a5b0bee80ef9d5cc788e6922246ec",
+  "backend_validation_note": "Vendored backend source matches the borrowed build tested by these logs exactly; intermediate inline-only hints were removed.",
+  "commands": {
+    "full_engine_suite": "cargo test --offline --features consensus -j1 --lib --tests --example paged_sql_bench --example scan_layout_bench",
+    "backend_library": "cargo test --offline --manifest-path vendor/redb/Cargo.toml --lib -j1",
+    "backend_borrowed_lifetime_compile_fail": "cargo test --offline --manifest-path vendor/redb/Cargo.toml --doc visit_borrowed -j1",
+    "final_iterator_tests": "cargo test --offline --test redb_lower_bound -j1",
+    "strict_clippy": "cargo clippy --offline --features consensus --all-targets -j1 -- -D warnings",
+    "benchmark_release": "cargo build --offline --release --example paged_sql_bench -j1"
+  },
+  "iterator_validation_note": "The separately logged 10 iterator tests were repeated for the inline-only candidate; all 10 also pass in the final 794-test engine suite after those hints were removed.",
+  "benchmark_observations": {
+    "primary": 15,
+    "primary_rounds": 3,
+    "io_diagnostic": 2,
+    "native_api_matrix": 9,
+    "wide_group_diagnostic": 4,
+    "rejected_inline_experiment": 15,
+    "all_query_outputs_verified": true
+  },
+  "final_publication_checks": {
+    "cargo_fmt_all_check": "passed (coordinating agent)",
+    "git_diff_check": "passed",
+    "frozen_final_source_manifest": "all 250 entries match final source (coordinating agent)",
+    "frozen_binary_sha256": "matches recorded final SHA-256 (coordinating agent)",
+    "benchmark_path_sanitizer": "passed: zero files require sanitizing",
+    "retained_json_and_local_markdown_links": "passed",
+    "observation_counts_and_1m_verified_outputs": "passed: primary 15, I/O 2, matrix 9, wide 4; rejected inline 15 retained separately",
+    "compiled_index_patch_sha256": "matches retention manifest"
+  }
+}

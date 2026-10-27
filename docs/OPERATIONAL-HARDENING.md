@@ -40,7 +40,7 @@ Run `npm run demo:remote` to exercise the configured host and bounded audit chan
 | TLS | 6,279.542 µs | 297.959 µs | 9,939.958 µs | 387.959 µs |
 | Unix | 6,289.584 µs | 93.917 µs | 6,537.334 µs | 121.500 µs |
 
-The before run used the already-built pre-change executable; the after run rebuilt the same harness. The large drop is consistent with removing the fixed accept-loop sleep. Other concurrent query changes can affect small portions of setup time; this is not an isolated attribution of serialization or admission cost. Raw reports: [before](benchmarks/2026-10-25-transport-before.json), [after](benchmarks/2026-10-25-transport-after.json).
+The before run used the already-built pre-change executable; the after run rebuilt the same harness. The large drop is consistent with removing the fixed accept-loop sleep. Other concurrent query changes can affect small portions of setup time; this is not an isolated attribution of serialization or admission cost. Raw reports: before (historical results removed), after (historical results removed).
 
 ## Still missing
 

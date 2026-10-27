@@ -103,7 +103,7 @@ fn seed(state: &State, source: Id) -> Result<(Vec<u8>, Cursor)> {
     for id in &state.identities {
         metadata.push(Op::Identity(*id));
     }
-    for ((principal, tid), grant) in &state.grants {
+    for ((principal, tid), grant) in state.grants.iter() {
         metadata.push(Op::Grant(
             principal.clone(),
             *tid,

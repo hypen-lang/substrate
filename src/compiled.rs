@@ -11,6 +11,9 @@ pub(crate) struct CompiledRelation {
     unique_slots: Vec<Vec<usize>>,
     checks: Vec<(usize, Check)>,
     pub reference_slots: Vec<(usize, String)>,
+    /// Physical decoder selection is compiled once, rather than inspecting
+    /// every role on each row read. Existing declarations retain PG01 bytes.
+    pub extended_encoding: bool,
 }
 impl CompiledRelation {
     pub fn new(declaration: Relation) -> Self {
@@ -34,12 +37,17 @@ impl CompiledRelation {
             .roles
             .iter()
             .enumerate()
-            .filter_map(|(slot, role)| match &role.data_type {
-                DataType::Ref(target) => Some((slot, target.clone())),
-                _ => None,
+            .filter_map(|(slot, role)| {
+                role.data_type
+                    .reference_target()
+                    .map(|target| (slot, target.to_owned()))
             })
             .collect();
         Self {
+            extended_encoding: declaration
+                .roles
+                .iter()
+                .any(|role| matches!(role.data_type, DataType::Nullable(_) | DataType::Float)),
             reference_slots,
             checks,
             fingerprint: declaration.fingerprint(),
@@ -50,6 +58,11 @@ impl CompiledRelation {
     }
     pub fn check_values(&self, values: &[Value]) -> Result<()> {
         for (slot, check) in &self.checks {
+            // SQL-style checks reject false; a nullable input is UNKNOWN and
+            // is permitted. The role's type check still enforces nullability.
+            if matches!(values.get(*slot), Some(Value::Null)) {
+                continue;
+            }
             let accepted = match (check, values.get(*slot)) {
                 (Check::IntRange { min, max, .. }, Some(Value::Int(value))) => {
                     value >= min && value <= max
@@ -76,6 +89,11 @@ impl CompiledRelation {
             .get(name)
             .copied()
             .ok_or_else(|| Error::Query(format!("unknown role {name}")))
+    }
+    pub fn unique_applies(&self, row: &Row, key: usize) -> bool {
+        self.unique_slots[key]
+            .iter()
+            .all(|slot| !matches!(row.values[*slot], Value::Null))
     }
     pub fn unique_values(&self, row: &Row, key: usize) -> Vec<Value> {
         self.unique_slots[key]

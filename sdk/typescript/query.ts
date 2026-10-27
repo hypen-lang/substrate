@@ -23,7 +23,7 @@ type Compare="eq"|"ne"|"gt"|"ge"|"lt"|"le";
 type Expr={op:"compare";left:AnyColumn;comparison:Compare;right:unknown}|{op:"and"|"or";terms:Predicate[]}|{op:"not";term:Predicate};
 export class Predicate {constructor(readonly expression:Expr) {Object.freeze(this);}}
 function compare<T>(left:Column<T>,comparison:Compare,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {
-  if (["gt","ge","lt","le"].includes(comparison)&&!["Int","Decimal","Timestamp","Text"].includes(left.spec.kind)) throw new Error("ordered comparison requires text or numeric scalar");
+  if (["gt","ge","lt","le"].includes(comparison)&&!["Int","Decimal","Timestamp","Text","Float"].includes(left.spec.kind)) throw new Error("ordered comparison requires text or numeric scalar");
   if (right instanceof Column) {
     if (left.spec.kind!==right.spec.kind || left.spec.scale!==right.spec.scale || left.spec.target!==right.spec.target) throw new Error("incompatible column domains");
   } else scalarWire(left.spec,right);
@@ -31,10 +31,10 @@ function compare<T>(left:Column<T>,comparison:Compare,right:NoInfer<T>|Column<No
 }
 export function eq<T>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"eq",right);}
 export function ne<T>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"ne",right);}
-export function gt<T extends bigint|string>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"gt",right);}
-export function ge<T extends bigint|string>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"ge",right);}
-export function lt<T extends bigint|string>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"lt",right);}
-export function le<T extends bigint|string>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"le",right);}
+export function gt<T extends bigint|string|number>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"gt",right);}
+export function ge<T extends bigint|string|number>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"ge",right);}
+export function lt<T extends bigint|string|number>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"lt",right);}
+export function le<T extends bigint|string|number>(left:Column<T>,right:NoInfer<T>|Column<NoInfer<T>>):Predicate {return compare(left,"le",right);}
 export function and(...terms:Predicate[]):Predicate {if(!terms.length)throw new Error("empty predicate group");return new Predicate({op:"and",terms});}
 export function or(...terms:Predicate[]):Predicate {if(!terms.length)throw new Error("empty predicate group");return new Predicate({op:"or",terms});}
 export function not(term:Predicate):Predicate {return new Predicate({op:"not",term});}
@@ -43,11 +43,14 @@ export function asc(column:AnyColumn):Ordering {return {column,descending:false}
 export function desc(column:AnyColumn):Ordering {return {column,descending:true};}
 function scalarWire(spec:FieldSpec,input:unknown):WireValue {
   objectValidator<{value:unknown}>({value:spec}).parse({value:input});
+  if (input === null) return "Null";
   return {[spec.kind]:["Int","Decimal","Timestamp"].includes(spec.kind)?(input as bigint).toString():spec.kind==="Bytes"?Array.from(input as Uint8Array):input} as WireValue;
 }
 function parameter(spec:FieldSpec,input:unknown):SqlParameter {
   scalarWire(spec,input);
+  if (input === null) return "Null";
   switch(spec.kind) {
+    case "Float":return {Real:input as number};
     case "Bool":return {Integer:input?"1":"0"};
     case "Int":case "Decimal":case "Timestamp":return {Integer:(input as bigint).toString()};
     case "Bytes":return {Blob:Array.from(input as Uint8Array)};
@@ -56,9 +59,11 @@ function parameter(spec:FieldSpec,input:unknown):SqlParameter {
   }
 }
 function decode(spec:FieldSpec,input:unknown):unknown {
+  if (input === "Null" && spec.nullable) return null;
   if(!input||typeof input!=="object"||Object.keys(input).length!==1)throw new Error("invalid SQL result value");
   const v=input as Record<string,unknown>;let value:unknown;
   switch(spec.kind) {
+    case "Float":value=v.Real;break;
     case "Bool":if(v.Integer!=="0"&&v.Integer!=="1")throw new Error("invalid SQL boolean");value=v.Integer==="1";break;
     case "Int":case "Decimal":case "Timestamp":if(typeof v.Integer!=="string"||v.Integer.length>20||! /^-?(0|[1-9][0-9]*)$/.test(v.Integer))throw new Error("invalid SQL integer");value=BigInt(v.Integer);break;
     case "Bytes":if(!Array.isArray(v.Blob)||!v.Blob.every(n=>Number.isInteger(n)&&n>=0&&n<=255))throw new Error("invalid SQL bytes");value=Uint8Array.from(v.Blob);break;
@@ -92,6 +97,7 @@ export class SelectQuery<P extends Projection> {
     const params:SqlParameter[]=[];
     const col=(c:AnyColumn,available=tables)=>{if(!available.includes(c.table))throw new Error("column belongs to an unbound table");return `${quote(c.table.alias)}.${quote(c.name)}`;};
     const expr=(p:Predicate,available=tables):string=>expression(p,e=>{
+      if (e.right === null && (e.comparison === "eq" || e.comparison === "ne")) return `${col(e.left,available)} IS ${e.comparison === "ne" ? "NOT " : ""}NULL`;
       const right=e.right instanceof Column?col(e.right,available):(params.push(parameter(e.left.spec,e.right)),"?");
       return `${col(e.left,available)} ${{eq:"=",ne:"!=",gt:">",ge:">=",lt:"<",le:"<="}[e.comparison]} ${right}`;
     },(op,terms)=>`(${terms.join(op==="and"?" AND ":" OR ")})`,term=>`(NOT ${term})`);
