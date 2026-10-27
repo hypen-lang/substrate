@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-label="Substrate — Liquid SQL">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c1d16"/>
+      <stop offset="1" stop-color="#111209"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c5af63"/>
+      <stop offset="1" stop-color="#B19942"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B19942" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#B19942" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#B19942" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="340" rx="18" fill="url(#bg)"/>
+
+  <!-- strata: flowing layers -->
+  <g fill="none" stroke="url(#fade)" stroke-width="1.4">
+    <path d="M0 250 C 200 220, 400 280, 600 250 S 1000 220, 1200 250"/>
+    <path d="M0 268 C 200 238, 400 298, 600 268 S 1000 238, 1200 268" opacity="0.8"/>
+    <path d="M0 286 C 200 256, 400 316, 600 286 S 1000 256, 1200 286" opacity="0.6"/>
+    <path d="M0 304 C 200 274, 400 334, 600 304 S 1000 274, 1200 304" opacity="0.4"/>
+  </g>
+
+  <!-- identity node with attached app relations -->
+  <g transform="translate(930 128)">
+    <g stroke="#555344" stroke-width="1.5">
+      <line x1="0" y1="0" x2="-110" y2="-62"/>
+      <line x1="0" y1="0" x2="118" y2="-48"/>
+      <line x1="0" y1="0" x2="-96" y2="78"/>
+      <line x1="0" y1="0" x2="112" y2="70"/>
+    </g>
+    <circle r="34" fill="#161711" stroke="url(#gold)" stroke-width="2.5"/>
+    <text y="6" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#ece8d9">Person</text>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">
+      <rect x="-172" y="-80" width="124" height="34" rx="8" fill="#272a21" stroke="#aac0b9" stroke-opacity="0.6"/>
+      <text x="-110" y="-58" text-anchor="middle" fill="#aac0b9">fitness.*</text>
+      <rect x="62" y="-66" width="112" height="34" rx="8" fill="#272a21" stroke="#c5af63" stroke-opacity="0.7"/>
+      <text x="118" y="-44" text-anchor="middle" fill="#c5af63">crm.*</text>
+      <rect x="-158" y="62" width="124" height="34" rx="8" fill="#272a21" stroke="#b9bdaf" stroke-opacity="0.5"/>
+      <text x="-96" y="84" text-anchor="middle" fill="#b9bdaf">agent.*</text>
+      <rect x="52" y="54" width="120" height="34" rx="8" fill="#272a21" stroke="#b9bdaf" stroke-opacity="0.5" stroke-dasharray="4 4"/>
+      <text x="112" y="76" text-anchor="middle" fill="#7d7f72">your-app.*</text>
+    </g>
+  </g>
+
+  <!-- logo -->
+  <g transform="translate(64 88) scale(1.75)">
+    <rect width="40" height="40" rx="8" fill="#B19942"/>
+    <path d="M20 6 34 14 20 22 6 14Zm-14 14 14 8 14-8v6l-14 8-14-8Z" fill="#15150f"/>
+  </g>
+
+  <text x="148" y="140" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#ece8d9" letter-spacing="-1.5">Substrate</text>
+  <text x="152" y="174" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" fill="url(#gold)" letter-spacing="4">LIQUID SQL</text>
+  <text x="64" y="224" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="19" fill="#b9bdaf">One shared identity. Many apps. No migrations between them.</text>
+</svg>
